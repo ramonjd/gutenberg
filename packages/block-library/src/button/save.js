@@ -6,7 +6,11 @@ import classnames from 'classnames';
 /**
  * WordPress dependencies
  */
-import { RichText, useBlockProps } from '@wordpress/block-editor';
+import {
+	RichText,
+	useBlockProps,
+	__experimentalGetInlineStyles as getInlineStyles,
+} from '@wordpress/block-editor';
 
 /**
  * Internal dependencies
@@ -44,7 +48,10 @@ export default function save( { attributes, className } ) {
 				className={ buttonClasses }
 				href={ url }
 				title={ title }
-				style={ colorProps.style }
+				style={ {
+					...getInlineStyles( style ),
+					...colorProps.style,
+				} }
 				value={ text }
 				target={ linkTarget }
 				rel={ rel }

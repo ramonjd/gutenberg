@@ -23,6 +23,7 @@ import {
 	InspectorAdvancedControls,
 	RichText,
 	useBlockProps,
+	__experimentalGetInlineStyles as getInlineStyles,
 	__experimentalLinkControl as LinkControl,
 	__experimentalUseEditorFeature as useEditorFeature,
 } from '@wordpress/block-editor';
@@ -227,7 +228,7 @@ function ButtonEdit( props ) {
 						}
 					) }
 					style={ {
-						...style,
+						...getInlineStyles( style ),
 						...colorProps.style,
 					} }
 					onSplit={ ( value ) =>
