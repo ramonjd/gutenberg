@@ -13,11 +13,23 @@ import {
 	useBlockProps,
 	__experimentalGetGradientClass,
 } from '@wordpress/block-editor';
+import { compose } from '@wordpress/compose';
 
 /**
  * Internal dependencies
  */
 import getColorAndStyleProps from './color-props';
+
+const migrateBorderRadius = ( attributes ) => {
+	const { borderRadius, style, ...newAttributes } = attributes;
+	return {
+		...newAttributes,
+		style: {
+			...style,
+			border: { radius: borderRadius },
+		},
+	};
+};
 
 const migrateCustomColorsAndGradients = ( attributes ) => {
 	if (
@@ -180,16 +192,7 @@ const deprecated = [
 				</div>
 			);
 		},
-		migrate( attributes ) {
-			const { borderRadius, style, ...newAttributes } = attributes;
-			return {
-				...newAttributes,
-				style: {
-					...style,
-					border: { radius: borderRadius },
-				},
-			};
-		},
+		migrate: migrateBorderRadius,
 	},
 	{
 		supports: {
@@ -284,6 +287,7 @@ const deprecated = [
 				</div>
 			);
 		},
+		migrate: migrateBorderRadius,
 	},
 	{
 		supports: {
@@ -353,6 +357,7 @@ const deprecated = [
 				/>
 			);
 		},
+		migrate: migrateBorderRadius,
 	},
 	{
 		supports: {
@@ -403,7 +408,10 @@ const deprecated = [
 			!! attributes.customTextColor ||
 			!! attributes.customBackgroundColor ||
 			!! attributes.customGradient,
-		migrate: migrateCustomColorsAndGradients,
+		migrate: compose(
+			migrateBorderRadius,
+			migrateCustomColorsAndGradients
+		),
 		save( { attributes } ) {
 			const {
 				backgroundColor,
@@ -517,11 +525,13 @@ const deprecated = [
 					.replace( /is-style-squared[\s]?/, '' )
 					.trim();
 			}
-			return migrateCustomColorsAndGradients( {
-				...attributes,
-				className: newClassName ? newClassName : undefined,
-				borderRadius: 0,
-			} );
+			return migrateBorderRadius(
+				migrateCustomColorsAndGradients( {
+					...attributes,
+					className: newClassName ? newClassName : undefined,
+					borderRadius: 0,
+				} )
+			);
 		},
 		save( { attributes } ) {
 			const {
