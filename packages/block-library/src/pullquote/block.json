@@ -35,8 +35,19 @@
 			"right",
 			"wide",
 			"full"
-		]
+		],
+		"color": {
+		  "gradients": false,
+		  "background": false,
+			"__experimentalSkipSerialization": true
+		},
+		"__experimentalBorder": {
+		  "color": true,
+		  "radius": false,
+		  "__experimentalSkipSerialization": true
+		}
 	},
+  	"__experimentalSelector": ".wp-block-pullquote blockquote",
 	"editorStyle": "wp-block-pullquote-editor",
 	"style": "wp-block-pullquote"
 }

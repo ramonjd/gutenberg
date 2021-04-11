@@ -15,6 +15,7 @@ function gutenberg_register_border_support( $block_type ) {
 	// Determine border related features supported.
 	// Border width, style etc can be added in the future.
 	$has_border_radius_support = gutenberg_block_has_support( $block_type, array( '__experimentalBorder', 'radius' ), false );
+	$has_border_color_support  = gutenberg_block_has_support( $block_type, array( '__experimentalBorder', 'color' ), false );
 
 	// Setup attributes and styles within that if needed.
 	if ( ! $block_type->attributes ) {
@@ -57,6 +58,14 @@ function gutenberg_apply_border_support( $block_type, $block_attributes ) {
 		if ( isset( $block_attributes['style']['border']['radius'] ) ) {
 			$border_radius = (int) $block_attributes['style']['border']['radius'];
 			$styles[]      = sprintf( 'border-radius: %dpx;', $border_radius );
+		}
+	}
+
+	// Border Color.
+	$has_border_color_support = gutenberg_block_has_support( $block_type, array( '__experimentalBorder', 'color' ), false );
+	if ( $has_border_color_support ) {
+		if ( isset( $block_attributes['style']['border']['color'] ) ) {
+			$styles[] = sprintf( 'border-color: %s;', $block_attributes['style']['border']['color'] );
 		}
 	}
 

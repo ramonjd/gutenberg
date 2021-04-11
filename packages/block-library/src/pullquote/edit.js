@@ -33,7 +33,7 @@ import { SOLID_COLOR_CLASS } from './shared';
 function PullQuoteEdit( {
 	colorUtils,
 	textColor,
-	attributes: { value, citation },
+	attributes: { value, citation, style: __style },
 	setAttributes,
 	setTextColor,
 	setMainColor,
@@ -41,19 +41,20 @@ function PullQuoteEdit( {
 	isSelected,
 	insertBlocksAfter,
 } ) {
+
+	const borderColor = __style?.border?.color;
 	const wasTextColorAutomaticallyComputed = useRef( false );
 	const blockProps = useBlockProps();
 	const { style = {}, className } = blockProps;
+	console.log( 'PullQuoteEdit className', className );
+	console.log( 'PullQuoteEdit borderColor', borderColor );
+	console.log( 'PullQuoteEdit mainColor', mainColor );
 	const isSolidColorStyle = includes( className, SOLID_COLOR_CLASS );
 	const newBlockProps = {
 		...blockProps,
-		className: classnames( className, {
-			'has-background': isSolidColorStyle && mainColor.color,
-			[ mainColor.class ]: isSolidColorStyle && mainColor.class,
-		} ),
 		style: isSolidColorStyle
-			? { ...style, backgroundColor: mainColor.color }
-			: { ...style, borderColor: mainColor.color },
+			? { ...style, backgroundColor: borderColor }
+			: { ...style, borderColor },
 	};
 
 	function pullQuoteMainColorSetter( colorValue ) {
@@ -157,10 +158,10 @@ function PullQuoteEdit( {
 					) }
 				</BlockQuote>
 			</Figure>
-			{ Platform.OS === 'web' && (
+{/*			{ Platform.OS === 'web' && (
 				<InspectorControls>
 					<PanelColorSettings
-						title={ __( 'Color settings' ) }
+						title={ __( 'Color settings original' ) }
 						colorSettings={ [
 							{
 								value: mainColor.color,
@@ -185,7 +186,7 @@ function PullQuoteEdit( {
 						) }
 					</PanelColorSettings>
 				</InspectorControls>
-			) }
+			) }*/}
 		</>
 	);
 }

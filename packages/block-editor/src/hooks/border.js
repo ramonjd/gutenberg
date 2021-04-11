@@ -11,6 +11,7 @@ import { __ } from '@wordpress/i18n';
  */
 import InspectorControls from '../components/inspector-controls';
 import { BorderRadiusEdit, useIsBorderRadiusDisabled } from './border-radius';
+import { BorderColorEdit, useIsBorderColorDisabled } from './border-color';
 
 export const BORDER_SUPPORT_KEY = '__experimentalBorder';
 
@@ -26,6 +27,7 @@ export function BorderPanel( props ) {
 		<InspectorControls>
 			<PanelBody title={ __( 'Border settings' ) }>
 				<BorderRadiusEdit { ...props } />
+				<BorderColorEdit { ...props } />
 			</PanelBody>
 		</InspectorControls>
 	);
@@ -46,7 +48,7 @@ export function hasBorderSupport( blockName ) {
 
 	// Further border properties to be added in future iterations.
 	// e.g. support && ( support.radius || support.width || support.style )
-	return !! ( true === support || support?.radius );
+	return !! ( true === support || support?.radius || support?.color );
 }
 
 /**
@@ -62,6 +64,9 @@ const useIsBorderDisabled = ( props = {} ) => {
 	// 		useIsBorderRadiusDisabled( props ),
 	//		useIsBorderWidthDisabled( props ),
 	// ];
-	const configs = [ useIsBorderRadiusDisabled( props ) ];
+	const configs = [
+		useIsBorderRadiusDisabled( props ),
+		useIsBorderColorDisabled( props ),
+	];
 	return configs.every( Boolean );
 };
