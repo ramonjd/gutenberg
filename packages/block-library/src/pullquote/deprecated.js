@@ -146,26 +146,30 @@ const deprecated = [
 			...attributes
 		} ) {
 			const isSolidColorStyle = includes( className, SOLID_COLOR_CLASS );
+			let style;
 
-			const style = {};
 			if ( customMainColor ) {
 				if ( ! isSolidColorStyle ) {
 					// Block supports: Set style.border.color if a deprecated block has a default style and a `customMainColor` attribute.
-					style.border = {
-						color: customMainColor,
+					style = {
+						border: {
+							color: customMainColor,
+						},
 					};
 				} else {
 					// Block supports: Set style.color.background if a deprecated block has a solid style and a `customMainColor` attribute.
-					style.color = {
-						background: customMainColor,
+					style = {
+						color: {
+							background: customMainColor,
+						},
 					};
 				}
 			}
 
 			// Block supports: Set style.color.text if a deprecated block has a `customTextColor` attribute.
-			if ( customTextColor ) {
+			if ( customTextColor && style ) {
 				style.color = {
-					...style?.color,
+					...style.color,
 					text: customTextColor,
 				};
 			}
@@ -282,25 +286,30 @@ const deprecated = [
 			...attributes
 		} ) {
 			const isSolidColorStyle = includes( className, SOLID_COLOR_CLASS );
-			const style = {};
+			let style;
+
 			if ( customMainColor ) {
 				if ( ! isSolidColorStyle ) {
 					// Block supports: Set style.border.color if a deprecated block has a default style and a `customMainColor` attribute.
-					style.border = {
-						color: customMainColor,
+					style = {
+						border: {
+							color: customMainColor,
+						},
 					};
 				} else {
 					// Block supports: Set style.color.background if a deprecated block has a solid style and a `customMainColor` attribute.
-					style.color = {
-						background: customMainColor,
+					style = {
+						color: {
+							background: customMainColor,
+						},
 					};
 				}
 			}
 
 			// Block supports: Set style.color.text if a deprecated block has a `customTextColor` attribute.
-			if ( customTextColor ) {
+			if ( customTextColor && style ) {
 				style.color = {
-					...style?.color,
+					...style.color,
 					text: customTextColor,
 				};
 			}
@@ -417,26 +426,30 @@ const deprecated = [
 			...attributes
 		} ) {
 			const isSolidColorStyle = includes( className, SOLID_COLOR_CLASS );
+			let style = {};
 
-			const style = {};
 			if ( customMainColor ) {
 				if ( ! isSolidColorStyle ) {
 					// Block supports: Set style.border.color if a deprecated block has a default style and a `customMainColor` attribute.
-					style.border = {
-						color: customMainColor,
+					style = {
+						border: {
+							color: customMainColor,
+						},
 					};
 				} else {
 					// Block supports: Set style.color.background if a deprecated block has a solid style and a `customMainColor` attribute.
-					style.color = {
-						background: customMainColor,
+					style = {
+						color: {
+							background: customMainColor,
+						},
 					};
 				}
 			}
 
 			// Block supports: Set style.color.text if a deprecated block has a `customTextColor` attribute.
-			if ( customTextColor ) {
+			if ( customTextColor && style ) {
 				style.color = {
-					...style?.color,
+					...style.color,
 					text: customTextColor,
 				};
 			}
