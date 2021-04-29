@@ -1,7 +1,7 @@
 .wp-block-pullquote {
 	margin: 0 0 1em 0;
 	padding: 3em 0;
-	text-align: center; // Default text-alignment is left.
+	text-align: center; // Default text-alignment where the `textAlign` attribute value isn't specified.
 
 	p,
 	blockquote,
@@ -35,12 +35,12 @@
 }
 
 // Ensure that we are reasonably specific to override theme defaults.
-.wp-block-pullquote.has-text-align-left {
+.wp-block-pullquote.has-text-align-left blockquote {
 	text-align: left;
 }
 
 // Ensure that we are reasonably specific to override theme defaults.
-.wp-block-pullquote.has-text-align-right {
+.wp-block-pullquote.has-text-align-right blockquote {
 	text-align: right;
 }
 
@@ -49,6 +49,7 @@
 	background: none;
 }
 
+// .is-style-solid-color is deprecated.
 .wp-block-pullquote.is-style-solid-color {
 	border: none;
 	blockquote {
