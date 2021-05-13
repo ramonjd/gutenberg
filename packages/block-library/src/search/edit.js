@@ -74,6 +74,7 @@ export default function SearchEdit( {
 	} = attributes;
 
 	const borderRadius = style?.border?.radius;
+	const borderColor = style?.border?.color;
 	const borderProps = useBorderProps( attributes );
 
 	// Check for old deprecated numerical border radius. Done as a separate
@@ -85,6 +86,7 @@ export default function SearchEdit( {
 
 	const unitControlInstanceId = useInstanceId( UnitControl );
 	const unitControlInputId = `wp-block-search__width-${ unitControlInstanceId }`;
+	const isButtonPositionInside = 'button-inside' === buttonPosition;
 
 	const units = useCustomUnits( {
 		availableUnits: [ '%', 'px' ],
@@ -94,7 +96,8 @@ export default function SearchEdit( {
 	const getBlockClassNames = () => {
 		return classnames(
 			className,
-			'button-inside' === buttonPosition
+			! isButtonPositionInside ? borderProps.className : undefined,
+			isButtonPositionInside
 				? 'wp-block-search__button-inside'
 				: undefined,
 			'button-outside' === buttonPosition
@@ -140,10 +143,19 @@ export default function SearchEdit( {
 	};
 
 	const renderTextField = () => {
+		const textFieldClasses = classnames(
+			'wp-block-search__input',
+			! isButtonPositionInside ? borderProps.className : undefined
+		);
+		// If the button is inside the wrapper, the wrapper gets the border styles, not the input control.
+		const textFieldStyles = {
+			borderRadius: ! isButtonPositionInside ? borderRadius : undefined,
+			borderColor: ! isButtonPositionInside ? borderColor : undefined,
+		};
 		return (
 			<input
-				className="wp-block-search__input"
-				style={ borderProps.style }
+				className={ textFieldClasses }
+				style={ textFieldStyles }
 				aria-label={ __( 'Optional placeholder text' ) }
 				// We hide the placeholder field's placeholder when there is a value. This
 				// stops screen readers from reading the placeholder field's placeholder
@@ -160,20 +172,24 @@ export default function SearchEdit( {
 	};
 
 	const renderButton = () => {
+		const buttonClasses = classnames(
+			'wp-block-search__button',
+			borderProps.className
+		);
 		return (
 			<>
 				{ buttonUseIcon && (
 					<Button
 						icon={ search }
-						className="wp-block-search__button"
-						style={ borderProps.style }
+						className={ buttonClasses }
+						style={ { borderRadius, borderColor } }
 					/>
 				) }
 
 				{ ! buttonUseIcon && (
 					<RichText
-						className="wp-block-search__button"
-						style={ borderProps.style }
+						className={ buttonClasses }
+						style={ { borderRadius, borderColor } }
 						aria-label={ __( 'Button text' ) }
 						placeholder={ __( 'Add button text…' ) }
 						withoutInteractiveFormatting
@@ -333,13 +349,18 @@ export default function SearchEdit( {
 		radius ? `calc(${ radius } + ${ DEFAULT_INNER_PADDING })` : undefined;
 
 	const getWrapperStyles = () => {
+		const styles = {
+			borderColor,
+		};
+
 		const isNonZeroBorderRadius = parseInt( borderRadius, 10 ) !== 0;
 
 		if ( 'button-inside' === buttonPosition && isNonZeroBorderRadius ) {
 			// We have button inside wrapper and a border radius value to apply.
 			// Add default padding so we don't get "fat" corners.
 			//
-			// CSS calc() is used here to support non-pixel units.
+			// CSS calc() is used here to support non-pixel units. The inline
+			// style using calc() will only apply if both values have units.
 
 			if ( typeof borderRadius === 'object' ) {
 				// Individual corner border radii present.
@@ -355,6 +376,7 @@ export default function SearchEdit( {
 					borderTopRightRadius: padBorderRadius( topRight ),
 					borderBottomLeftRadius: padBorderRadius( bottomLeft ),
 					borderBottomRightRadius: padBorderRadius( bottomRight ),
+					...styles,
 				};
 			}
 
@@ -365,12 +387,10 @@ export default function SearchEdit( {
 				? `${ borderRadius }px`
 				: borderRadius;
 
-			return {
-				borderRadius: `calc(${ radius } + ${ DEFAULT_INNER_PADDING })`,
-			};
+			styles.borderRadius = `calc(${ radius } + ${ DEFAULT_INNER_PADDING })`;
 		}
 
-		return undefined;
+		return styles;
 	};
 
 	const blockProps = useBlockProps( {
@@ -396,7 +416,10 @@ export default function SearchEdit( {
 				size={ {
 					width: `${ width }${ widthUnit }`,
 				} }
-				className="wp-block-search__inside-wrapper"
+				className={ classnames(
+					'wp-block-search__inside-wrapper',
+					isButtonPositionInside ? borderProps.className : undefined
+				) }
 				style={ getWrapperStyles() }
 				minWidth={ MIN_WIDTH }
 				enable={ getResizableSides() }
@@ -415,7 +438,7 @@ export default function SearchEdit( {
 				} }
 				showHandle={ isSelected }
 			>
-				{ ( 'button-inside' === buttonPosition ||
+				{ ( isButtonPositionInside ||
 					'button-outside' === buttonPosition ) && (
 					<>
 						{ renderTextField() }
