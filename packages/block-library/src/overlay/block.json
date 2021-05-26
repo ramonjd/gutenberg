@@ -1,0 +1,29 @@
+{
+	"apiVersion": 2,
+	"name": "core/overlay",
+	"title": "Overlay",
+	"category": "design",
+	"description": "A full-screen block that overlays underlying content.",
+	"keywords": [
+		"overlay",
+		"full screen"
+	],
+	"textdomain": "default",
+	"attributes": {
+		"overlayButtonContent": {
+			"type": "string",
+			"source": "html",
+			"selector": ".wp-block-overlay__button > div"
+		}
+	},
+	"supports": {
+		"color": {
+			"text": false,
+			"link": false,
+			"background": true,
+			"gradients": true
+		}
+	},
+	"editorStyle": "wp-block-overlay-editor",
+	"style": "wp-block-overlay"
+}

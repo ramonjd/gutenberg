@@ -1,0 +1,47 @@
+.wp-block-overlay {
+	// background-color: $white;
+	// position: fixed;
+	// top: 0;
+	// left: 0;
+	// width: 100%;
+	// height: 100%;
+	// margin: 0;
+	// // Override theme max-width.
+	// max-width: 100% !important;
+	// z-index: 100;
+
+	.wp-block-overlay__content {
+		// margin: 100px;
+		// position: relative;
+
+		display: none;
+
+		&.wp-block-overlay__content--show {
+			background-color: $white;
+			display: block;
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 100%;
+			bottom: 100%;
+			width: 100%;
+			height: 100%;
+			padding: 20px;
+			overflow-y: scroll;
+			z-index: 1;
+		}
+	}
+
+	.wp-block-overlay__close-button {
+		position: absolute;
+		top: 0;
+		right: 0;
+		border: 0;
+		padding: 0;
+		background-color: transparent !important;
+		& > svg {
+			height: 50px;
+			width: 50px;
+		}
+	}
+}

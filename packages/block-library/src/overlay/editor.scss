@@ -1,0 +1,16 @@
+.wp-block-overlay {
+	background-color: $white;
+
+	.wp-block-overlay__content {
+
+		&.wp-block-overlay__content--show {
+			top: $header-height;
+		}
+
+		&.wp-block-overlay--sidebar-opened {
+			@include break-medium {
+				left: 350px;
+			}
+		}
+	}
+}
