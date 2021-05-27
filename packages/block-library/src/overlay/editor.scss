@@ -1,16 +1,66 @@
 .wp-block-overlay {
-	background-color: $white;
-
-	.wp-block-overlay__content {
-
+	.wp-block-overlay__overlay {
+		display: none;
 		&.wp-block-overlay__content--show {
 			top: $header-height;
+			display: block;
 		}
 
-		&.wp-block-overlay--sidebar-opened {
+		&.is-sidebar-open {
 			@include break-medium {
+				// admin bar is  160px;
+				width: calc(100% - 280px);
+			}
+		}
+
+		&.is-inserter-open {
+			@include break-medium {
+				// admin bar is  160px;
+				width: calc(100% - 350px);
 				left: 350px;
+			}
+		}
+
+		&.is-admin-sidebar-open {
+			@include break-medium {
+				width: calc(100% - 160px);
+				left: 160px;
+				top: 32px + $header-height;
+			}
+		}
+
+		&.is-fixed-toolbar-active {
+			@include break-medium {
+				top: $header-height + 48px;
+			}
+		}
+
+		&.is-fixed-toolbar-active.is-admin-sidebar-open {
+			@include break-medium {
+				top: $header-height + 48px + 32px;
+			}
+		}
+
+		&.is-sidebar-open.is-inserter-open {
+			@include break-medium {
+				width: calc(100% - 630px);
+				left: 350px;
+			}
+		}
+
+		&.is-sidebar-open.is-admin-sidebar-open {
+			@include break-medium {
+				width: calc(100% - 440px);
+				left: 160px;
+			}
+		}
+
+		&.is-sidebar-open.is-inserter-open.is-admin-sidebar-open {
+			@include break-medium {
+				width: calc(100% - 790px);
+				left: 160px + 350px;
 			}
 		}
 	}
 }
+

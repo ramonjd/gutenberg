@@ -2,21 +2,16 @@
  * WordPress dependencies
  */
 import { InnerBlocks, RichText, useBlockProps } from '@wordpress/block-editor';
+import { Overlay } from '@wordpress/components';
 
 export default function save( { attributes } ) {
 	const { overlayButtonContent } = attributes;
 	return (
 		<div { ...useBlockProps.save() }>
-			<div className="wp-block-overlay__button">
-				<RichText.Content
-					tagName="div"
-					value={ overlayButtonContent }
-				/>
-			</div>
-			<div className="wp-block-overlay__content">
-				<div className="wp-block-overlay__close-button">x</div>
+			<RichText.Content tagName="a" value={ overlayButtonContent } />
+			<Overlay>
 				<InnerBlocks.Content />
-			</div>
+			</Overlay>
 		</div>
 	);
 }

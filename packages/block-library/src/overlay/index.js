@@ -19,5 +19,4 @@ export const settings = {
 	icon,
 	example: {},
 	edit,
-	save,
 };

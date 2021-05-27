@@ -9,13 +9,7 @@
 		"full screen"
 	],
 	"textdomain": "default",
-	"attributes": {
-		"overlayButtonContent": {
-			"type": "string",
-			"source": "html",
-			"selector": ".wp-block-overlay__button > div"
-		}
-	},
+	"attributes": {},
 	"supports": {
 		"color": {
 			"text": false,
@@ -25,5 +19,5 @@
 		}
 	},
 	"editorStyle": "wp-block-overlay-editor",
-	"style": "wp-block-overlay"
+	"style": "wp-block-overlay__overlay"
 }
