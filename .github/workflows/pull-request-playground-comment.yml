@@ -5,7 +5,8 @@ on:
   pull_request_target:
     types:
       - opened
-
+    branches:
+      - trunk
 jobs:
   test_using_wordpress_playground:
     name: Test using WordPress Playground
@@ -33,7 +34,7 @@ jobs:
 
             // Define the start and end comments
             const startComment = '<!-- AUTO-GENERATED-WORDPRESS-PLAYGROUND-LINK -->';
-            const endComment = '<!-- end: AUTO-GENERATED-WORDPRESS-PLAYGROUND-LINK -->;
+            const endComment = '<!-- end: AUTO-GENERATED-WORDPRESS-PLAYGROUND-LINK -->';
 
             // Find the positions of the start and end comments
             const startIndex = currentDescription.indexOf(startComment);
