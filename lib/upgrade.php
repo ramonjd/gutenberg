@@ -24,7 +24,6 @@ function _gutenberg_migrate_database() {
 		if ( version_compare( $gutenberg_installed_version, '9.8.0', '<' ) ) {
 			_gutenberg_migrate_remove_fse_drafts();
 		}
-
 		update_option( 'gutenberg_version_migration', _GUTENBERG_VERSION_MIGRATION );
 	}
 }
