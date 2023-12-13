@@ -23,7 +23,7 @@ jobs:
         with:
           script: |
             // Extract information about the pull request
-            const prNumber = github.event.pull_request_target.number;
+            const prNumber = context.payload.pull_request.number;
 
             // Fetch the current PR description
             const currentDescription = await github.rest.pulls.get({
