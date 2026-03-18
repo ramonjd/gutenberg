@@ -120,14 +120,11 @@ const WithControlsComponent = () => {
 			const value = event.target.value;
 			setAspectRatioValue( value );
 
+			// In fixed mode (freeformCrop=false), the cropper's useEffect
+			// auto-computes the crop rect from the aspect ratio. In freeform
+			// mode, we adjust the crop rect here to fit the new ratio.
 			const ratio = parseFloat( value );
-			if ( ratio > 0 && state.image ) {
-				// Adjust the crop rect to match the selected aspect ratio.
-				// The crop rect is in visual-normalized space, so we need
-				// the visual (rotation-dependent) aspect ratio, not the
-				// natural one.
-				const currentWidth = state.cropRect.width;
-				const currentHeight = state.cropRect.height;
+			if ( freeformCrop && ratio > 0 && state.image ) {
 				const rad = ( state.rotation * Math.PI ) / 180;
 				const cosR = Math.abs( Math.cos( rad ) );
 				const sinR = Math.abs( Math.sin( rad ) );
@@ -135,29 +132,36 @@ const WithControlsComponent = () => {
 				const natH = state.image.naturalHeight;
 				const visualW = cosR * natW + sinR * natH;
 				const visualH = sinR * natW + cosR * natH;
-				const visualAspect = visualW / visualH;
-				const normalizedRatio = ratio / visualAspect;
+				// normalizedRatio = w/h in normalized space that produces
+				// the desired pixel aspect ratio.
+				const normalizedRatio = ( ratio * visualH ) / visualW;
 
-				let newWidth = currentWidth;
-				let newHeight = currentWidth / normalizedRatio;
+				let w = state.cropRect.width;
+				let h = w / normalizedRatio;
 
-				if ( newHeight > 1 ) {
-					newHeight = currentHeight;
-					newWidth = currentHeight * normalizedRatio;
+				if ( h > 1 ) {
+					h = state.cropRect.height;
+					w = h * normalizedRatio;
 				}
 
-				newWidth = Math.min( newWidth, 1 );
-				newHeight = Math.min( newHeight, 1 );
+				w = Math.min( w, 1 );
+				h = Math.min( h, 1 );
 
 				setCropRect( {
-					x: ( 1 - newWidth ) / 2,
-					y: ( 1 - newHeight ) / 2,
-					width: newWidth,
-					height: newHeight,
+					x: ( 1 - w ) / 2,
+					y: ( 1 - h ) / 2,
+					width: w,
+					height: h,
 				} );
 			}
 		},
-		[ state.image, state.cropRect, state.rotation, setCropRect ]
+		[
+			freeformCrop,
+			state.image,
+			state.cropRect,
+			state.rotation,
+			setCropRect,
+		]
 	);
 
 	const handleReset = useCallback( () => {
