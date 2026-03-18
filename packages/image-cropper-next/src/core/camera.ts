@@ -378,13 +378,20 @@ export function restrictCropRect(
 }
 
 /**
+ * Canonical container used internally by restrictPanZoom.
+ * Containment is scale-invariant, so the actual size doesn't matter —
+ * only the relative geometry between stencil and image matters.
+ */
+const CANONICAL_CONTAINER: Size = { width: 1000, height: 1000 };
+
+/**
  * Clamps pan and adjusts zoom so that the zoomed, rotated image fully covers
  * the crop rectangle.
  *
- * Works in pixel-proportional space where the unrotated image is a×1.
- * All visual-normalized coordinates are multiplied by the rotation-dependent
- * visual dimensions before being rotated into the image-local frame, ensuring
- * the rotation is physically correct regardless of image aspect ratio.
+ * Uses the camera matrix to project: builds a camera from the candidate state,
+ * maps the stencil corners (axis-aligned in the visual bounding box) to world
+ * space via the inverse camera, and checks that all world points lie within
+ * [0,1]×[0,1]. If any point is outside, computes the minimal pan correction.
  *
  * @param state     The current cropper state.
  * @param imageSize The natural size of the image in pixels.
@@ -403,65 +410,122 @@ export function restrictPanZoom(
 	const minZoom = getMinZoomForCover( state.rotation, a, cropRect );
 	const zoom = Math.max( state.zoom, minZoom );
 
-	const rad = degreesToRadians( state.rotation );
-	const C = Math.cos( rad );
-	const S = Math.sin( rad );
-	const { visualW, visualH, absC, absS } = getVisualDimensions(
-		state.rotation,
-		a
+	// Build camera with candidate pan and corrected zoom.
+	const candidateState = { ...state, zoom };
+	const camera = createCamera(
+		candidateState,
+		CANONICAL_CONTAINER,
+		imageSize
 	);
 
-	// Image half-extents in image-local frame at current zoom.
-	// Unrotated image is a×1, so at zoom z: (a*z/2, z/2).
-	const imgHalfW = ( a * zoom ) / 2;
-	const imgHalfH = zoom / 2;
-
-	// Crop rect center offset from visual center, in pixel-proportional units.
-	const cropCx = ( cropRect.x + cropRect.width / 2 - 0.5 ) * visualW;
-	const cropCy = ( cropRect.y + cropRect.height / 2 - 0.5 ) * visualH;
-
-	// Crop rect half-extents in pixel-proportional units.
-	const cropHalfW = ( cropRect.width * visualW ) / 2;
-	const cropHalfH = ( cropRect.height * visualH ) / 2;
-
-	// Pan in pixel-proportional units.
-	const panX = state.crop.x * visualW;
-	const panY = state.crop.y * visualH;
-
-	// Rotate crop center and pan into image-local (unrotated) frame.
-	const cropAlpha = cropCx * C + cropCy * S;
-	const cropBeta = -cropCx * S + cropCy * C;
-	let panAlpha = panX * C + panY * S;
-	let panBeta = -panX * S + panY * C;
-
-	// Crop half-span in image-local frame (AABB of the rotated crop rect).
-	const cropSpanAlpha = cropHalfW * absC + cropHalfH * absS;
-	const cropSpanBeta = cropHalfW * absS + cropHalfH * absC;
-
-	// Maximum pan offset in image-local frame.
-	const alphaMax = Math.max( 0, imgHalfW - cropSpanAlpha );
-	const betaMax = Math.max( 0, imgHalfH - cropSpanBeta );
-
-	// Clamp pan to allowed range (centered on crop center).
-	panAlpha = Math.min(
-		cropAlpha + alphaMax,
-		Math.max( cropAlpha - alphaMax, panAlpha )
+	// Build a base camera (zero pan, zoom=1) to get stencil positions.
+	// The stencil is positioned in the visual bounding box at zoom=1 —
+	// it's anchored in the container and doesn't scale with zoom.
+	// CSS zoom only affects the <img> element, not the stencil.
+	const baseCamera = createCamera(
+		{ ...candidateState, crop: { x: 0, y: 0 }, zoom: 1 },
+		CANONICAL_CONTAINER,
+		imageSize
 	);
-	panBeta = Math.min(
-		cropBeta + betaMax,
-		Math.max( cropBeta - betaMax, panBeta )
-	);
+	const vb = getVisibleBounds( baseCamera );
 
-	// Rotate back to visual frame.
-	const newPanX = panAlpha * C - panBeta * S;
-	const newPanY = panAlpha * S + panBeta * C;
+	// Stencil corners in screen space (axis-aligned rect within visual bounds).
+	const stencilCorners: [ number, number ][] = [
+		[ vb.left + cropRect.x * vb.width, vb.top + cropRect.y * vb.height ],
+		[
+			vb.left + ( cropRect.x + cropRect.width ) * vb.width,
+			vb.top + cropRect.y * vb.height,
+		],
+		[
+			vb.left + ( cropRect.x + cropRect.width ) * vb.width,
+			vb.top + ( cropRect.y + cropRect.height ) * vb.height,
+		],
+		[
+			vb.left + cropRect.x * vb.width,
+			vb.top + ( cropRect.y + cropRect.height ) * vb.height,
+		],
+	];
 
-	// Convert back to visual-normalized coordinates.
+	// Map stencil corners to world space via inverse camera.
+	// If a world point is outside [0,1], the image doesn't cover that spot.
+	const inv = mat2d.create();
+	mat2d.invert( inv, camera );
+
+	let minWx = Infinity;
+	let maxWx = -Infinity;
+	let minWy = Infinity;
+	let maxWy = -Infinity;
+
+	for ( const corner of stencilCorners ) {
+		const w = vec2.create();
+		vec2.transformMat2d( w, corner, inv );
+		if ( w[ 0 ] < minWx ) {
+			minWx = w[ 0 ];
+		}
+		if ( w[ 0 ] > maxWx ) {
+			maxWx = w[ 0 ];
+		}
+		if ( w[ 1 ] < minWy ) {
+			minWy = w[ 1 ];
+		}
+		if ( w[ 1 ] > maxWy ) {
+			maxWy = w[ 1 ];
+		}
+	}
+
+	// If all world points are in [0,1], no correction needed.
+	if (
+		minWx >= -1e-9 &&
+		maxWx <= 1 + 1e-9 &&
+		minWy >= -1e-9 &&
+		maxWy <= 1 + 1e-9
+	) {
+		if ( zoom === state.zoom ) {
+			return { crop: state.crop, zoom };
+		}
+		return { crop: state.crop, zoom };
+	}
+
+	// Compute world-space correction needed.
+	// If minWx < 0, we need to shift world points right by |minWx|.
+	// If maxWx > 1, we need to shift world points left by (maxWx - 1).
+	// If both, we're over-constrained (crop too big) — getMinZoomForCover
+	// should have prevented this.
+	let dwx = 0;
+	let dwy = 0;
+
+	if ( minWx < 0 && maxWx <= 1 + 1e-9 ) {
+		dwx = -minWx;
+	} else if ( maxWx > 1 && minWx >= -1e-9 ) {
+		dwx = 1 - maxWx;
+	} else if ( minWx < 0 && maxWx > 1 ) {
+		// Over-constrained: center it.
+		dwx = ( 1 - maxWx - minWx ) / 2;
+	}
+
+	if ( minWy < 0 && maxWy <= 1 + 1e-9 ) {
+		dwy = -minWy;
+	} else if ( maxWy > 1 && minWy >= -1e-9 ) {
+		dwy = 1 - maxWy;
+	} else if ( minWy < 0 && maxWy > 1 ) {
+		dwy = ( 1 - maxWy - minWy ) / 2;
+	}
+
+	// Convert world-space correction to screen-space correction.
+	// The camera's 2×2 linear part (indices [0,1,2,3]) maps world deltas
+	// to screen deltas: screenDelta = linear * worldDelta.
+	const dsx = camera[ 0 ] * dwx + camera[ 2 ] * dwy;
+	const dsy = camera[ 1 ] * dwx + camera[ 3 ] * dwy;
+
+	// Convert screen-space correction to pan-field correction.
+	// Pan in screen pixels = crop.x * visualW, crop.y * visualH.
+	// The correction is subtractive: a positive world shift (dw > 0) means
+	// the image needs to move opposite to pan direction, so pan decreases.
+	const newCropX = state.crop.x - ( vb.width > 0 ? dsx / vb.width : 0 );
+	const newCropY = state.crop.y - ( vb.height > 0 ? dsy / vb.height : 0 );
+
 	return {
-		crop: {
-			x: visualW > 0 ? newPanX / visualW : 0,
-			y: visualH > 0 ? newPanY / visualH : 0,
-		},
+		crop: { x: newCropX, y: newCropY },
 		zoom,
 	};
 }

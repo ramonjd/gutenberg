@@ -355,8 +355,8 @@ describe( 'useCropperState', () => {
 				result.current.setCrop( { x: 0.5, y: 0.5 } );
 			} );
 
-			expect( result.current.state.crop.x ).toBe( 0 );
-			expect( result.current.state.crop.y ).toBe( 0 );
+			expect( result.current.state.crop.x ).toBeCloseTo( 0, 5 );
+			expect( result.current.state.crop.y ).toBeCloseTo( 0, 5 );
 		} );
 
 		it( 'should allow limited panning at zoom > 1', () => {
