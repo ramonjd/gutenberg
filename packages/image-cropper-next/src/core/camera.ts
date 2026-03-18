@@ -16,6 +16,54 @@ import type {
 import { degreesToRadians } from './math/rotation';
 
 /**
+ * Compute the fitted (unrotated) image element dimensions and the visual
+ * (rotated) bounding box dimensions for a given container, image, and rotation.
+ *
+ * This is the same "contain" fit logic used by createCamera, extracted so
+ * cropper.tsx can size the <img> element and position overlays without
+ * duplicating the math.
+ *
+ * @param containerSize The container dimensions in pixels.
+ * @param imageSize     The natural image dimensions in pixels.
+ * @param rotation      The rotation angle in degrees.
+ * @return The fitted element size and visual bounding box size.
+ */
+export function getImageFit(
+	containerSize: Size,
+	imageSize: Size,
+	rotation: number
+): { elementSize: Size; visualSize: Size } {
+	if (
+		containerSize.width === 0 ||
+		containerSize.height === 0 ||
+		imageSize.width === 0 ||
+		imageSize.height === 0
+	) {
+		return {
+			elementSize: { width: 0, height: 0 },
+			visualSize: { width: 0, height: 0 },
+		};
+	}
+	const rad = degreesToRadians( rotation );
+	const cosR = Math.abs( Math.cos( rad ) );
+	const sinR = Math.abs( Math.sin( rad ) );
+	const rotW = cosR * imageSize.width + sinR * imageSize.height;
+	const rotH = sinR * imageSize.width + cosR * imageSize.height;
+	const fitScale = Math.min(
+		containerSize.width / rotW,
+		containerSize.height / rotH
+	);
+	const renderedW = imageSize.width * fitScale;
+	const renderedH = imageSize.height * fitScale;
+	const visualW = cosR * renderedW + sinR * renderedH;
+	const visualH = sinR * renderedW + cosR * renderedH;
+	return {
+		elementSize: { width: renderedW, height: renderedH },
+		visualSize: { width: visualW, height: visualH },
+	};
+}
+
+/**
  * Compose a camera matrix from cropper state, container, and image dimensions.
  *
  * The matrix maps normalized world coordinates [0,1] x [0,1] to screen pixels.

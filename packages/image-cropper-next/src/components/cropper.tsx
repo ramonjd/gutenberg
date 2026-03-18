@@ -7,7 +7,14 @@ import clsx from 'clsx';
 /**
  * WordPress dependencies
  */
-import { useState, useCallback, useMemo, forwardRef } from '@wordpress/element';
+import {
+	useState,
+	useCallback,
+	useMemo,
+	useRef,
+	useEffect,
+	forwardRef,
+} from '@wordpress/element';
 
 /**
  * Internal dependencies
@@ -19,7 +26,7 @@ import type {
 	Size,
 	NormalizedRect,
 } from '../core/types';
-import { useContainerFit } from '../hooks/use-container-fit';
+import { getImageFit } from '../core/camera';
 import { useInteraction } from '../hooks/use-interaction';
 import { useTransformStyle } from '../hooks/use-transform-style';
 import { RectangleStencil } from './stencils/rectangle-stencil';
@@ -59,8 +66,8 @@ export interface CropperProps {
  * The main image cropper component.
  *
  * Renders an image within a container with interactive crop overlays.
- * Composes the useContainerFit, useInteraction, and useTransformStyle hooks.
- * Renders the stencil, dimming overlay, and grid overlay on top of the image.
+ * Creates the camera once per render via getImageFit, then passes
+ * derived values to stencil, overlays, and interaction hooks.
  *
  * The component fills its parent container (100% width and height).
  * Wrap it in a sized container to control its dimensions.
@@ -82,63 +89,52 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		}: CropperProps,
 		ref: React.ForwardedRef< HTMLDivElement >
 	) {
-		const { containerRef, containerSize, getImageStyle } =
-			useContainerFit();
+		// Container measurement via ResizeObserver.
+		const containerRef = useRef< HTMLDivElement >( null );
+		const [ containerSize, setContainerSize ] = useState< Size >( {
+			width: 0,
+			height: 0,
+		} );
+
+		useEffect( () => {
+			const element = containerRef.current;
+			if ( ! element ) {
+				return;
+			}
+			const observer = new ResizeObserver( ( entries ) => {
+				for ( const entry of entries ) {
+					const { width, height } = entry.contentRect;
+					setContainerSize( ( prev ) => {
+						if ( prev.width === width && prev.height === height ) {
+							return prev;
+						}
+						return { width, height };
+					} );
+				}
+			} );
+			observer.observe( element );
+			return () => {
+				observer.disconnect();
+			};
+		}, [] );
 
 		const [ naturalSize, setNaturalSize ] = useState< Size >( {
 			width: 0,
 			height: 0,
 		} );
 
-		// Compute the rendered image element dimensions (unrotated).
-		const renderedImageSize = useMemo< Size >( () => {
-			if ( naturalSize.width === 0 || naturalSize.height === 0 ) {
-				return { width: 0, height: 0 };
-			}
-			const fitStyle = getImageStyle(
-				naturalSize.width,
-				naturalSize.height,
-				state.rotation
-			);
-			return {
-				width: typeof fitStyle.width === 'number' ? fitStyle.width : 0,
-				height:
-					typeof fitStyle.height === 'number' ? fitStyle.height : 0,
-			};
-		}, [ naturalSize, state.rotation, getImageStyle ] );
-
-		// Compute the visual (rotated) image footprint for stencil positioning.
-		// The <img> element is CSS-rotated, so its visual bounding box on screen
-		// differs from its element dimensions. The stencil and overlays need the
-		// visual size to position correctly.
-		const visualImageSize = useMemo< Size >( () => {
-			if (
-				renderedImageSize.width === 0 ||
-				renderedImageSize.height === 0
-			) {
-				return { width: 0, height: 0 };
-			}
-			const rad = ( state.rotation * Math.PI ) / 180;
-			const cosR = Math.abs( Math.cos( rad ) );
-			const sinR = Math.abs( Math.sin( rad ) );
-			return {
-				width:
-					cosR * renderedImageSize.width +
-					sinR * renderedImageSize.height,
-				height:
-					sinR * renderedImageSize.width +
-					cosR * renderedImageSize.height,
-			};
-		}, [ renderedImageSize, state.rotation ] );
+		// Compute fitted image dimensions and visual bounds from camera math.
+		const { elementSize, visualSize } = useMemo(
+			() => getImageFit( containerSize, naturalSize, state.rotation ),
+			[ containerSize, naturalSize, state.rotation ]
+		);
 
 		// Use the interaction hook for mouse, touch, and keyboard events.
-		// Pan deltas are normalized by visualImageSize so crop.x/crop.y
-		// are in visual-space normalized coordinates.
 		const { handlers } = useInteraction(
 			state,
 			dispatch,
 			containerSize,
-			visualImageSize,
+			visualSize,
 			{
 				minZoom,
 				maxZoom,
@@ -146,17 +142,14 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		);
 
 		// Use the transform style hook for the image CSS transform.
-		// Uses visualImageSize so crop.x * visualW gives correct
-		// screen-space pixel translation.
 		const transformString = useTransformStyle(
 			state,
 			containerSize,
-			visualImageSize
+			visualSize
 		);
 
 		/**
-		 * Handle the image load event. Measures the natural size,
-		 * dispatches SET_IMAGE, and calls the onImageLoaded callback.
+		 * Handle the image load event.
 		 */
 		const handleImageLoad = useCallback(
 			( event: React.SyntheticEvent< HTMLImageElement > ) => {
@@ -192,50 +185,30 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			[ dispatch ]
 		);
 
-		// Compute the image's CSS style combining fit dimensions, centering, and transform.
+		// Compute the image's CSS style.
 		const imageStyle = useMemo( (): React.CSSProperties => {
-			if ( naturalSize.width === 0 || naturalSize.height === 0 ) {
+			if ( elementSize.width === 0 || elementSize.height === 0 ) {
 				return {};
 			}
-
-			const fitStyle = getImageStyle(
-				naturalSize.width,
-				naturalSize.height,
-				state.rotation
-			);
-
-			// Center the image within the container.
-			const imgW =
-				typeof fitStyle.width === 'number' ? fitStyle.width : 0;
-			const imgH =
-				typeof fitStyle.height === 'number' ? fitStyle.height : 0;
-			const centerX = ( containerSize.width - imgW ) / 2;
-			const centerY = ( containerSize.height - imgH ) / 2;
-
+			const centerX = ( containerSize.width - elementSize.width ) / 2;
+			const centerY = ( containerSize.height - elementSize.height ) / 2;
 			return {
-				...fitStyle,
+				width: elementSize.width,
+				height: elementSize.height,
+				maxWidth: elementSize.width,
+				maxHeight: elementSize.height,
 				left: centerX,
 				top: centerY,
 				transform: transformString,
 			};
-		}, [
-			naturalSize,
-			containerSize,
-			state.rotation,
-			getImageStyle,
-			transformString,
-		] );
+		}, [ containerSize, elementSize, transformString ] );
 
 		// Merge the forwarded ref with the internal container ref.
-		/* eslint-disable react-compiler/react-compiler */
 		const setContainerRef = useCallback(
 			( element: HTMLDivElement | null ) => {
-				// Update the internal container ref.
 				(
 					containerRef as React.MutableRefObject< HTMLDivElement | null >
 				 ).current = element;
-
-				// Forward to external ref.
 				if ( typeof ref === 'function' ) {
 					ref( element );
 				} else if ( ref ) {
@@ -244,9 +217,8 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 					 ).current = element;
 				}
 			},
-			[ containerRef, ref ]
+			[ ref ]
 		);
-		/* eslint-enable react-compiler/react-compiler */
 
 		return (
 			<div
@@ -272,7 +244,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 					<DimmingOverlay
 						cropRect={ state.cropRect }
 						containerSize={ containerSize }
-						imageSize={ visualImageSize }
+						imageSize={ visualSize }
 					/>
 				) }
 
@@ -280,7 +252,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 				<StencilComponent
 					cropRect={ state.cropRect }
 					containerSize={ containerSize }
-					imageSize={ visualImageSize }
+					imageSize={ visualSize }
 					onCropChange={ handleCropChange }
 					aspectRatio={ aspectRatio }
 				/>
@@ -290,7 +262,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 					<GridOverlay
 						cropRect={ state.cropRect }
 						containerSize={ containerSize }
-						imageSize={ visualImageSize }
+						imageSize={ visualSize }
 					/>
 				) }
 			</div>
