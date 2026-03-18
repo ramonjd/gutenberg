@@ -115,4 +115,6 @@ export interface StencilProps {
 	onCropChange: ( rect: NormalizedRect ) => void;
 	/** Optional fixed aspect ratio (width / height) in pixel space. */
 	aspectRatio?: number;
+	/** Whether the crop handles are shown for freeform resizing. */
+	freeformCrop?: boolean;
 }

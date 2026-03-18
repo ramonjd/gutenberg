@@ -77,6 +77,7 @@ const WithControlsComponent = () => {
 	} = useCropperState();
 
 	const [ aspectRatioValue, setAspectRatioValue ] = useState( '0' );
+	const [ freeformCrop, setFreeformCrop ] = useState( false );
 
 	const handleRotateLeft = useCallback( () => {
 		setRotation( state.rotation - 90 );
@@ -224,6 +225,20 @@ const WithControlsComponent = () => {
 				</div>
 
 				<div className="image-cropper-next-story__row">
+					{ /* eslint-disable-next-line jsx-a11y/label-has-associated-control -- checkbox is nested */ }
+					<label>
+						<input
+							type="checkbox"
+							checked={ freeformCrop }
+							onChange={ ( e ) =>
+								setFreeformCrop( e.target.checked )
+							}
+						/>{ ' ' }
+						Freeform Crop
+					</label>
+				</div>
+
+				<div className="image-cropper-next-story__row">
 					<button onClick={ handleReset }>Reset</button>
 				</div>
 			</div>
@@ -235,6 +250,7 @@ const WithControlsComponent = () => {
 					dispatch={ dispatch }
 					showGrid
 					showDimming
+					freeformCrop={ freeformCrop }
 					aspectRatio={
 						parseFloat( aspectRatioValue ) > 0
 							? parseFloat( aspectRatioValue )
