@@ -66,6 +66,7 @@ type RectangleStencilProps = StencilProps;
  * @param props.imageSize     The rendered image dimensions in pixels.
  * @param props.onCropChange  Callback fired when the crop rect changes.
  * @param props.aspectRatio   Optional fixed aspect ratio (width / height).
+ * @param props.freeformCrop  Whether resize handles are shown.
  * @return The rectangle stencil element.
  */
 export function RectangleStencil( {
@@ -74,6 +75,7 @@ export function RectangleStencil( {
 	imageSize,
 	onCropChange,
 	aspectRatio,
+	freeformCrop = false,
 }: RectangleStencilProps ) {
 	const [ dragState, setDragState ] = useState< DragState | null >( null );
 	const hasLockedRatio = !! ( aspectRatio && aspectRatio > 0 );
@@ -325,20 +327,25 @@ export function RectangleStencil( {
 					left: 0,
 				} }
 			/>
-			{ /* Resize handles */ }
-			{ handles.map( ( pos ) => (
-				// eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- resize handles need mouse events.
-				<div
-					key={ pos }
-					className={ `wp-image-cropper-next__handle wp-image-cropper-next__handle--${ pos }` }
-					onMouseDown={ ( event ) => handleMouseDown( pos, event ) }
-					role="separator"
-					aria-orientation={
-						pos === 'n' || pos === 's' ? 'horizontal' : 'vertical'
-					}
-					tabIndex={ 0 }
-				/>
-			) ) }
+			{ /* Resize handles — only in freeform mode */ }
+			{ freeformCrop &&
+				handles.map( ( pos ) => (
+					// eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- resize handles need mouse events.
+					<div
+						key={ pos }
+						className={ `wp-image-cropper-next__handle wp-image-cropper-next__handle--${ pos }` }
+						onMouseDown={ ( event ) =>
+							handleMouseDown( pos, event )
+						}
+						role="separator"
+						aria-orientation={
+							pos === 'n' || pos === 's'
+								? 'horizontal'
+								: 'vertical'
+						}
+						tabIndex={ 0 }
+					/>
+				) ) }
 		</div>
 	);
 }

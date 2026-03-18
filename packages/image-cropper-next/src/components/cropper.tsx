@@ -56,6 +56,13 @@ export interface CropperProps {
 	maxZoom?: number;
 	/** Fixed aspect ratio (width / height) in pixel space for the crop area. */
 	aspectRatio?: number;
+	/**
+	 * Enable freeform crop mode with resizable handles.
+	 * When false (default), the crop area is fixed to the center and the user
+	 * drags the image behind it (react-easy-crop style).
+	 * When true, the crop area has resize handles and can be freely repositioned.
+	 */
+	freeformCrop?: boolean;
 	/** Callback fired when the image is loaded. */
 	onImageLoaded?: ( size: Size ) => void;
 	/** Additional className for the container. */
@@ -84,6 +91,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			minZoom,
 			maxZoom,
 			aspectRatio,
+			freeformCrop = false,
 			onImageLoaded,
 			className,
 		}: CropperProps,
@@ -128,6 +136,53 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			() => getImageFit( containerSize, naturalSize, state.rotation ),
 			[ containerSize, naturalSize, state.rotation ]
 		);
+
+		// In fixed-crop mode, auto-size the crop rect to fill the visual area
+		// while respecting the aspect ratio. The crop is always centered.
+		useEffect( () => {
+			if (
+				freeformCrop ||
+				visualSize.width === 0 ||
+				visualSize.height === 0
+			) {
+				return;
+			}
+			let w = 1;
+			let h = 1;
+			if ( aspectRatio && aspectRatio > 0 ) {
+				// normalizedRatio = pixel aspect ratio mapped to normalized space.
+				const normalizedRatio =
+					( aspectRatio * visualSize.height ) / visualSize.width;
+				if ( normalizedRatio > 1 ) {
+					// Taller than wide in normalized space — constrain width.
+					w = 1 / normalizedRatio;
+				} else {
+					// Wider than tall — constrain height.
+					h = normalizedRatio;
+				}
+			}
+			const x = ( 1 - w ) / 2;
+			const y = ( 1 - h ) / 2;
+			const current = state.cropRect;
+			if (
+				Math.abs( current.x - x ) < 1e-6 &&
+				Math.abs( current.y - y ) < 1e-6 &&
+				Math.abs( current.width - w ) < 1e-6 &&
+				Math.abs( current.height - h ) < 1e-6
+			) {
+				return;
+			}
+			dispatch( {
+				type: 'SET_CROP_RECT',
+				payload: { x, y, width: w, height: h },
+			} );
+		}, [
+			freeformCrop,
+			aspectRatio,
+			visualSize,
+			dispatch,
+			state.cropRect,
+		] );
 
 		// Use the interaction hook for mouse, touch, and keyboard events.
 		const { handlers } = useInteraction(
@@ -255,6 +310,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 					imageSize={ visualSize }
 					onCropChange={ handleCropChange }
 					aspectRatio={ aspectRatio }
+					freeformCrop={ freeformCrop }
 				/>
 
 				{ /* Rule-of-thirds grid */ }
