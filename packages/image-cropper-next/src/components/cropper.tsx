@@ -150,15 +150,19 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			let w = 1;
 			let h = 1;
 			if ( aspectRatio && aspectRatio > 0 ) {
-				// normalizedRatio = pixel aspect ratio mapped to normalized space.
+				// normalizedRatio = w/h in normalized space that produces
+				// the desired pixel aspect ratio.
+				// pixelW = w * visualW, pixelH = h * visualH
+				// pixelW / pixelH = aspectRatio
+				// => w / h = aspectRatio * visualH / visualW
 				const normalizedRatio =
 					( aspectRatio * visualSize.height ) / visualSize.width;
-				if ( normalizedRatio > 1 ) {
-					// Taller than wide in normalized space — constrain width.
-					w = 1 / normalizedRatio;
+				if ( normalizedRatio <= 1 ) {
+					// Crop is narrower than full width — constrain width.
+					w = normalizedRatio;
 				} else {
-					// Wider than tall — constrain height.
-					h = normalizedRatio;
+					// Crop is shorter than full height — constrain height.
+					h = 1 / normalizedRatio;
 				}
 			}
 			const x = ( 1 - w ) / 2;
