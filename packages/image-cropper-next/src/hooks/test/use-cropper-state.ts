@@ -383,27 +383,23 @@ describe( 'useCropperState', () => {
 			expect( result.current.state.crop.y ).toBeLessThan( 1 );
 		} );
 
-		it( 'should restrict crop rect when rotation changes and image cannot cover full rect', () => {
+		it( 'should bump zoom when rotation requires it to cover full crop rect', () => {
 			const { result } = setupWithImage();
 
 			expect( result.current.state.zoom ).toBe( 1 );
 			expect( result.current.state.cropRect.width ).toBe( 1 );
 
-			// Rotate 45 degrees. The image (2:1 aspect ratio) at zoom=1
-			// cannot fully cover a 1x1 crop rect, so it gets restricted.
+			// Rotate 45 degrees. The image at zoom=1 cannot cover the
+			// full crop rect, so zoom is bumped (not the crop shrunk).
 			act( () => {
 				result.current.setRotation( 45 );
 			} );
 
 			expect( result.current.state.rotation ).toBe( 45 );
-			// The crop rect is scaled down to fit within the rotated image.
-			expect( result.current.state.cropRect.width ).toBeLessThanOrEqual(
-				1
-			);
-			expect( result.current.state.cropRect.height ).toBeLessThanOrEqual(
-				1
-			);
-			expect( result.current.state.zoom ).toBe( 1 );
+			// Crop rect stays full — zoom was bumped to accommodate.
+			expect( result.current.state.cropRect.width ).toBeCloseTo( 1, 1 );
+			expect( result.current.state.cropRect.height ).toBeCloseTo( 1, 1 );
+			expect( result.current.state.zoom ).toBeGreaterThan( 1 );
 		} );
 
 		it( 'should not reduce zoom when rotation returns to 0', () => {
@@ -417,12 +413,16 @@ describe( 'useCropperState', () => {
 				result.current.setRotation( 45 );
 			} );
 
+			const zoomAt45 = result.current.state.zoom;
+			// Zoom should be at least 2 (may be higher for 45° coverage).
+			expect( zoomAt45 ).toBeGreaterThanOrEqual( 2 );
+
 			act( () => {
 				result.current.setRotation( 0 );
 			} );
 
-			// Zoom should stay at 2 (not be reduced).
-			expect( result.current.state.zoom ).toBe( 2 );
+			// Zoom should stay at the bumped level (not reduce).
+			expect( result.current.state.zoom ).toBe( zoomAt45 );
 		} );
 
 		it( 'should reset pan when rotation changes', () => {
@@ -534,14 +534,28 @@ describe( 'useCropperState', () => {
 			expect( result.current.state.zoom ).toBe( zoomAfterRotation );
 		} );
 
-		it( 'should allow full crop rect via SET_CROP_RECT at rotation in visual space', () => {
+		it( 'should bump zoom when SET_CROP_RECT requires it at rotation', () => {
 			const { result } = setupWithImage();
 
 			act( () => {
 				result.current.setRotation( 45 );
 			} );
 
-			// In visual space, a full crop rect is always valid.
+			// Zoom was already bumped by rotation to cover full crop.
+			const zoomAfterRotation = result.current.state.zoom;
+			expect( zoomAfterRotation ).toBeGreaterThan( 1 );
+
+			// Setting a smaller crop rect then a full one should keep zoom
+			// at the level needed for the full rect.
+			act( () => {
+				result.current.setCropRect( {
+					x: 0.2,
+					y: 0.2,
+					width: 0.6,
+					height: 0.6,
+				} );
+			} );
+
 			act( () => {
 				result.current.setCropRect( {
 					x: 0,
@@ -551,8 +565,12 @@ describe( 'useCropperState', () => {
 				} );
 			} );
 
-			expect( result.current.state.cropRect.width ).toBe( 1 );
-			expect( result.current.state.cropRect.height ).toBe( 1 );
+			// Zoom should be at least what rotation required.
+			expect( result.current.state.zoom ).toBeGreaterThanOrEqual(
+				zoomAfterRotation
+			);
+			expect( result.current.state.cropRect.width ).toBeCloseTo( 1, 1 );
+			expect( result.current.state.cropRect.height ).toBeCloseTo( 1, 1 );
 		} );
 	} );
 
