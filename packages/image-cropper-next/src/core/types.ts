@@ -117,4 +117,11 @@ export interface StencilProps {
 	aspectRatio?: number;
 	/** Whether the crop handles are shown for freeform resizing. */
 	freeformCrop?: boolean;
+	/** Maximum crop rect bounds based on current zoom/rotation. */
+	cropBounds?: {
+		minX: number;
+		minY: number;
+		maxX: number;
+		maxY: number;
+	};
 }

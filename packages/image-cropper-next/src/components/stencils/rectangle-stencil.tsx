@@ -67,6 +67,7 @@ type RectangleStencilProps = StencilProps;
  * @param props.onCropChange  Callback fired when the crop rect changes.
  * @param props.aspectRatio   Optional fixed aspect ratio (width / height).
  * @param props.freeformCrop  Whether resize handles are shown.
+ * @param props.cropBounds    Maximum crop rect bounds from camera (zoom/rotation-aware).
  * @return The rectangle stencil element.
  */
 export function RectangleStencil( {
@@ -76,7 +77,13 @@ export function RectangleStencil( {
 	onCropChange,
 	aspectRatio,
 	freeformCrop = false,
+	cropBounds,
 }: RectangleStencilProps ) {
+	// Use cropBounds from the camera if available, otherwise default to [0,1].
+	const boundsMinX = cropBounds?.minX ?? 0;
+	const boundsMinY = cropBounds?.minY ?? 0;
+	const boundsMaxX = cropBounds?.maxX ?? 1;
+	const boundsMaxY = cropBounds?.maxY ?? 1;
 	const [ dragState, setDragState ] = useState< DragState | null >( null );
 	const hasLockedRatio = !! ( aspectRatio && aspectRatio > 0 );
 
@@ -146,26 +153,26 @@ export function RectangleStencil( {
 
 			if ( handle === 'n' || handle === 'nw' || handle === 'ne' ) {
 				edgeTop = Math.max(
-					0,
+					boundsMinY,
 					Math.min( s.y + dy, edgeBottom - minSize )
 				);
 			}
 			if ( handle === 's' || handle === 'sw' || handle === 'se' ) {
 				edgeBottom = Math.max(
 					edgeTop + minSize,
-					Math.min( s.y + s.height + dy, 1 )
+					Math.min( s.y + s.height + dy, boundsMaxY )
 				);
 			}
 			if ( handle === 'w' || handle === 'nw' || handle === 'sw' ) {
 				edgeLeft = Math.max(
-					0,
+					boundsMinX,
 					Math.min( s.x + dx, edgeRight - minSize )
 				);
 			}
 			if ( handle === 'e' || handle === 'ne' || handle === 'se' ) {
 				edgeRight = Math.max(
 					edgeLeft + minSize,
-					Math.min( s.x + s.width + dx, 1 )
+					Math.min( s.x + s.width + dx, boundsMaxX )
 				);
 			}
 
@@ -176,7 +183,14 @@ export function RectangleStencil( {
 				height: edgeBottom - edgeTop,
 			};
 		},
-		[ imageSize.width, imageSize.height ]
+		[
+			imageSize.width,
+			imageSize.height,
+			boundsMinX,
+			boundsMinY,
+			boundsMaxX,
+			boundsMaxY,
+		]
 	);
 
 	/**
@@ -243,10 +257,10 @@ export function RectangleStencil( {
 				distW = distH * normalizedRatio;
 			}
 
-			// Clamp to [0, 1] bounds. If the rect would exceed a boundary,
+			// Clamp to image coverage bounds. If the rect would exceed,
 			// shrink it (maintaining ratio) to fit.
-			const maxW = dirX > 0 ? 1 - anchorX : anchorX;
-			const maxH = dirY > 0 ? 1 - anchorY : anchorY;
+			const maxW = dirX > 0 ? boundsMaxX - anchorX : anchorX - boundsMinX;
+			const maxH = dirY > 0 ? boundsMaxY - anchorY : anchorY - boundsMinY;
 
 			if ( distW > maxW ) {
 				distW = maxW;
@@ -267,7 +281,15 @@ export function RectangleStencil( {
 
 			return { x: newX, y: newY, width: distW, height: distH };
 		},
-		[ imageSize.width, imageSize.height, normalizedRatio ]
+		[
+			imageSize.width,
+			imageSize.height,
+			normalizedRatio,
+			boundsMinX,
+			boundsMinY,
+			boundsMaxX,
+			boundsMaxY,
+		]
 	);
 
 	useEffect( () => {

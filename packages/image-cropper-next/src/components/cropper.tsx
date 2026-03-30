@@ -26,7 +26,7 @@ import type {
 	Size,
 	NormalizedRect,
 } from '../core/types';
-import { getImageFit } from '../core/camera';
+import { getImageFit, getCropBounds } from '../core/camera';
 import { useInteraction } from '../hooks/use-interaction';
 import { useTransformStyle } from '../hooks/use-transform-style';
 import { RectangleStencil } from './stencils/rectangle-stencil';
@@ -188,6 +188,18 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			state.cropRect,
 		] );
 
+		// Compute the maximum crop bounds based on zoom/rotation.
+		const cropBounds = useMemo( () => {
+			if ( ! state.image || naturalSize.width === 0 ) {
+				return undefined;
+			}
+			return getCropBounds(
+				state.zoom,
+				state.rotation,
+				naturalSize.width / naturalSize.height
+			);
+		}, [ state.zoom, state.rotation, state.image, naturalSize ] );
+
 		// Use the interaction hook for mouse, touch, and keyboard events.
 		const { handlers } = useInteraction(
 			state,
@@ -315,6 +327,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 					onCropChange={ handleCropChange }
 					aspectRatio={ aspectRatio }
 					freeformCrop={ freeformCrop }
+					cropBounds={ cropBounds }
 				/>
 
 				{ /* Rule-of-thirds grid */ }

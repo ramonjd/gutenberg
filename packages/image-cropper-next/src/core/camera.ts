@@ -366,6 +366,86 @@ export function getMinZoomForCover(
 }
 
 /**
+ * Compute the maximum crop rect bounds in normalized space for the given
+ * zoom and rotation. This tells the stencil how far handles can be dragged
+ * while the image still covers the crop area.
+ *
+ * At zoom=1, rotation=0, the bounds are [0,1]×[0,1] (the full visual area).
+ * At higher zoom or non-zero rotation, the image footprint extends beyond
+ * [0,1], so the bounds expand.
+ *
+ * @param zoom             The current zoom factor.
+ * @param rotation         The rotation angle in degrees.
+ * @param imageAspectRatio The image width / height ratio.
+ * @return The min/max x and y that a crop rect edge can reach.
+ */
+export function getCropBounds(
+	zoom: number,
+	rotation: number,
+	imageAspectRatio: number
+): { minX: number; minY: number; maxX: number; maxY: number } {
+	const a = Math.max( imageAspectRatio, Number.EPSILON );
+	const { visualW, visualH, absC, absS } = getVisualDimensions( rotation, a );
+
+	// Image half-extents at zoom z in pixel-proportional space.
+	const imgHalfW = ( a * zoom ) / 2;
+	const imgHalfH = zoom / 2;
+
+	// The image center is at (0.5, 0.5) in normalized visual space.
+	// We need to find how far each edge can go.
+	// In the image-local (unrotated) frame, the image spans [-imgHalfW, imgHalfW] x [-imgHalfH, imgHalfH].
+	// A point at normalized (nx, ny) maps to pixel-proportional:
+	//   px = (nx - 0.5) * visualW
+	//   py = (ny - 0.5) * visualH
+	// Then rotated to image-local:
+	//   alpha = px * cos + py * sin
+	//   beta  = -px * sin + py * cos
+	// The point is inside the image if |alpha| <= imgHalfW AND |beta| <= imgHalfH.
+	//
+	// For the crop bounds, we want the max extent along each axis. Since the
+	// crop rect is axis-aligned in visual space, we compute how far a single
+	// edge can go along one axis while the other axis is at its most constrained.
+	//
+	// For the x-axis: the leftmost edge is at nx where the point (nx, 0.5)
+	// just touches the image boundary. At ny=0.5, py=0, so:
+	//   alpha = (nx - 0.5) * visualW * cos
+	//   beta  = -(nx - 0.5) * visualW * sin
+	// |alpha| <= imgHalfW => |nx - 0.5| <= imgHalfW / (visualW * absC)  [if absC > 0]
+	// |beta|  <= imgHalfH => |nx - 0.5| <= imgHalfH / (visualW * absS)  [if absS > 0]
+
+	let halfExtentX = 0.5; // default: [0, 1]
+	if ( visualW > 0 ) {
+		let extX = Infinity;
+		if ( absC > 1e-9 ) {
+			extX = Math.min( extX, imgHalfW / ( visualW * absC ) );
+		}
+		if ( absS > 1e-9 ) {
+			extX = Math.min( extX, imgHalfH / ( visualW * absS ) );
+		}
+		halfExtentX = Math.min( extX, 10 ); // cap at reasonable max
+	}
+
+	let halfExtentY = 0.5;
+	if ( visualH > 0 ) {
+		let extY = Infinity;
+		if ( absC > 1e-9 ) {
+			extY = Math.min( extY, imgHalfH / ( visualH * absC ) );
+		}
+		if ( absS > 1e-9 ) {
+			extY = Math.min( extY, imgHalfW / ( visualH * absS ) );
+		}
+		halfExtentY = Math.min( extY, 10 );
+	}
+
+	return {
+		minX: 0.5 - halfExtentX,
+		minY: 0.5 - halfExtentY,
+		maxX: 0.5 + halfExtentX,
+		maxY: 0.5 + halfExtentY,
+	};
+}
+
+/**
  * Restricts a crop rectangle so that the rotated, zoomed image can fully cover it.
  * If the crop rect is too large for the current zoom and rotation, it is scaled
  * down proportionally and re-centered.
