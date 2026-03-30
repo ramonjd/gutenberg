@@ -70,22 +70,34 @@ function enforceContainment( state: CropperState ): CropperState {
 	};
 	const imageAspectRatio = imageSize.width / imageSize.height;
 
-	// 1. Restrict crop rect so it fits within the rotated, zoomed image.
+	// 1. First bump zoom so the image can cover the crop rect as-is.
+	//    This ensures that explicit crop rect changes (e.g., fixed-crop
+	//    mode during rotation) get zoom accommodation, not crop shrinkage.
+	const { crop: panAfterZoom, zoom } = restrictPanZoom(
+		state,
+		imageSize,
+		state.cropRect
+	);
+
+	// 2. Now restrict the crop rect at the (possibly bumped) zoom.
+	//    This handles cases where the crop rect is still too large
+	//    (e.g., if zoom hit MAX_ZOOM).
 	const cropRect = restrictCropRect(
 		state.cropRect,
-		state.zoom,
+		zoom,
 		state.rotation,
 		imageAspectRatio
 	);
 
-	// 2. Restrict pan and zoom with the (possibly shrunk) crop rect.
-	const stateWithRect =
-		cropRect === state.cropRect ? state : { ...state, cropRect };
-	const { crop, zoom } = restrictPanZoom(
-		stateWithRect,
-		imageSize,
-		cropRect
-	);
+	// 3. If the crop rect was shrunk, re-restrict pan for the new rect.
+	let crop = panAfterZoom;
+	if ( cropRect !== state.cropRect ) {
+		( { crop } = restrictPanZoom(
+			{ ...state, zoom, cropRect },
+			imageSize,
+			cropRect
+		) );
+	}
 
 	if (
 		crop.x === state.crop.x &&
@@ -96,29 +108,6 @@ function enforceContainment( state: CropperState ): CropperState {
 		return state;
 	}
 	return { ...state, crop, zoom, cropRect };
-}
-
-/**
- * Enforces containment without adjusting zoom: restricts the crop rect
- * and pan position, but keeps the current zoom level unchanged.
- * Used when resizing the crop rect so it doesn't trigger zoom changes.
- *
- * @param state The state to enforce containment on.
- * @return The state with cropRect and position restricted.
- */
-function enforceContainmentKeepZoom( state: CropperState ): CropperState {
-	if ( ! state.image ) {
-		return state;
-	}
-	const imageSize = {
-		width: state.image.naturalWidth,
-		height: state.image.naturalHeight,
-	};
-	const { crop } = restrictPanZoom( state, imageSize, state.cropRect );
-	if ( crop.x === state.crop.x && crop.y === state.crop.y ) {
-		return state;
-	}
-	return { ...state, crop };
 }
 
 /**
@@ -220,7 +209,7 @@ function cropperReducer(
 			} );
 
 		case 'SET_CROP_RECT':
-			return enforceContainmentKeepZoom( {
+			return enforceContainment( {
 				...state,
 				cropRect: action.payload,
 			} );

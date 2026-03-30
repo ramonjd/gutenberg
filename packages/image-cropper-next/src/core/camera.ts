@@ -367,22 +367,27 @@ export function getMinZoomForCover(
 
 /**
  * Compute the maximum crop rect bounds in normalized space for the given
- * zoom and rotation. This tells the stencil how far handles can be dragged
- * while the image still covers the crop area.
+ * zoom, rotation, and container. This tells the stencil how far handles
+ * can be dragged while the image still covers the crop area AND the crop
+ * stays within the container viewport.
  *
  * At zoom=1, rotation=0, the bounds are [0,1]×[0,1] (the full visual area).
- * At higher zoom or non-zero rotation, the image footprint extends beyond
- * [0,1], so the bounds expand.
+ * At higher zoom, the image coverage extends further, but the container
+ * boundary limits how far handles can go.
  *
  * @param zoom             The current zoom factor.
  * @param rotation         The rotation angle in degrees.
  * @param imageAspectRatio The image width / height ratio.
+ * @param containerSize    The container dimensions in pixels.
+ * @param visualSize       The visual (rotated) image dimensions in pixels.
  * @return The min/max x and y that a crop rect edge can reach.
  */
 export function getCropBounds(
 	zoom: number,
 	rotation: number,
-	imageAspectRatio: number
+	imageAspectRatio: number,
+	containerSize?: Size,
+	visualSize?: Size
 ): { minX: number; minY: number; maxX: number; maxY: number } {
 	const a = Math.max( imageAspectRatio, Number.EPSILON );
 	const { visualW, visualH, absC, absS } = getVisualDimensions( rotation, a );
@@ -391,29 +396,9 @@ export function getCropBounds(
 	const imgHalfW = ( a * zoom ) / 2;
 	const imgHalfH = zoom / 2;
 
-	// The image center is at (0.5, 0.5) in normalized visual space.
-	// We need to find how far each edge can go.
-	// In the image-local (unrotated) frame, the image spans [-imgHalfW, imgHalfW] x [-imgHalfH, imgHalfH].
-	// A point at normalized (nx, ny) maps to pixel-proportional:
-	//   px = (nx - 0.5) * visualW
-	//   py = (ny - 0.5) * visualH
-	// Then rotated to image-local:
-	//   alpha = px * cos + py * sin
-	//   beta  = -px * sin + py * cos
-	// The point is inside the image if |alpha| <= imgHalfW AND |beta| <= imgHalfH.
-	//
-	// For the crop bounds, we want the max extent along each axis. Since the
-	// crop rect is axis-aligned in visual space, we compute how far a single
-	// edge can go along one axis while the other axis is at its most constrained.
-	//
-	// For the x-axis: the leftmost edge is at nx where the point (nx, 0.5)
-	// just touches the image boundary. At ny=0.5, py=0, so:
-	//   alpha = (nx - 0.5) * visualW * cos
-	//   beta  = -(nx - 0.5) * visualW * sin
-	// |alpha| <= imgHalfW => |nx - 0.5| <= imgHalfW / (visualW * absC)  [if absC > 0]
-	// |beta|  <= imgHalfH => |nx - 0.5| <= imgHalfH / (visualW * absS)  [if absS > 0]
-
-	let halfExtentX = 0.5; // default: [0, 1]
+	// Compute image-coverage bounds: how far each axis can extend
+	// while the image still covers the point on the centerline.
+	let halfExtentX = 0.5;
 	if ( visualW > 0 ) {
 		let extX = Infinity;
 		if ( absC > 1e-9 ) {
@@ -422,7 +407,7 @@ export function getCropBounds(
 		if ( absS > 1e-9 ) {
 			extX = Math.min( extX, imgHalfH / ( visualW * absS ) );
 		}
-		halfExtentX = Math.min( extX, 10 ); // cap at reasonable max
+		halfExtentX = Math.min( extX, 10 );
 	}
 
 	let halfExtentY = 0.5;
@@ -437,12 +422,38 @@ export function getCropBounds(
 		halfExtentY = Math.min( extY, 10 );
 	}
 
-	return {
-		minX: 0.5 - halfExtentX,
-		minY: 0.5 - halfExtentY,
-		maxX: 0.5 + halfExtentX,
-		maxY: 0.5 + halfExtentY,
-	};
+	let minX = 0.5 - halfExtentX;
+	let minY = 0.5 - halfExtentY;
+	let maxX = 0.5 + halfExtentX;
+	let maxY = 0.5 + halfExtentY;
+
+	// Clamp to container boundaries. The container may be larger than the
+	// visual image (padding on sides), so the normalized container extent
+	// can go below 0 or above 1. But crop handles should never leave the
+	// container viewport.
+	if (
+		containerSize &&
+		visualSize &&
+		visualSize.width > 0 &&
+		visualSize.height > 0
+	) {
+		const offsetX = ( containerSize.width - visualSize.width ) / 2;
+		const offsetY = ( containerSize.height - visualSize.height ) / 2;
+		// Container left edge in normalized space.
+		const containerMinX = -offsetX / visualSize.width;
+		const containerMaxX =
+			( containerSize.width - offsetX ) / visualSize.width;
+		const containerMinY = -offsetY / visualSize.height;
+		const containerMaxY =
+			( containerSize.height - offsetY ) / visualSize.height;
+
+		minX = Math.max( minX, containerMinX );
+		minY = Math.max( minY, containerMinY );
+		maxX = Math.min( maxX, containerMaxX );
+		maxY = Math.min( maxY, containerMaxY );
+	}
+
+	return { minX, minY, maxX, maxY };
 }
 
 /**
