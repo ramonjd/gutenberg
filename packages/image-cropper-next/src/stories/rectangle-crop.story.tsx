@@ -20,7 +20,7 @@ import {
 import { Cropper } from '../components/cropper';
 import { useCropperState } from '../hooks/use-cropper-state';
 import type { TransformOperation } from '../core/types';
-import { MIN_ZOOM, MAX_ZOOM } from '../core/constants';
+import { MIN_ZOOM, MAX_ZOOM, MAX_ROTATION_OFFSET } from '../core/constants';
 import {
 	loadImage,
 	renderToCanvas,
@@ -79,19 +79,23 @@ const WithControlsComponent = () => {
 	const [ aspectRatioValue, setAspectRatioValue ] = useState( '0' );
 	const [ freeformCrop, setFreeformCrop ] = useState( false );
 
+	// The base cardinal angle (nearest 90° step) and the fine offset.
+	const baseAngle = Math.round( state.rotation / 90 ) * 90;
+	const fineOffset = state.rotation - baseAngle;
+
 	const handleRotateLeft = useCallback( () => {
-		setRotation( state.rotation - 90 );
-	}, [ state.rotation, setRotation ] );
+		setRotation( baseAngle - 90 );
+	}, [ baseAngle, setRotation ] );
 
 	const handleRotateRight = useCallback( () => {
-		setRotation( state.rotation + 90 );
-	}, [ state.rotation, setRotation ] );
+		setRotation( baseAngle + 90 );
+	}, [ baseAngle, setRotation ] );
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setRotation( parseFloat( event.target.value ) );
+			setRotation( baseAngle + parseFloat( event.target.value ) );
 		},
-		[ setRotation ]
+		[ baseAngle, setRotation ]
 	);
 
 	const handleFlipHorizontal = useCallback( () => {
@@ -178,10 +182,10 @@ const WithControlsComponent = () => {
 					<button onClick={ handleRotateRight }>+90</button>
 					<input
 						type="range"
-						min="0"
-						max="360"
+						min={ -MAX_ROTATION_OFFSET }
+						max={ MAX_ROTATION_OFFSET }
 						step="1"
-						value={ state.rotation }
+						value={ fineOffset }
 						onChange={ handleRotationSlider }
 					/>
 				</div>
@@ -441,19 +445,23 @@ const WithPreviewComponent = () => {
 		setPreviewSrc( canvasToDataURL( canvas, 'image/jpeg', 0.85 ) );
 	}, [ state ] );
 
+	// The base cardinal angle (nearest 90° step) and the fine offset.
+	const baseAngle = Math.round( state.rotation / 90 ) * 90;
+	const fineOffset = state.rotation - baseAngle;
+
 	const handleRotateLeft = useCallback( () => {
-		setRotation( state.rotation - 90 );
-	}, [ state.rotation, setRotation ] );
+		setRotation( baseAngle - 90 );
+	}, [ baseAngle, setRotation ] );
 
 	const handleRotateRight = useCallback( () => {
-		setRotation( state.rotation + 90 );
-	}, [ state.rotation, setRotation ] );
+		setRotation( baseAngle + 90 );
+	}, [ baseAngle, setRotation ] );
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setRotation( parseFloat( event.target.value ) );
+			setRotation( baseAngle + parseFloat( event.target.value ) );
 		},
-		[ setRotation ]
+		[ baseAngle, setRotation ]
 	);
 
 	const handleFlipHorizontal = useCallback( () => {
@@ -486,10 +494,10 @@ const WithPreviewComponent = () => {
 					<button onClick={ handleRotateRight }>+90</button>
 					<input
 						type="range"
-						min="0"
-						max="360"
+						min={ -MAX_ROTATION_OFFSET }
+						max={ MAX_ROTATION_OFFSET }
 						step="1"
-						value={ state.rotation }
+						value={ fineOffset }
 						onChange={ handleRotationSlider }
 					/>
 				</div>
