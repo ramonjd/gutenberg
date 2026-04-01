@@ -9,6 +9,8 @@ import {
 	restrictPanZoom,
 	restrictCropRect,
 	createExportCamera,
+	getCropBounds,
+	getImageFit,
 } from '../camera';
 import { DEFAULT_STATE } from '../constants';
 import type { CropperState, Size } from '../types';
@@ -305,5 +307,50 @@ describe( 'createExportCamera', () => {
 		);
 		expect( bottomRight[ 0 ] ).toBeCloseTo( outputSize.width, 0 );
 		expect( bottomRight[ 1 ] ).toBeCloseTo( outputSize.height, 0 );
+	} );
+} );
+
+describe( 'getCropBounds', () => {
+	it( 'allows crop handle to reach container edge when 4:3 image is zoomed in 3:2 container', () => {
+		// MtBlanc1.jpg is 500×375 (4:3) in a 600×400 container (3:2).
+		// At zoom=1, the image is 533×400 — 33px padding on each side.
+		// At zoom=1.75, the image fills the container. The crop handle
+		// should be able to reach the container left edge (pixel 0),
+		// which is at normalized x = -0.0625.
+		const nat: Size = { width: 500, height: 375 };
+		const container: Size = { width: 600, height: 400 };
+		const { elementSize, visualSize } = getImageFit( container, nat, 0 );
+
+		// Verify the image doesn't fill the container at zoom=1.
+		expect( visualSize.width ).toBeLessThan( container.width );
+
+		const state = makeState( {
+			image: {
+				src: 'test.jpg',
+				naturalWidth: nat.width,
+				naturalHeight: nat.height,
+			},
+			zoom: 1.75,
+			rotation: 0,
+		} );
+
+		const bounds = getCropBounds(
+			state,
+			elementSize,
+			visualSize,
+			container
+		);
+
+		// boundsMinX should be negative (crop can extend left of visual image origin).
+		expect( bounds.minX ).toBeLessThan( 0 );
+		// The pixel position of boundsMinX should be the container left edge (pixel 0).
+		const offsetX = ( container.width - visualSize.width ) / 2;
+		const pixelLeft = offsetX + bounds.minX * visualSize.width;
+		expect( pixelLeft ).toBeCloseTo( 0, 0 );
+
+		// boundsMaxX should be > 1 (crop can extend right of visual image).
+		expect( bounds.maxX ).toBeGreaterThan( 1 );
+		const pixelRight = offsetX + bounds.maxX * visualSize.width;
+		expect( pixelRight ).toBeCloseTo( container.width, 0 );
 	} );
 } );

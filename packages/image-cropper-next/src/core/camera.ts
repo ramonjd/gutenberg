@@ -504,12 +504,9 @@ export function restrictCropRect(
 		t = Math.min( t, limitBeta / spanBeta );
 	}
 	if ( t >= 1 - 1e-9 ) {
-		const x = Math.max( 0, Math.min( cropRect.x, 1 - W ) );
-		const y = Math.max( 0, Math.min( cropRect.y, 1 - H ) );
-		if ( x === cropRect.x && y === cropRect.y ) {
-			return cropRect;
-		}
-		return { x, y, width: W, height: H };
+		// Crop fits at the current zoom — no size change needed.
+		// Position is handled by restrictPanZoom, not here.
+		return cropRect;
 	}
 	const newW = W * t;
 	const newH = H * t;
