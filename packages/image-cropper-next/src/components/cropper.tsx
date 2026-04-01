@@ -188,26 +188,19 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			state.cropRect,
 		] );
 
-		// Compute the maximum crop bounds based on zoom/rotation/container.
+		// Compute the crop handle bounds from the actual image footprint.
+		// Depends on pan, zoom, rotation, flip — the full transform state.
 		const cropBounds = useMemo( () => {
-			if ( ! state.image || naturalSize.width === 0 ) {
+			if ( ! state.image || elementSize.width === 0 ) {
 				return undefined;
 			}
 			return getCropBounds(
-				state.zoom,
-				state.rotation,
-				naturalSize.width / naturalSize.height,
-				containerSize,
-				visualSize
+				state,
+				elementSize,
+				visualSize,
+				containerSize
 			);
-		}, [
-			state.zoom,
-			state.rotation,
-			state.image,
-			naturalSize,
-			containerSize,
-			visualSize,
-		] );
+		}, [ state, elementSize, visualSize, containerSize ] );
 
 		// Use the interaction hook for mouse, touch, and keyboard events.
 		const { handlers } = useInteraction(
