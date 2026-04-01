@@ -366,94 +366,100 @@ export function getMinZoomForCover(
 }
 
 /**
- * Compute the maximum crop rect bounds in normalized space for the given
- * zoom, rotation, and container. This tells the stencil how far handles
- * can be dragged while the image still covers the crop area AND the crop
- * stays within the container viewport.
+ * Compute the crop handle bounds in normalized visual space by finding the
+ * axis-aligned bounding box (AABB) of the actual image footprint at the
+ * current pan/zoom/rotation, then intersecting with the container viewport.
  *
- * At zoom=1, rotation=0, the bounds are [0,1]×[0,1] (the full visual area).
- * At higher zoom, the image coverage extends further, but the container
- * boundary limits how far handles can go.
+ * Unlike a static centerline-based calculation, this accounts for the
+ * current pan position — if the user pans right, the left bound tightens
+ * because the image's left edge has moved right.
  *
- * @param zoom             The current zoom factor.
- * @param rotation         The rotation angle in degrees.
- * @param imageAspectRatio The image width / height ratio.
- * @param containerSize    The container dimensions in pixels.
- * @param visualSize       The visual (rotated) image dimensions in pixels.
- * @return The min/max x and y that a crop rect edge can reach.
+ * @param state         The current cropper state (crop, zoom, rotation, flip).
+ * @param elementSize   The fitted (unrotated) image element dimensions in pixels.
+ * @param visualSize    The visual (rotated) image bounding box in pixels.
+ * @param containerSize The container dimensions in pixels.
+ * @return The min/max x and y that a crop rect edge can reach in normalized space.
  */
 export function getCropBounds(
-	zoom: number,
-	rotation: number,
-	imageAspectRatio: number,
-	containerSize?: Size,
-	visualSize?: Size
+	state: CropperState,
+	elementSize: Size,
+	visualSize: Size,
+	containerSize: Size
 ): { minX: number; minY: number; maxX: number; maxY: number } {
-	const a = Math.max( imageAspectRatio, Number.EPSILON );
-	const { visualW, visualH, absC, absS } = getVisualDimensions( rotation, a );
-
-	// Image half-extents at zoom z in pixel-proportional space.
-	const imgHalfW = ( a * zoom ) / 2;
-	const imgHalfH = zoom / 2;
-
-	// Compute image-coverage bounds: how far each axis can extend
-	// while the image still covers the point on the centerline.
-	let halfExtentX = 0.5;
-	if ( visualW > 0 ) {
-		let extX = Infinity;
-		if ( absC > 1e-9 ) {
-			extX = Math.min( extX, imgHalfW / ( visualW * absC ) );
-		}
-		if ( absS > 1e-9 ) {
-			extX = Math.min( extX, imgHalfH / ( visualW * absS ) );
-		}
-		halfExtentX = Math.min( extX, 10 );
-	}
-
-	let halfExtentY = 0.5;
-	if ( visualH > 0 ) {
-		let extY = Infinity;
-		if ( absC > 1e-9 ) {
-			extY = Math.min( extY, imgHalfH / ( visualH * absC ) );
-		}
-		if ( absS > 1e-9 ) {
-			extY = Math.min( extY, imgHalfW / ( visualH * absS ) );
-		}
-		halfExtentY = Math.min( extY, 10 );
-	}
-
-	let minX = 0.5 - halfExtentX;
-	let minY = 0.5 - halfExtentY;
-	let maxX = 0.5 + halfExtentX;
-	let maxY = 0.5 + halfExtentY;
-
-	// Clamp to container boundaries. The container may be larger than the
-	// visual image (padding on sides), so the normalized container extent
-	// can go below 0 or above 1. But crop handles should never leave the
-	// container viewport.
 	if (
-		containerSize &&
-		visualSize &&
-		visualSize.width > 0 &&
-		visualSize.height > 0
+		elementSize.width === 0 ||
+		elementSize.height === 0 ||
+		visualSize.width === 0 ||
+		visualSize.height === 0
 	) {
-		const offsetX = ( containerSize.width - visualSize.width ) / 2;
-		const offsetY = ( containerSize.height - visualSize.height ) / 2;
-		// Container left edge in normalized space.
-		const containerMinX = -offsetX / visualSize.width;
-		const containerMaxX =
-			( containerSize.width - offsetX ) / visualSize.width;
-		const containerMinY = -offsetY / visualSize.height;
-		const containerMaxY =
-			( containerSize.height - offsetY ) / visualSize.height;
-
-		minX = Math.max( minX, containerMinX );
-		minY = Math.max( minY, containerMinY );
-		maxX = Math.min( maxX, containerMaxX );
-		maxY = Math.min( maxY, containerMaxY );
+		return { minX: 0, minY: 0, maxX: 1, maxY: 1 };
 	}
 
-	return { minX, minY, maxX, maxY };
+	// Build the same CSS matrix as use-transform-style.
+	const tx = state.crop.x * visualSize.width;
+	const ty = state.crop.y * visualSize.height;
+	const rad = degreesToRadians( state.rotation );
+	const cos = Math.cos( rad );
+	const sin = Math.sin( rad );
+	const sx = state.flip.horizontal ? -1 : 1;
+	const sy = state.flip.vertical ? -1 : 1;
+	const z = state.zoom;
+	const ma = cos * sx * z;
+	const mb = sin * sx * z;
+	const mc = -sin * sy * z;
+	const md = cos * sy * z;
+
+	// Image element corners relative to element center.
+	const hw = elementSize.width / 2;
+	const hh = elementSize.height / 2;
+	const corners = [
+		[ -hw, -hh ],
+		[ hw, -hh ],
+		[ hw, hh ],
+		[ -hw, hh ],
+	];
+
+	// Transform corners through CSS matrix → screen offsets from element center.
+	// Screen position = element_center + transformed_offset.
+	// Element center is at (containerW/2, containerH/2) after CSS centering.
+	// But we want normalized coords, so work relative to the visual image origin.
+	const offsetX = ( containerSize.width - visualSize.width ) / 2;
+	const offsetY = ( containerSize.height - visualSize.height ) / 2;
+
+	let imgMinX = Infinity;
+	let imgMaxX = -Infinity;
+	let imgMinY = Infinity;
+	let imgMaxY = -Infinity;
+
+	for ( const [ cx, cy ] of corners ) {
+		// Screen offset from element center after CSS matrix.
+		const screenX = ma * cx + mc * cy + tx;
+		const screenY = mb * cx + md * cy + ty;
+		// Convert to normalized visual space.
+		// The element center is at the visual image center, which is at
+		// normalized (0.5, 0.5). So screen offset / visualSize + 0.5.
+		const nx = screenX / visualSize.width + 0.5;
+		const ny = screenY / visualSize.height + 0.5;
+		imgMinX = Math.min( imgMinX, nx );
+		imgMaxX = Math.max( imgMaxX, nx );
+		imgMinY = Math.min( imgMinY, ny );
+		imgMaxY = Math.max( imgMaxY, ny );
+	}
+
+	// Container bounds in normalized space.
+	const containerMinX = -offsetX / visualSize.width;
+	const containerMaxX = ( containerSize.width - offsetX ) / visualSize.width;
+	const containerMinY = -offsetY / visualSize.height;
+	const containerMaxY =
+		( containerSize.height - offsetY ) / visualSize.height;
+
+	// Crop bounds = intersection of image AABB and container bounds.
+	return {
+		minX: Math.max( imgMinX, containerMinX ),
+		minY: Math.max( imgMinY, containerMinY ),
+		maxX: Math.min( imgMaxX, containerMaxX ),
+		maxY: Math.min( imgMaxY, containerMaxY ),
+	};
 }
 
 /**
