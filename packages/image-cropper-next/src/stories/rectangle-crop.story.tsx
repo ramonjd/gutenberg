@@ -28,7 +28,7 @@ import {
 } from '../core/export/canvas-renderer';
 import './style.css';
 
-const SAMPLE_IMAGE = 'https://s.w.org/images/core/5.3/MtBlanc1.jpg';
+const SAMPLE_IMAGE = '1-100-grid.webp';
 
 const meta: Meta< typeof Cropper > = {
 	title: 'ImageCropperNext/RectangleCrop',
