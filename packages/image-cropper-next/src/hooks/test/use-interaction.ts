@@ -389,7 +389,7 @@ describe( 'useInteraction', () => {
 			expect( call![ 0 ].payload ).toBe( 2.5 );
 		} );
 
-		it( 'should dispatch SET_ROTATION on R key', () => {
+		it( 'should dispatch SET_ROTATION_WITH_CONTAINER on R key', () => {
 			const state = createState( { rotation: 0 } );
 			const { result } = renderHook( () =>
 				useInteraction( state, dispatchMock, containerSize )
@@ -400,8 +400,8 @@ describe( 'useInteraction', () => {
 			} );
 
 			expect( dispatchMock ).toHaveBeenCalledWith( {
-				type: 'SET_ROTATION',
-				payload: 90,
+				type: 'SET_ROTATION_WITH_CONTAINER',
+				payload: { rotation: 90, containerSize },
 			} );
 		} );
 
@@ -416,8 +416,8 @@ describe( 'useInteraction', () => {
 			} );
 
 			expect( dispatchMock ).toHaveBeenCalledWith( {
-				type: 'SET_ROTATION',
-				payload: 180,
+				type: 'SET_ROTATION_WITH_CONTAINER',
+				payload: { rotation: 180, containerSize },
 			} );
 		} );
 

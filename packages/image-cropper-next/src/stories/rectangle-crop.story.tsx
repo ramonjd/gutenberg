@@ -94,12 +94,12 @@ const WithControlsComponent = () => {
 	}, [] );
 
 	const handleRotateLeft = useCallback( () => {
-		setRotation( baseAngle - 90 );
-	}, [ baseAngle, setRotation ] );
+		setRotation( baseAngle - 90, getCropperContainerSize() );
+	}, [ baseAngle, setRotation, getCropperContainerSize ] );
 
 	const handleRotateRight = useCallback( () => {
-		setRotation( baseAngle + 90 );
-	}, [ baseAngle, setRotation ] );
+		setRotation( baseAngle + 90, getCropperContainerSize() );
+	}, [ baseAngle, setRotation, getCropperContainerSize ] );
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
@@ -464,14 +464,6 @@ const WithPreviewComponent = () => {
 	const baseAngle = Math.round( state.rotation / 90 ) * 90;
 	const fineOffset = state.rotation - baseAngle;
 
-	const handleRotateLeft = useCallback( () => {
-		setRotation( baseAngle - 90 );
-	}, [ baseAngle, setRotation ] );
-
-	const handleRotateRight = useCallback( () => {
-		setRotation( baseAngle + 90 );
-	}, [ baseAngle, setRotation ] );
-
 	const getPreviewContainerSize = useCallback( () => {
 		const el = previewCropperRef.current;
 		if ( ! el ) {
@@ -479,6 +471,14 @@ const WithPreviewComponent = () => {
 		}
 		return { width: el.clientWidth, height: el.clientHeight };
 	}, [] );
+
+	const handleRotateLeft = useCallback( () => {
+		setRotation( baseAngle - 90, getPreviewContainerSize() );
+	}, [ baseAngle, setRotation, getPreviewContainerSize ] );
+
+	const handleRotateRight = useCallback( () => {
+		setRotation( baseAngle + 90, getPreviewContainerSize() );
+	}, [ baseAngle, setRotation, getPreviewContainerSize ] );
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
