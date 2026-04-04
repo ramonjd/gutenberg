@@ -383,25 +383,28 @@ describe( 'useCropperState', () => {
 			expect( result.current.state.crop.y ).toBeLessThan( 1 );
 		} );
 
-		it( 'should preserve crop pixel size and bump zoom during rotation', () => {
+		it( 'should keep crop rect unchanged and bump zoom during rotation', () => {
 			const { result } = setupWithImage();
 
 			expect( result.current.state.zoom ).toBe( 1 );
-			expect( result.current.state.cropRect.width ).toBe( 1 );
+			const cropBefore = result.current.state.cropRect;
 
-			// Rotate 45 degrees. The crop rect is rescaled to preserve
-			// its pixel dimensions (visual box gets wider at 45°, so
-			// normalized width shrinks). Zoom bumps to cover it.
+			// Rotate 45 degrees. The crop rect stays unchanged — the
+			// image zooms in to cover it at the new rotation.
 			act( () => {
 				result.current.setRotation( 45 );
 			} );
 
 			expect( result.current.state.rotation ).toBe( 45 );
-			// Crop rect was rescaled — smaller in normalized space but
-			// same pixel size. Zoom was bumped to cover.
-			expect( result.current.state.cropRect.width ).toBeLessThan( 1 );
-			expect( result.current.state.cropRect.height ).toBeLessThan( 1 );
-			expect( result.current.state.zoom ).toBeGreaterThanOrEqual( 1 );
+			// Crop rect unchanged.
+			expect( result.current.state.cropRect.width ).toBe(
+				cropBefore.width
+			);
+			expect( result.current.state.cropRect.height ).toBe(
+				cropBefore.height
+			);
+			// Zoom bumped to cover the crop at 45°.
+			expect( result.current.state.zoom ).toBeGreaterThan( 1 );
 		} );
 
 		it( 'should not reduce zoom when rotation returns to 0', () => {
