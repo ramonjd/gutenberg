@@ -197,33 +197,53 @@ function cropperReducer(
 
 		case 'SETTLE_CROP': {
 			// After a resize drag ends: expand the crop to fill the
-			// available height (maintaining its pixel aspect ratio),
-			// center it, and reset pan. Zoom adjusts via enforceContainment.
+			// available height (maintaining its aspect ratio), center it,
+			// and adjust zoom/pan so the same image content is visible.
 			const cr = state.cropRect;
 			if ( cr.width === 0 || cr.height === 0 || ! state.image ) {
 				return state;
 			}
-			// The crop's pixel aspect ratio (w/h).
-			// In normalized space: pixelRatio = (cr.width * visualW) / (cr.height * visualH)
-			// But we don't have visualW/H here. We can express the ratio
-			// in normalized terms and scale to fill height = 1.
+
+			// Compute the new crop rect: fill height, maintain ratio, center.
 			const normalizedRatio = cr.width / cr.height;
-			let h = 1;
-			let w = normalizedRatio;
-			if ( w > 1 ) {
-				// Wider than visual area — fill width instead.
-				w = 1;
-				h = 1 / normalizedRatio;
+			let newH = 1;
+			let newW = normalizedRatio;
+			if ( newW > 1 ) {
+				newW = 1;
+				newH = 1 / normalizedRatio;
 			}
+			const newCropRect = {
+				x: ( 1 - newW ) / 2,
+				y: ( 1 - newH ) / 2,
+				width: newW,
+				height: newH,
+			};
+
+			// Scale factor: how much the crop grew. The zoom must grow
+			// by the same factor so the same image content fills the
+			// larger crop. Use the height ratio (since we fill height).
+			const scaleFactor = newH / cr.height;
+			const newZoom = state.zoom * scaleFactor;
+
+			// Pan adjustment: the old crop center was at (cx, cy) in
+			// normalized space. The image content at that center needs
+			// to end up at the new crop center (0.5, 0.5). The pan
+			// represents the image offset from center, so we need to
+			// account for where the old crop center was relative to
+			// the visual center.
+			const oldCx = cr.x + cr.width / 2;
+			const oldCy = cr.y + cr.height / 2;
+			// The old crop center's offset from visual center was
+			// being shown because of the current pan. In the new
+			// centered crop, that offset must be absorbed into the pan.
+			const newCropX = state.crop.x + ( oldCx - 0.5 );
+			const newCropY = state.crop.y + ( oldCy - 0.5 );
+
 			return enforceContainment( {
 				...state,
-				crop: { x: 0, y: 0 },
-				cropRect: {
-					x: ( 1 - w ) / 2,
-					y: ( 1 - h ) / 2,
-					width: w,
-					height: h,
-				},
+				zoom: newZoom,
+				crop: { x: newCropX, y: newCropY },
+				cropRect: newCropRect,
 			} );
 		}
 
