@@ -258,12 +258,28 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			[ dispatch ]
 		);
 
+		// Settling animation: brief linear transition after resize end.
+		const [ settling, setSettling ] = useState( false );
+		const settleTimerRef = useRef< ReturnType< typeof setTimeout > >();
+
 		/**
 		 * Handle resize end — settle the crop rect (re-center, fill height).
 		 */
 		const handleResizeEnd = useCallback( () => {
+			setSettling( true );
 			dispatch( { type: 'SETTLE_CROP' } );
+			clearTimeout( settleTimerRef.current );
+			settleTimerRef.current = setTimeout( () => {
+				setSettling( false );
+			}, 200 );
 		}, [ dispatch ] );
+
+		const settleTransition = settling
+			? 'transform 150ms linear'
+			: undefined;
+		const settleStencilTransition = settling
+			? 'left 150ms linear, top 150ms linear, width 150ms linear, height 150ms linear'
+			: undefined;
 
 		// Compute the image's CSS style.
 		const imageStyle = useMemo( (): React.CSSProperties => {
@@ -280,8 +296,9 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 				left: centerX,
 				top: centerY,
 				transform: transformString,
+				transition: settleTransition,
 			};
-		}, [ containerSize, elementSize, transformString ] );
+		}, [ containerSize, elementSize, transformString, settleTransition ] );
 
 		// Merge the forwarded ref with the internal container ref.
 		const setContainerRef = useCallback(
@@ -337,6 +354,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 					onResizeEnd={ handleResizeEnd }
 					aspectRatio={ aspectRatio }
 					freeformCrop={ freeformCrop }
+					stencilTransition={ settleStencilTransition }
 					cropBounds={ cropBounds }
 				/>
 
