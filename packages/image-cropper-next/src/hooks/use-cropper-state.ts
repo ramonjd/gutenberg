@@ -151,10 +151,14 @@ function cropperReducer(
 				rotation: newRotation,
 			};
 
-			// Pan is in visual-normalized space, which changes with rotation.
-			// Rescale pan to preserve the image's screen position.
-			// The crop rect stays unchanged — enforceContainment will
-			// bump zoom if the image can no longer cover it.
+			// The crop rect and pan are in visual-normalized space, where
+			// [0,1] maps to the visual bounding box. The bounding box
+			// changes with rotation, so we rescale both to preserve their
+			// screen-pixel dimensions and position. This keeps the crop
+			// area visually stable as the user rotates.
+			//
+			// No clamping to [0,1] — enforceContainment will bump zoom
+			// if the rescaled crop rect exceeds what the image can cover.
 			if ( state.image && state.image.naturalWidth > 0 ) {
 				const nat = {
 					width: state.image.naturalWidth,
@@ -172,9 +176,25 @@ function cropperReducer(
 				const newBoxH = sin2 * nat.width + cos2 * nat.height;
 
 				if ( oldBoxW > 0 && newBoxW > 0 ) {
+					const scaleW = oldBoxW / newBoxW;
+					const scaleH = oldBoxH / newBoxH;
+
+					// Rescale crop rect to preserve pixel dimensions.
+					const newW = state.cropRect.width * scaleW;
+					const newH = state.cropRect.height * scaleH;
+					const cx = state.cropRect.x + state.cropRect.width / 2;
+					const cy = state.cropRect.y + state.cropRect.height / 2;
+					newState.cropRect = {
+						x: cx * scaleW - newW / 2,
+						y: cy * scaleH - newH / 2,
+						width: newW,
+						height: newH,
+					};
+
+					// Rescale pan to preserve screen position.
 					newState.crop = {
-						x: state.crop.x * ( oldBoxW / newBoxW ),
-						y: state.crop.y * ( oldBoxH / newBoxH ),
+						x: state.crop.x * scaleW,
+						y: state.crop.y * scaleH,
 					};
 				}
 			}
