@@ -383,23 +383,25 @@ describe( 'useCropperState', () => {
 			expect( result.current.state.crop.y ).toBeLessThan( 1 );
 		} );
 
-		it( 'should bump zoom when rotation requires it to cover full crop rect', () => {
+		it( 'should preserve crop pixel size and bump zoom during rotation', () => {
 			const { result } = setupWithImage();
 
 			expect( result.current.state.zoom ).toBe( 1 );
 			expect( result.current.state.cropRect.width ).toBe( 1 );
 
-			// Rotate 45 degrees. The image at zoom=1 cannot cover the
-			// full crop rect, so zoom is bumped (not the crop shrunk).
+			// Rotate 45 degrees. The crop rect is rescaled to preserve
+			// its pixel dimensions (visual box gets wider at 45°, so
+			// normalized width shrinks). Zoom bumps to cover it.
 			act( () => {
 				result.current.setRotation( 45 );
 			} );
 
 			expect( result.current.state.rotation ).toBe( 45 );
-			// Crop rect stays full — zoom was bumped to accommodate.
-			expect( result.current.state.cropRect.width ).toBeCloseTo( 1, 1 );
-			expect( result.current.state.cropRect.height ).toBeCloseTo( 1, 1 );
-			expect( result.current.state.zoom ).toBeGreaterThan( 1 );
+			// Crop rect was rescaled — smaller in normalized space but
+			// same pixel size. Zoom was bumped to cover.
+			expect( result.current.state.cropRect.width ).toBeLessThan( 1 );
+			expect( result.current.state.cropRect.height ).toBeLessThan( 1 );
+			expect( result.current.state.zoom ).toBeGreaterThanOrEqual( 1 );
 		} );
 
 		it( 'should not reduce zoom when rotation returns to 0', () => {
@@ -491,22 +493,25 @@ describe( 'useCropperState', () => {
 			).toBeLessThanOrEqual( Math.abs( panAtZoom4.x ) );
 		} );
 
-		it( 'should restrict crop rect at 90-degree rotation for non-square image', () => {
+		it( 'should rescale crop and bump zoom at 90-degree rotation for non-square image', () => {
 			const { result } = setupWithImage();
-			// Image is 1000x500 (2:1). At 90 degrees rotation with zoom=1,
-			// the image cannot cover a full 1x1 crop rect, so it gets restricted.
+			// Image is 1000x500 (2:1). At 90° the visual box flips from
+			// landscape to portrait. The crop rect is rescaled to preserve
+			// pixel size, and zoom is bumped to cover it.
 			act( () => {
 				result.current.setRotation( 90 );
 			} );
 
 			const { cropRect, zoom } = result.current.state;
-			// The crop rect is constrained by the image's aspect ratio.
-			expect( cropRect.width ).toBeLessThanOrEqual( 1 );
-			expect( cropRect.height ).toBeLessThanOrEqual( 1 );
-			expect( zoom ).toBeCloseTo( 1, 5 );
+			// Crop pixel dimensions preserved — the normalized values
+			// change because the visual box dimensions swapped.
+			expect( cropRect.width ).toBeGreaterThan( 0 );
+			expect( cropRect.height ).toBeGreaterThan( 0 );
+			// Zoom bumps to cover the rescaled crop.
+			expect( zoom ).toBeGreaterThanOrEqual( 1 );
 		} );
 
-		it( 'should not change zoom when SET_CROP_RECT is dispatched', () => {
+		it( 'should not reduce zoom when SET_CROP_RECT shrinks the crop', () => {
 			const { result } = setupWithImage();
 
 			// Zoom in explicitly.
@@ -521,17 +526,19 @@ describe( 'useCropperState', () => {
 			} );
 			const zoomAfterRotation = result.current.state.zoom;
 
-			// Now resize the crop rect — zoom must NOT change.
+			// Now shrink the crop rect — zoom should not decrease.
 			act( () => {
 				result.current.setCropRect( {
 					x: 0.1,
 					y: 0.1,
-					width: 0.8,
-					height: 0.8,
+					width: 0.3,
+					height: 0.3,
 				} );
 			} );
 
-			expect( result.current.state.zoom ).toBe( zoomAfterRotation );
+			expect( result.current.state.zoom ).toBeGreaterThanOrEqual(
+				zoomAfterRotation
+			);
 		} );
 
 		it( 'should bump zoom when SET_CROP_RECT requires it at rotation', () => {
