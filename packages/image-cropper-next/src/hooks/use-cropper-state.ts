@@ -148,154 +148,100 @@ function cropperReducer(
 			} );
 
 		case 'SET_ROTATION':
-			// Simple rotation without pixel-stable rescaling.
+			// Simple rotation — no pixel-stable rescaling.
 			return enforceContainment( {
 				...state,
 				rotation: normalizeRotation( action.payload ),
 			} );
 
 		case 'SNAP_ROTATE_90': {
-			// 90° snap that preserves the image selection (Google Photos
-			// style). The crop rect rotates with the image so the same
-			// content stays selected. Width↔height swap, center rotates
-			// around (0.5, 0.5), and zoom carries over.
-			const dir = action.payload.direction; // +1 = CW, -1 = CCW
-			const snapRotation = normalizeRotation( state.rotation + dir * 90 );
-			const { containerSize: snapContainer } = action.payload;
-			const newState90: CropperState = {
-				...state,
-				rotation: snapRotation,
-			};
+			// 90° snap: swap crop width↔height (selection rotates with
+			// image), re-center, reset pan. enforceContainment bumps zoom.
+			const dir90 = action.payload.direction;
+			const rot90 = normalizeRotation( state.rotation + dir90 * 90 );
+			const cs90 = action.payload.containerSize;
 
 			if ( state.image && state.image.naturalWidth > 0 ) {
 				const nat90: Size = {
 					width: state.image.naturalWidth,
 					height: state.image.naturalHeight,
 				};
-				const oldFit90 = getImageFit(
-					snapContainer,
-					nat90,
-					state.rotation
-				);
-				const newFit90 = getImageFit(
-					snapContainer,
-					nat90,
-					snapRotation
-				);
-				const oldVisW = oldFit90.visualSize.width;
-				const oldVisH = oldFit90.visualSize.height;
-				const newVisW = newFit90.visualSize.width;
-				const newVisH = newFit90.visualSize.height;
+				const oldFit = getImageFit( cs90, nat90, state.rotation );
+				const newFit = getImageFit( cs90, nat90, rot90 );
+				const oW = oldFit.visualSize.width;
+				const oH = oldFit.visualSize.height;
+				const nW = newFit.visualSize.width;
+				const nH = newFit.visualSize.height;
 
-				if (
-					oldVisW > 0 &&
-					oldVisH > 0 &&
-					newVisW > 0 &&
-					newVisH > 0
-				) {
-					// The crop rect center relative to visual center,
-					// in pixel space.
-					const oldCx = state.cropRect.x + state.cropRect.width / 2;
-					const oldCy = state.cropRect.y + state.cropRect.height / 2;
-					const pxOffX = ( oldCx - 0.5 ) * oldVisW;
-					const pxOffY = ( oldCy - 0.5 ) * oldVisH;
-					const pxW = state.cropRect.width * oldVisW;
-					const pxH = state.cropRect.height * oldVisH;
-
-					// Rotate the center offset 90° in pixel space.
-					// CW: (x, y) → (y, -x), CCW: (x, y) → (-y, x)
-					const rotOffX = dir > 0 ? pxOffY : -pxOffY;
-					const rotOffY = dir > 0 ? -pxOffX : pxOffX;
-
-					// Width↔height swap (the selection rotates).
-					const newPxW = pxH;
-					const newPxH = pxW;
-
-					// Convert back to normalized space at new rotation.
-					const newCx = 0.5 + rotOffX / newVisW;
-					const newCy = 0.5 + rotOffY / newVisH;
-					const newW = newPxW / newVisW;
-					const newH = newPxH / newVisH;
-					newState90.cropRect = {
-						x: newCx - newW / 2,
-						y: newCy - newH / 2,
-						width: newW,
-						height: newH,
-					};
-
-					// Rotate pan similarly.
-					const panPxX = state.crop.x * oldVisW;
-					const panPxY = state.crop.y * oldVisH;
-					newState90.crop = {
-						x: ( dir > 0 ? panPxY : -panPxY ) / newVisW,
-						y: ( dir > 0 ? -panPxX : panPxX ) / newVisH,
-					};
+				if ( oW > 0 && oH > 0 && nW > 0 && nH > 0 ) {
+					// Swap pixel width↔height, then convert to new
+					// normalized space and center.
+					const pxW = state.cropRect.width * oW;
+					const pxH = state.cropRect.height * oH;
+					const newCropW = pxH / nW; // swapped
+					const newCropH = pxW / nH; // swapped
+					return enforceContainment( {
+						...state,
+						rotation: rot90,
+						crop: { x: 0, y: 0 },
+						cropRect: {
+							x: 0.5 - newCropW / 2,
+							y: 0.5 - newCropH / 2,
+							width: newCropW,
+							height: newCropH,
+						},
+					} );
 				}
 			}
-
-			return enforceContainment( newState90 );
+			return enforceContainment( {
+				...state,
+				rotation: rot90,
+				crop: { x: 0, y: 0 },
+			} );
 		}
 
 		case 'SET_ROTATION_WITH_CONTAINER': {
-			// Pixel-stable rotation: rescale the crop rect so it keeps
-			// the same screen-pixel size and position as the visual
-			// bounding box changes. Uses actual pixel visual sizes
-			// (from getImageFit) instead of proportional ratios.
-			const newRotation = normalizeRotation( action.payload.rotation );
-			const { containerSize } = action.payload;
-			const newState: CropperState = {
-				...state,
-				rotation: newRotation,
-			};
+			// ±45° slider: preserve crop pixel size, re-center, reset pan.
+			// enforceContainment bumps zoom to cover.
+			const newRot = normalizeRotation( action.payload.rotation );
+			const cs = action.payload.containerSize;
 
 			if ( state.image && state.image.naturalWidth > 0 ) {
 				const nat: Size = {
 					width: state.image.naturalWidth,
 					height: state.image.naturalHeight,
 				};
-				const oldFit = getImageFit(
-					containerSize,
-					nat,
-					state.rotation
-				);
-				const newFit = getImageFit( containerSize, nat, newRotation );
-				const oldVisW = oldFit.visualSize.width;
-				const oldVisH = oldFit.visualSize.height;
-				const newVisW = newFit.visualSize.width;
-				const newVisH = newFit.visualSize.height;
+				const oldFit = getImageFit( cs, nat, state.rotation );
+				const newFit = getImageFit( cs, nat, newRot );
+				const oW = oldFit.visualSize.width;
+				const oH = oldFit.visualSize.height;
+				const nW = newFit.visualSize.width;
+				const nH = newFit.visualSize.height;
 
-				if (
-					oldVisW > 0 &&
-					oldVisH > 0 &&
-					newVisW > 0 &&
-					newVisH > 0
-				) {
-					const scaleW = oldVisW / newVisW;
-					const scaleH = oldVisH / newVisH;
-
-					// Rescale crop rect relative to visual center.
-					const oldCx = state.cropRect.x + state.cropRect.width / 2;
-					const oldCy = state.cropRect.y + state.cropRect.height / 2;
-					const newW = state.cropRect.width * scaleW;
-					const newH = state.cropRect.height * scaleH;
-					const newCx = 0.5 + ( oldCx - 0.5 ) * scaleW;
-					const newCy = 0.5 + ( oldCy - 0.5 ) * scaleH;
-					newState.cropRect = {
-						x: newCx - newW / 2,
-						y: newCy - newH / 2,
-						width: newW,
-						height: newH,
-					};
-
-					// Rescale pan to preserve screen position.
-					newState.crop = {
-						x: state.crop.x * scaleW,
-						y: state.crop.y * scaleH,
-					};
+				if ( oW > 0 && oH > 0 && nW > 0 && nH > 0 ) {
+					// Preserve pixel dimensions, center the crop.
+					const pxW = state.cropRect.width * oW;
+					const pxH = state.cropRect.height * oH;
+					const newCropW = pxW / nW;
+					const newCropH = pxH / nH;
+					return enforceContainment( {
+						...state,
+						rotation: newRot,
+						crop: { x: 0, y: 0 },
+						cropRect: {
+							x: 0.5 - newCropW / 2,
+							y: 0.5 - newCropH / 2,
+							width: newCropW,
+							height: newCropH,
+						},
+					} );
 				}
 			}
-
-			return enforceContainment( newState );
+			return enforceContainment( {
+				...state,
+				rotation: newRot,
+				crop: { x: 0, y: 0 },
+			} );
 		}
 
 		case 'SET_FLIP':
