@@ -8,7 +8,6 @@ import { useCallback, useRef } from '@wordpress/element';
  */
 import type { CropperAction, CropperState, Size } from '../core/types';
 import { MIN_ZOOM, MAX_ZOOM } from '../core/constants';
-import { normalizeRotation } from '../core/math/rotation';
 import { restrictPanZoom } from '../core/camera';
 
 /**
@@ -426,11 +425,9 @@ export function useInteraction(
 				case 'R': {
 					e.preventDefault();
 					dispatch( {
-						type: 'SET_ROTATION_WITH_CONTAINER',
+						type: 'SNAP_ROTATE_90',
 						payload: {
-							rotation: normalizeRotation(
-								currentState.rotation + 90
-							),
+							direction: 1,
 							containerSize,
 						},
 					} );
@@ -438,7 +435,7 @@ export function useInteraction(
 				}
 			}
 		},
-		[ dispatch, keyboardStep, minZoom, maxZoom ]
+		[ dispatch, keyboardStep, minZoom, maxZoom, containerSize ]
 	);
 
 	return {

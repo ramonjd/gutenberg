@@ -73,6 +73,7 @@ const WithControlsComponent = () => {
 		setFlip,
 		setZoom,
 		setCropRect,
+		snapRotate90,
 		reset,
 	} = useCropperState();
 
@@ -94,12 +95,18 @@ const WithControlsComponent = () => {
 	}, [] );
 
 	const handleRotateLeft = useCallback( () => {
-		setRotation( baseAngle - 90, getCropperContainerSize() );
-	}, [ baseAngle, setRotation, getCropperContainerSize ] );
+		const cs = getCropperContainerSize();
+		if ( cs ) {
+			snapRotate90( -1, cs );
+		}
+	}, [ snapRotate90, getCropperContainerSize ] );
 
 	const handleRotateRight = useCallback( () => {
-		setRotation( baseAngle + 90, getCropperContainerSize() );
-	}, [ baseAngle, setRotation, getCropperContainerSize ] );
+		const cs = getCropperContainerSize();
+		if ( cs ) {
+			snapRotate90( 1, cs );
+		}
+	}, [ snapRotate90, getCropperContainerSize ] );
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
@@ -437,8 +444,15 @@ export const ProgrammaticAPI: Story = {
  * Live crop preview showing the final export alongside the cropper.
  */
 const WithPreviewComponent = () => {
-	const { state, dispatch, setRotation, setFlip, setZoom, reset } =
-		useCropperState();
+	const {
+		state,
+		dispatch,
+		setRotation,
+		setFlip,
+		setZoom,
+		snapRotate90,
+		reset,
+	} = useCropperState();
 	const previewCropperRef = useRef< HTMLDivElement >( null );
 
 	const [ previewSrc, setPreviewSrc ] = useState< string | null >( null );
@@ -473,12 +487,18 @@ const WithPreviewComponent = () => {
 	}, [] );
 
 	const handleRotateLeft = useCallback( () => {
-		setRotation( baseAngle - 90, getPreviewContainerSize() );
-	}, [ baseAngle, setRotation, getPreviewContainerSize ] );
+		const cs = getPreviewContainerSize();
+		if ( cs ) {
+			snapRotate90( -1, cs );
+		}
+	}, [ snapRotate90, getPreviewContainerSize ] );
 
 	const handleRotateRight = useCallback( () => {
-		setRotation( baseAngle + 90, getPreviewContainerSize() );
-	}, [ baseAngle, setRotation, getPreviewContainerSize ] );
+		const cs = getPreviewContainerSize();
+		if ( cs ) {
+			snapRotate90( 1, cs );
+		}
+	}, [ snapRotate90, getPreviewContainerSize ] );
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
