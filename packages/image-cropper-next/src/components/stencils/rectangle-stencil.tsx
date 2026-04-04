@@ -68,16 +68,17 @@ type RectangleStencilProps = StencilProps;
  * the entire crop rect. Clicking on handles resizes it. Both are
  * constrained to cropBounds (image edge or container edge).
  *
- * @param props               Component props implementing StencilProps.
- * @param props.cropRect      The crop rectangle in normalized coordinates.
- * @param props.containerSize The container element dimensions in pixels.
- * @param props.imageSize     The rendered image dimensions in pixels.
- * @param props.onCropChange  Callback fired when the crop rect changes.
- * @param props.onResizeEnd   Callback fired when a resize drag ends (mouseup).
- * @param props.aspectRatio   Optional fixed aspect ratio (width / height).
- * @param props.freeformCrop  Whether resize handles are shown.
- * @param props.cropBounds    Maximum crop rect bounds from camera (zoom/rotation-aware).
- * @return The rectangle stencil element.
+ * @param props                   Component props implementing StencilProps.
+ * @param props.cropRect          The crop rectangle in normalized coordinates.
+ * @param props.containerSize     The container element dimensions in pixels.
+ * @param props.imageSize         The rendered image dimensions in pixels.
+ * @param props.onCropChange      Callback fired when the crop rect changes.
+ * @param props.onResizeEnd       Callback fired when a resize drag ends (mouseup).
+ * @param props.aspectRatio       Optional fixed aspect ratio (width / height).
+ * @param props.freeformCrop      Whether resize handles are shown.
+ * @param props.stencilTransition CSS transition string for settle animation.
+ * @param props.cropBounds        Maximum crop rect bounds from camera.
+ * @return                        The rectangle stencil element.
  */
 export function RectangleStencil( {
 	cropRect,
@@ -87,6 +88,7 @@ export function RectangleStencil( {
 	onResizeEnd,
 	aspectRatio,
 	freeformCrop = false,
+	stencilTransition,
 	cropBounds,
 }: RectangleStencilProps ) {
 	// Use cropBounds from the camera if available, otherwise default to [0,1].
@@ -434,6 +436,7 @@ export function RectangleStencil( {
 				top,
 				width,
 				height,
+				transition: stencilTransition,
 			} }
 		>
 			{ /* The crop rectangle interior — draggable in freeform mode */ }
