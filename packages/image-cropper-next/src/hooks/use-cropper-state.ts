@@ -151,10 +151,14 @@ function cropperReducer(
 				rotation: newRotation,
 			};
 
-			// The crop rect stays unchanged — enforceContainment will
-			// zoom IN (grow the image) so it always covers the crop.
-			// Only pan needs rescaling because it's in visual-normalized
-			// space and the visual bounding box changes with rotation.
+			// Both crop rect and pan are in visual-normalized space where
+			// [0,1] maps to the visual bounding box. The bounding box
+			// changes with rotation, so we rescale both to keep the crop
+			// visually static on screen. The rescaling is relative to the
+			// visual center (0.5, 0.5) to prevent translation drift.
+			//
+			// After rescaling, enforceContainment bumps zoom so the image
+			// always covers the (pixel-stable) crop rect.
 			if ( state.image && state.image.naturalWidth > 0 ) {
 				const nat = {
 					width: state.image.naturalWidth,
@@ -172,9 +176,28 @@ function cropperReducer(
 				const newBoxH = sin2 * nat.width + cos2 * nat.height;
 
 				if ( oldBoxW > 0 && newBoxW > 0 ) {
+					const scaleW = oldBoxW / newBoxW;
+					const scaleH = oldBoxH / newBoxH;
+
+					// Rescale crop rect — preserve pixel size and
+					// position relative to the visual center (0.5, 0.5).
+					const oldCx = state.cropRect.x + state.cropRect.width / 2;
+					const oldCy = state.cropRect.y + state.cropRect.height / 2;
+					const newW = state.cropRect.width * scaleW;
+					const newH = state.cropRect.height * scaleH;
+					const newCx = 0.5 + ( oldCx - 0.5 ) * scaleW;
+					const newCy = 0.5 + ( oldCy - 0.5 ) * scaleH;
+					newState.cropRect = {
+						x: newCx - newW / 2,
+						y: newCy - newH / 2,
+						width: newW,
+						height: newH,
+					};
+
+					// Rescale pan to preserve screen position.
 					newState.crop = {
-						x: state.crop.x * ( oldBoxW / newBoxW ),
-						y: state.crop.y * ( oldBoxH / newBoxH ),
+						x: state.crop.x * scaleW,
+						y: state.crop.y * scaleH,
 					};
 				}
 			}
