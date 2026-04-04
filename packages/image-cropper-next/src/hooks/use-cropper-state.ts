@@ -13,11 +13,12 @@ import type {
 	NormalizedPoint,
 	NormalizedRect,
 	Flip,
+	Size,
 } from '../core/types';
 import { DEFAULT_STATE, MAX_ZOOM } from '../core/constants';
 import { applyOperationToState } from '../core/transforms/pipeline';
-import { normalizeRotation, degreesToRadians } from '../core/math/rotation';
-import { restrictPanZoom, restrictCropRect } from '../core/camera';
+import { normalizeRotation } from '../core/math/rotation';
+import { restrictPanZoom, restrictCropRect, getImageFit } from '../core/camera';
 import { exportCroppedImage } from '../core/export/canvas-renderer';
 
 /**
@@ -33,7 +34,7 @@ export interface UseCropperStateReturn {
 	/** Set the zoom level. Clamped to [1, 10]. */
 	setZoom: ( zoom: number ) => void;
 	/** Set the rotation in degrees. Normalized to [0, 360). */
-	setRotation: ( rotation: number ) => void;
+	setRotation: ( rotation: number, containerSize?: Size ) => void;
 	/** Set the flip state. */
 	setFlip: ( flip: Flip ) => void;
 	/** Set the crop rectangle in normalized coordinates. */
@@ -144,43 +145,52 @@ function cropperReducer(
 				zoom: Math.min( MAX_ZOOM, Math.max( 1, action.payload ) ),
 			} );
 
-		case 'SET_ROTATION': {
-			const newRotation = normalizeRotation( action.payload );
+		case 'SET_ROTATION':
+			// Simple rotation without pixel-stable rescaling.
+			// Used by keyboard shortcuts and 90° buttons.
+			return enforceContainment( {
+				...state,
+				rotation: normalizeRotation( action.payload ),
+			} );
+
+		case 'SET_ROTATION_WITH_CONTAINER': {
+			// Pixel-stable rotation: rescale the crop rect so it keeps
+			// the same screen-pixel size and position as the visual
+			// bounding box changes. Uses actual pixel visual sizes
+			// (from getImageFit) instead of proportional ratios.
+			const newRotation = normalizeRotation( action.payload.rotation );
+			const { containerSize } = action.payload;
 			const newState: CropperState = {
 				...state,
 				rotation: newRotation,
 			};
 
-			// Both crop rect and pan are in visual-normalized space where
-			// [0,1] maps to the visual bounding box. The bounding box
-			// changes with rotation, so we rescale both to keep the crop
-			// visually static on screen. The rescaling is relative to the
-			// visual center (0.5, 0.5) to prevent translation drift.
-			//
-			// After rescaling, enforceContainment bumps zoom so the image
-			// always covers the (pixel-stable) crop rect.
 			if ( state.image && state.image.naturalWidth > 0 ) {
-				const nat = {
+				const nat: Size = {
 					width: state.image.naturalWidth,
 					height: state.image.naturalHeight,
 				};
-				const rad1 = degreesToRadians( state.rotation );
-				const rad2 = degreesToRadians( newRotation );
-				const cos1 = Math.abs( Math.cos( rad1 ) );
-				const sin1 = Math.abs( Math.sin( rad1 ) );
-				const cos2 = Math.abs( Math.cos( rad2 ) );
-				const sin2 = Math.abs( Math.sin( rad2 ) );
-				const oldBoxW = cos1 * nat.width + sin1 * nat.height;
-				const oldBoxH = sin1 * nat.width + cos1 * nat.height;
-				const newBoxW = cos2 * nat.width + sin2 * nat.height;
-				const newBoxH = sin2 * nat.width + cos2 * nat.height;
+				const oldFit = getImageFit(
+					containerSize,
+					nat,
+					state.rotation
+				);
+				const newFit = getImageFit( containerSize, nat, newRotation );
+				const oldVisW = oldFit.visualSize.width;
+				const oldVisH = oldFit.visualSize.height;
+				const newVisW = newFit.visualSize.width;
+				const newVisH = newFit.visualSize.height;
 
-				if ( oldBoxW > 0 && newBoxW > 0 ) {
-					const scaleW = oldBoxW / newBoxW;
-					const scaleH = oldBoxH / newBoxH;
+				if (
+					oldVisW > 0 &&
+					oldVisH > 0 &&
+					newVisW > 0 &&
+					newVisH > 0
+				) {
+					const scaleW = oldVisW / newVisW;
+					const scaleH = oldVisH / newVisH;
 
-					// Rescale crop rect — preserve pixel size and
-					// position relative to the visual center (0.5, 0.5).
+					// Rescale crop rect relative to visual center.
 					const oldCx = state.cropRect.x + state.cropRect.width / 2;
 					const oldCy = state.cropRect.y + state.cropRect.height / 2;
 					const newW = state.cropRect.width * scaleW;
@@ -292,8 +302,18 @@ export function useCropperState(
 	);
 
 	const setRotation = useCallback(
-		( rotation: number ) => {
-			dispatch( { type: 'SET_ROTATION', payload: rotation } );
+		( rotation: number, containerSize?: Size ) => {
+			if ( containerSize ) {
+				dispatch( {
+					type: 'SET_ROTATION_WITH_CONTAINER',
+					payload: { rotation, containerSize },
+				} );
+			} else {
+				dispatch( {
+					type: 'SET_ROTATION',
+					payload: rotation,
+				} );
+			}
 		},
 		[ dispatch ]
 	);
