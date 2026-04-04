@@ -95,17 +95,7 @@ export type CropperAction =
 	| { type: 'SET_CROP'; payload: NormalizedPoint }
 	| { type: 'SET_ZOOM'; payload: number }
 	| { type: 'SET_ROTATION'; payload: number }
-	| {
-			type: 'SET_ROTATION_WITH_CONTAINER';
-			payload: { rotation: number; containerSize: Size };
-	  }
-	| {
-			type: 'SNAP_ROTATE_90';
-			payload: {
-				direction: 1 | -1;
-				containerSize: Size;
-			};
-	  }
+	| { type: 'SNAP_ROTATE_90'; payload: { direction: 1 | -1 } }
 	| { type: 'SET_FLIP'; payload: Flip }
 	| { type: 'SET_CROP_RECT'; payload: NormalizedRect }
 	| { type: 'APPLY_OPERATION'; payload: TransformOperation }

@@ -401,7 +401,7 @@ describe( 'useInteraction', () => {
 
 			expect( dispatchMock ).toHaveBeenCalledWith( {
 				type: 'SNAP_ROTATE_90',
-				payload: { direction: 1, containerSize },
+				payload: { direction: 1 },
 			} );
 		} );
 
@@ -417,7 +417,7 @@ describe( 'useInteraction', () => {
 
 			expect( dispatchMock ).toHaveBeenCalledWith( {
 				type: 'SNAP_ROTATE_90',
-				payload: { direction: 1, containerSize },
+				payload: { direction: 1 },
 			} );
 		} );
 

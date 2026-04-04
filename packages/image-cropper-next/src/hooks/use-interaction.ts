@@ -426,16 +426,13 @@ export function useInteraction(
 					e.preventDefault();
 					dispatch( {
 						type: 'SNAP_ROTATE_90',
-						payload: {
-							direction: 1,
-							containerSize,
-						},
+						payload: { direction: 1 },
 					} );
 					break;
 				}
 			}
 		},
-		[ dispatch, keyboardStep, minZoom, maxZoom, containerSize ]
+		[ dispatch, keyboardStep, minZoom, maxZoom ]
 	);
 
 	return {

@@ -79,43 +79,24 @@ const WithControlsComponent = () => {
 
 	const [ aspectRatioValue, setAspectRatioValue ] = useState( '0' );
 	const [ freeformCrop, setFreeformCrop ] = useState( false );
-	const cropperRef = useRef< HTMLDivElement >( null );
 
 	// The base cardinal angle (nearest 90° step) and the fine offset.
 	const baseAngle = Math.round( state.rotation / 90 ) * 90;
 	const fineOffset = state.rotation - baseAngle;
 
-	// Get the Cropper container size for pixel-stable rotation.
-	const getCropperContainerSize = useCallback( () => {
-		const el = cropperRef.current;
-		if ( ! el ) {
-			return undefined;
-		}
-		return { width: el.clientWidth, height: el.clientHeight };
-	}, [] );
-
 	const handleRotateLeft = useCallback( () => {
-		const cs = getCropperContainerSize();
-		if ( cs ) {
-			snapRotate90( -1, cs );
-		}
-	}, [ snapRotate90, getCropperContainerSize ] );
+		snapRotate90( -1 );
+	}, [ snapRotate90 ] );
 
 	const handleRotateRight = useCallback( () => {
-		const cs = getCropperContainerSize();
-		if ( cs ) {
-			snapRotate90( 1, cs );
-		}
-	}, [ snapRotate90, getCropperContainerSize ] );
+		snapRotate90( 1 );
+	}, [ snapRotate90 ] );
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setRotation(
-				baseAngle + parseFloat( event.target.value ),
-				getCropperContainerSize()
-			);
+			setRotation( baseAngle + parseFloat( event.target.value ) );
 		},
-		[ baseAngle, setRotation, getCropperContainerSize ]
+		[ baseAngle, setRotation ]
 	);
 
 	const handleFlipHorizontal = useCallback( () => {
@@ -273,7 +254,6 @@ const WithControlsComponent = () => {
 
 			<div className="image-cropper-next-story__container">
 				<Cropper
-					ref={ cropperRef }
 					src={ SAMPLE_IMAGE }
 					state={ state }
 					dispatch={ dispatch }
@@ -453,7 +433,6 @@ const WithPreviewComponent = () => {
 		snapRotate90,
 		reset,
 	} = useCropperState();
-	const previewCropperRef = useRef< HTMLDivElement >( null );
 
 	const [ previewSrc, setPreviewSrc ] = useState< string | null >( null );
 	const imageRef = useRef< HTMLImageElement | null >( null );
@@ -478,36 +457,19 @@ const WithPreviewComponent = () => {
 	const baseAngle = Math.round( state.rotation / 90 ) * 90;
 	const fineOffset = state.rotation - baseAngle;
 
-	const getPreviewContainerSize = useCallback( () => {
-		const el = previewCropperRef.current;
-		if ( ! el ) {
-			return undefined;
-		}
-		return { width: el.clientWidth, height: el.clientHeight };
-	}, [] );
-
 	const handleRotateLeft = useCallback( () => {
-		const cs = getPreviewContainerSize();
-		if ( cs ) {
-			snapRotate90( -1, cs );
-		}
-	}, [ snapRotate90, getPreviewContainerSize ] );
+		snapRotate90( -1 );
+	}, [ snapRotate90 ] );
 
 	const handleRotateRight = useCallback( () => {
-		const cs = getPreviewContainerSize();
-		if ( cs ) {
-			snapRotate90( 1, cs );
-		}
-	}, [ snapRotate90, getPreviewContainerSize ] );
+		snapRotate90( 1 );
+	}, [ snapRotate90 ] );
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setRotation(
-				baseAngle + parseFloat( event.target.value ),
-				getPreviewContainerSize()
-			);
+			setRotation( baseAngle + parseFloat( event.target.value ) );
 		},
-		[ baseAngle, setRotation, getPreviewContainerSize ]
+		[ baseAngle, setRotation ]
 	);
 
 	const handleFlipHorizontal = useCallback( () => {
@@ -585,7 +547,6 @@ const WithPreviewComponent = () => {
 					<strong>Cropper</strong>
 					<div className="image-cropper-next-story__container">
 						<Cropper
-							ref={ previewCropperRef }
 							src={ SAMPLE_IMAGE }
 							state={ state }
 							dispatch={ dispatch }

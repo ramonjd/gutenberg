@@ -13,12 +13,11 @@ import type {
 	NormalizedPoint,
 	NormalizedRect,
 	Flip,
-	Size,
 } from '../core/types';
 import { DEFAULT_STATE, MAX_ZOOM } from '../core/constants';
 import { applyOperationToState } from '../core/transforms/pipeline';
 import { normalizeRotation } from '../core/math/rotation';
-import { restrictPanZoom, restrictCropRect, getImageFit } from '../core/camera';
+import { restrictPanZoom, restrictCropRect } from '../core/camera';
 import { exportCroppedImage } from '../core/export/canvas-renderer';
 
 /**
@@ -34,11 +33,11 @@ export interface UseCropperStateReturn {
 	/** Set the zoom level. Clamped to [1, 10]. */
 	setZoom: ( zoom: number ) => void;
 	/** Set the rotation in degrees. Normalized to [0, 360). */
-	setRotation: ( rotation: number, containerSize?: Size ) => void;
+	setRotation: ( rotation: number ) => void;
 	/** Set the flip state. */
 	setFlip: ( flip: Flip ) => void;
 	/** Snap rotate 90° preserving the image selection (Google Photos style). */
-	snapRotate90: ( direction: 1 | -1, containerSize: Size ) => void;
+	snapRotate90: ( direction: 1 | -1 ) => void;
 	/** Set the crop rectangle in normalized coordinates. */
 	setCropRect: ( rect: NormalizedRect ) => void;
 	/** Apply a transform operation through the pipeline. */
@@ -148,99 +147,39 @@ function cropperReducer(
 			} );
 
 		case 'SET_ROTATION':
-			// Simple rotation — no pixel-stable rescaling.
+			// Rotation: crop stays where it is, enforceContainment
+			// bumps zoom so the image covers the crop.
 			return enforceContainment( {
 				...state,
 				rotation: normalizeRotation( action.payload ),
 			} );
 
+		case 'SET_ROTATION_WITH_CONTAINER':
+			// Same as SET_ROTATION — containerSize is no longer needed.
+			// Kept for API compatibility; may be removed later.
+			return enforceContainment( {
+				...state,
+				rotation: normalizeRotation( action.payload.rotation ),
+			} );
+
 		case 'SNAP_ROTATE_90': {
-			// 90° snap: swap crop width↔height (selection rotates with
-			// image), re-center, reset pan. enforceContainment bumps zoom.
+			// 90° snap: swap crop width↔height so the selection rotates
+			// with the image (Google Photos style). Keep the same center.
+			// enforceContainment bumps zoom to cover.
 			const dir90 = action.payload.direction;
 			const rot90 = normalizeRotation( state.rotation + dir90 * 90 );
-			const cs90 = action.payload.containerSize;
-
-			if ( state.image && state.image.naturalWidth > 0 ) {
-				const nat90: Size = {
-					width: state.image.naturalWidth,
-					height: state.image.naturalHeight,
-				};
-				const oldFit = getImageFit( cs90, nat90, state.rotation );
-				const newFit = getImageFit( cs90, nat90, rot90 );
-				const oW = oldFit.visualSize.width;
-				const oH = oldFit.visualSize.height;
-				const nW = newFit.visualSize.width;
-				const nH = newFit.visualSize.height;
-
-				if ( oW > 0 && oH > 0 && nW > 0 && nH > 0 ) {
-					// Swap pixel width↔height, then convert to new
-					// normalized space and center.
-					const pxW = state.cropRect.width * oW;
-					const pxH = state.cropRect.height * oH;
-					const newCropW = pxH / nW; // swapped
-					const newCropH = pxW / nH; // swapped
-					return enforceContainment( {
-						...state,
-						rotation: rot90,
-						crop: { x: 0, y: 0 },
-						cropRect: {
-							x: 0.5 - newCropW / 2,
-							y: 0.5 - newCropH / 2,
-							width: newCropW,
-							height: newCropH,
-						},
-					} );
-				}
-			}
+			const cr = state.cropRect;
+			const cx = cr.x + cr.width / 2;
+			const cy = cr.y + cr.height / 2;
 			return enforceContainment( {
 				...state,
 				rotation: rot90,
-				crop: { x: 0, y: 0 },
-			} );
-		}
-
-		case 'SET_ROTATION_WITH_CONTAINER': {
-			// ±45° slider: preserve crop pixel size, re-center, reset pan.
-			// enforceContainment bumps zoom to cover.
-			const newRot = normalizeRotation( action.payload.rotation );
-			const cs = action.payload.containerSize;
-
-			if ( state.image && state.image.naturalWidth > 0 ) {
-				const nat: Size = {
-					width: state.image.naturalWidth,
-					height: state.image.naturalHeight,
-				};
-				const oldFit = getImageFit( cs, nat, state.rotation );
-				const newFit = getImageFit( cs, nat, newRot );
-				const oW = oldFit.visualSize.width;
-				const oH = oldFit.visualSize.height;
-				const nW = newFit.visualSize.width;
-				const nH = newFit.visualSize.height;
-
-				if ( oW > 0 && oH > 0 && nW > 0 && nH > 0 ) {
-					// Preserve pixel dimensions, center the crop.
-					const pxW = state.cropRect.width * oW;
-					const pxH = state.cropRect.height * oH;
-					const newCropW = pxW / nW;
-					const newCropH = pxH / nH;
-					return enforceContainment( {
-						...state,
-						rotation: newRot,
-						crop: { x: 0, y: 0 },
-						cropRect: {
-							x: 0.5 - newCropW / 2,
-							y: 0.5 - newCropH / 2,
-							width: newCropW,
-							height: newCropH,
-						},
-					} );
-				}
-			}
-			return enforceContainment( {
-				...state,
-				rotation: newRot,
-				crop: { x: 0, y: 0 },
+				cropRect: {
+					x: cx - cr.height / 2,
+					y: cy - cr.width / 2,
+					width: cr.height,
+					height: cr.width,
+				},
 			} );
 		}
 
@@ -331,18 +270,8 @@ export function useCropperState(
 	);
 
 	const setRotation = useCallback(
-		( rotation: number, containerSize?: Size ) => {
-			if ( containerSize ) {
-				dispatch( {
-					type: 'SET_ROTATION_WITH_CONTAINER',
-					payload: { rotation, containerSize },
-				} );
-			} else {
-				dispatch( {
-					type: 'SET_ROTATION',
-					payload: rotation,
-				} );
-			}
+		( rotation: number ) => {
+			dispatch( { type: 'SET_ROTATION', payload: rotation } );
 		},
 		[ dispatch ]
 	);
@@ -355,10 +284,10 @@ export function useCropperState(
 	);
 
 	const snapRotate90 = useCallback(
-		( direction: 1 | -1, containerSize: Size ) => {
+		( direction: 1 | -1 ) => {
 			dispatch( {
 				type: 'SNAP_ROTATE_90',
-				payload: { direction, containerSize },
+				payload: { direction },
 			} );
 		},
 		[ dispatch ]
