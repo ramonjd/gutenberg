@@ -147,25 +147,27 @@ function cropperReducer(
 			} );
 
 		case 'SET_ROTATION':
-			// Rotation: crop stays where it is, enforceContainment
-			// bumps zoom so the image covers the crop.
+			// Rotation: crop stays where it is, pan resets to 0 so the
+			// rotation visually happens around the crop center (which
+			// is at 0.5,0.5 after settle). enforceContainment bumps zoom.
 			return enforceContainment( {
 				...state,
 				rotation: normalizeRotation( action.payload ),
+				crop: { x: 0, y: 0 },
 			} );
 
 		case 'SET_ROTATION_WITH_CONTAINER':
-			// Same as SET_ROTATION — containerSize is no longer needed.
-			// Kept for API compatibility; may be removed later.
+			// Same as SET_ROTATION.
 			return enforceContainment( {
 				...state,
 				rotation: normalizeRotation( action.payload.rotation ),
+				crop: { x: 0, y: 0 },
 			} );
 
 		case 'SNAP_ROTATE_90': {
 			// 90° snap: swap crop width↔height so the selection rotates
-			// with the image (Google Photos style). Keep the same center.
-			// enforceContainment bumps zoom to cover.
+			// with the image (Google Photos style). Keep the same center,
+			// reset pan so rotation visually happens around crop center.
 			const dir90 = action.payload.direction;
 			const rot90 = normalizeRotation( state.rotation + dir90 * 90 );
 			const cr = state.cropRect;
@@ -174,6 +176,7 @@ function cropperReducer(
 			return enforceContainment( {
 				...state,
 				rotation: rot90,
+				crop: { x: 0, y: 0 },
 				cropRect: {
 					x: cx - cr.height / 2,
 					y: cy - cr.width / 2,
