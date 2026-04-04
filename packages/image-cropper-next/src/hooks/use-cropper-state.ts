@@ -37,6 +37,8 @@ export interface UseCropperStateReturn {
 	setRotation: ( rotation: number, containerSize?: Size ) => void;
 	/** Set the flip state. */
 	setFlip: ( flip: Flip ) => void;
+	/** Snap rotate 90° preserving the image selection (Google Photos style). */
+	snapRotate90: ( direction: 1 | -1, containerSize: Size ) => void;
 	/** Set the crop rectangle in normalized coordinates. */
 	setCropRect: ( rect: NormalizedRect ) => void;
 	/** Apply a transform operation through the pipeline. */
@@ -147,11 +149,92 @@ function cropperReducer(
 
 		case 'SET_ROTATION':
 			// Simple rotation without pixel-stable rescaling.
-			// Used by keyboard shortcuts and 90° buttons.
 			return enforceContainment( {
 				...state,
 				rotation: normalizeRotation( action.payload ),
 			} );
+
+		case 'SNAP_ROTATE_90': {
+			// 90° snap that preserves the image selection (Google Photos
+			// style). The crop rect rotates with the image so the same
+			// content stays selected. Width↔height swap, center rotates
+			// around (0.5, 0.5), and zoom carries over.
+			const dir = action.payload.direction; // +1 = CW, -1 = CCW
+			const snapRotation = normalizeRotation( state.rotation + dir * 90 );
+			const { containerSize: snapContainer } = action.payload;
+			const newState90: CropperState = {
+				...state,
+				rotation: snapRotation,
+			};
+
+			if ( state.image && state.image.naturalWidth > 0 ) {
+				const nat90: Size = {
+					width: state.image.naturalWidth,
+					height: state.image.naturalHeight,
+				};
+				const oldFit90 = getImageFit(
+					snapContainer,
+					nat90,
+					state.rotation
+				);
+				const newFit90 = getImageFit(
+					snapContainer,
+					nat90,
+					snapRotation
+				);
+				const oldVisW = oldFit90.visualSize.width;
+				const oldVisH = oldFit90.visualSize.height;
+				const newVisW = newFit90.visualSize.width;
+				const newVisH = newFit90.visualSize.height;
+
+				if (
+					oldVisW > 0 &&
+					oldVisH > 0 &&
+					newVisW > 0 &&
+					newVisH > 0
+				) {
+					// The crop rect center relative to visual center,
+					// in pixel space.
+					const oldCx = state.cropRect.x + state.cropRect.width / 2;
+					const oldCy = state.cropRect.y + state.cropRect.height / 2;
+					const pxOffX = ( oldCx - 0.5 ) * oldVisW;
+					const pxOffY = ( oldCy - 0.5 ) * oldVisH;
+					const pxW = state.cropRect.width * oldVisW;
+					const pxH = state.cropRect.height * oldVisH;
+
+					// Rotate the center offset 90° in pixel space.
+					// CW: (x, y) → (y, -x), CCW: (x, y) → (-y, x)
+					const rotOffX = dir > 0 ? pxOffY : -pxOffY;
+					const rotOffY = dir > 0 ? -pxOffX : pxOffX;
+
+					// Width↔height swap (the selection rotates).
+					const newPxW = pxH;
+					const newPxH = pxW;
+
+					// Convert back to normalized space at new rotation.
+					const newCx = 0.5 + rotOffX / newVisW;
+					const newCy = 0.5 + rotOffY / newVisH;
+					const newW = newPxW / newVisW;
+					const newH = newPxH / newVisH;
+					newState90.cropRect = {
+						x: newCx - newW / 2,
+						y: newCy - newH / 2,
+						width: newW,
+						height: newH,
+					};
+
+					// Rotate pan similarly.
+					const panPxX = state.crop.x * oldVisW;
+					const panPxY = state.crop.y * oldVisH;
+					newState90.crop = {
+						x: ( dir > 0 ? panPxY : -panPxY ) / newVisW,
+						y: ( dir > 0 ? -panPxX : panPxX ) / newVisH,
+					};
+				}
+			}
+
+			return enforceContainment( newState90 );
+		}
 
 		case 'SET_ROTATION_WITH_CONTAINER': {
 			// Pixel-stable rotation: rescale the crop rect so it keeps
@@ -325,6 +408,16 @@ export function useCropperState(
 		[ dispatch ]
 	);
 
+	const snapRotate90 = useCallback(
+		( direction: 1 | -1, containerSize: Size ) => {
+			dispatch( {
+				type: 'SNAP_ROTATE_90',
+				payload: { direction, containerSize },
+			} );
+		},
+		[ dispatch ]
+	);
+
 	const setCropRect = useCallback(
 		( rect: NormalizedRect ) => {
 			dispatch( { type: 'SET_CROP_RECT', payload: rect } );
@@ -375,6 +468,7 @@ export function useCropperState(
 		setZoom,
 		setRotation,
 		setFlip,
+		snapRotate90,
 		setCropRect,
 		applyOperation,
 		reset,
