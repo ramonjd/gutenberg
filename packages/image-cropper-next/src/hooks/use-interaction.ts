@@ -426,10 +426,13 @@ export function useInteraction(
 				case 'R': {
 					e.preventDefault();
 					dispatch( {
-						type: 'SET_ROTATION',
-						payload: normalizeRotation(
-							currentState.rotation + 90
-						),
+						type: 'SET_ROTATION_WITH_CONTAINER',
+						payload: {
+							rotation: normalizeRotation(
+								currentState.rotation + 90
+							),
+							containerSize,
+						},
 					} );
 					break;
 				}
