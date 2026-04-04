@@ -78,10 +78,20 @@ const WithControlsComponent = () => {
 
 	const [ aspectRatioValue, setAspectRatioValue ] = useState( '0' );
 	const [ freeformCrop, setFreeformCrop ] = useState( false );
+	const cropperRef = useRef< HTMLDivElement >( null );
 
 	// The base cardinal angle (nearest 90° step) and the fine offset.
 	const baseAngle = Math.round( state.rotation / 90 ) * 90;
 	const fineOffset = state.rotation - baseAngle;
+
+	// Get the Cropper container size for pixel-stable rotation.
+	const getCropperContainerSize = useCallback( () => {
+		const el = cropperRef.current;
+		if ( ! el ) {
+			return undefined;
+		}
+		return { width: el.clientWidth, height: el.clientHeight };
+	}, [] );
 
 	const handleRotateLeft = useCallback( () => {
 		setRotation( baseAngle - 90 );
@@ -93,9 +103,12 @@ const WithControlsComponent = () => {
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setRotation( baseAngle + parseFloat( event.target.value ) );
+			setRotation(
+				baseAngle + parseFloat( event.target.value ),
+				getCropperContainerSize()
+			);
 		},
-		[ baseAngle, setRotation ]
+		[ baseAngle, setRotation, getCropperContainerSize ]
 	);
 
 	const handleFlipHorizontal = useCallback( () => {
@@ -253,6 +266,7 @@ const WithControlsComponent = () => {
 
 			<div className="image-cropper-next-story__container">
 				<Cropper
+					ref={ cropperRef }
 					src={ SAMPLE_IMAGE }
 					state={ state }
 					dispatch={ dispatch }
@@ -425,6 +439,7 @@ export const ProgrammaticAPI: Story = {
 const WithPreviewComponent = () => {
 	const { state, dispatch, setRotation, setFlip, setZoom, reset } =
 		useCropperState();
+	const previewCropperRef = useRef< HTMLDivElement >( null );
 
 	const [ previewSrc, setPreviewSrc ] = useState< string | null >( null );
 	const imageRef = useRef< HTMLImageElement | null >( null );
@@ -457,11 +472,22 @@ const WithPreviewComponent = () => {
 		setRotation( baseAngle + 90 );
 	}, [ baseAngle, setRotation ] );
 
+	const getPreviewContainerSize = useCallback( () => {
+		const el = previewCropperRef.current;
+		if ( ! el ) {
+			return undefined;
+		}
+		return { width: el.clientWidth, height: el.clientHeight };
+	}, [] );
+
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setRotation( baseAngle + parseFloat( event.target.value ) );
+			setRotation(
+				baseAngle + parseFloat( event.target.value ),
+				getPreviewContainerSize()
+			);
 		},
-		[ baseAngle, setRotation ]
+		[ baseAngle, setRotation, getPreviewContainerSize ]
 	);
 
 	const handleFlipHorizontal = useCallback( () => {
@@ -539,6 +565,7 @@ const WithPreviewComponent = () => {
 					<strong>Cropper</strong>
 					<div className="image-cropper-next-story__container">
 						<Cropper
+							ref={ previewCropperRef }
 							src={ SAMPLE_IMAGE }
 							state={ state }
 							dispatch={ dispatch }
