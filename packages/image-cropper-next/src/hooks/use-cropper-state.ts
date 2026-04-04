@@ -195,6 +195,38 @@ function cropperReducer(
 				cropRect: action.payload,
 			} );
 
+		case 'SETTLE_CROP': {
+			// After a resize drag ends: expand the crop to fill the
+			// available height (maintaining its pixel aspect ratio),
+			// center it, and reset pan. Zoom adjusts via enforceContainment.
+			const cr = state.cropRect;
+			if ( cr.width === 0 || cr.height === 0 || ! state.image ) {
+				return state;
+			}
+			// The crop's pixel aspect ratio (w/h).
+			// In normalized space: pixelRatio = (cr.width * visualW) / (cr.height * visualH)
+			// But we don't have visualW/H here. We can express the ratio
+			// in normalized terms and scale to fill height = 1.
+			const normalizedRatio = cr.width / cr.height;
+			let h = 1;
+			let w = normalizedRatio;
+			if ( w > 1 ) {
+				// Wider than visual area — fill width instead.
+				w = 1;
+				h = 1 / normalizedRatio;
+			}
+			return enforceContainment( {
+				...state,
+				crop: { x: 0, y: 0 },
+				cropRect: {
+					x: ( 1 - w ) / 2,
+					y: ( 1 - h ) / 2,
+					width: w,
+					height: h,
+				},
+			} );
+		}
+
 		case 'APPLY_OPERATION':
 			return enforceContainment(
 				applyOperationToState( state, action.payload )

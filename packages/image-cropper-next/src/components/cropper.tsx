@@ -249,7 +249,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		);
 
 		/**
-		 * Handle crop rect changes from the stencil.
+		 * Handle crop rect changes from the stencil (during drag).
 		 */
 		const handleCropChange = useCallback(
 			( rect: NormalizedRect ) => {
@@ -257,6 +257,13 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			},
 			[ dispatch ]
 		);
+
+		/**
+		 * Handle resize end — settle the crop rect (re-center, fill height).
+		 */
+		const handleResizeEnd = useCallback( () => {
+			dispatch( { type: 'SETTLE_CROP' } );
+		}, [ dispatch ] );
 
 		// Compute the image's CSS style.
 		const imageStyle = useMemo( (): React.CSSProperties => {
@@ -327,6 +334,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 					containerSize={ containerSize }
 					imageSize={ visualSize }
 					onCropChange={ handleCropChange }
+					onResizeEnd={ handleResizeEnd }
 					aspectRatio={ aspectRatio }
 					freeformCrop={ freeformCrop }
 					cropBounds={ cropBounds }

@@ -98,6 +98,7 @@ export type CropperAction =
 	| { type: 'SNAP_ROTATE_90'; payload: { direction: 1 | -1 } }
 	| { type: 'SET_FLIP'; payload: Flip }
 	| { type: 'SET_CROP_RECT'; payload: NormalizedRect }
+	| { type: 'SETTLE_CROP' }
 	| { type: 'APPLY_OPERATION'; payload: TransformOperation }
 	| { type: 'RESET'; payload?: Partial< CropperState > };
 
@@ -112,8 +113,10 @@ export interface StencilProps {
 	containerSize: Size;
 	/** The rendered image dimensions in pixels within the container. */
 	imageSize: Size;
-	/** Callback when the crop rectangle changes. */
+	/** Callback when the crop rectangle changes (during drag). */
 	onCropChange: ( rect: NormalizedRect ) => void;
+	/** Callback when a resize drag ends (mouseup after handle drag). */
+	onResizeEnd?: () => void;
 	/** Optional fixed aspect ratio (width / height) in pixel space. */
 	aspectRatio?: number;
 	/** Whether the crop handles are shown for freeform resizing. */
