@@ -146,20 +146,16 @@ function cropperReducer(
 
 		case 'SET_ROTATION': {
 			const newRotation = normalizeRotation( action.payload );
-			const newState = { ...state, rotation: newRotation };
+			const newState: CropperState = {
+				...state,
+				rotation: newRotation,
+			};
 
-			// The crop rect and pan are normalized to visualImageSize,
-			// which changes on rotation. Rescale both to preserve their
-			// screen-space pixel size and position.
-			//
-			// Skip only when the crop already fills the full visual
-			// space (width≈1 AND height≈1) — there's nothing to
-			// preserve and it must expand to fill the new footprint.
-			const isFull =
-				state.cropRect.width > 1 - 1e-9 &&
-				state.cropRect.height > 1 - 1e-9;
-
-			if ( ! isFull && state.image && state.image.naturalWidth > 0 ) {
+			// Pan is in visual-normalized space, which changes with rotation.
+			// Rescale pan to preserve the image's screen position.
+			// The crop rect stays unchanged — enforceContainment will
+			// bump zoom if the image can no longer cover it.
+			if ( state.image && state.image.naturalWidth > 0 ) {
 				const nat = {
 					width: state.image.naturalWidth,
 					height: state.image.naturalHeight,
@@ -176,25 +172,9 @@ function cropperReducer(
 				const newBoxH = sin2 * nat.width + cos2 * nat.height;
 
 				if ( oldBoxW > 0 && newBoxW > 0 ) {
-					const scaleW = oldBoxW / newBoxW;
-					const scaleH = oldBoxH / newBoxH;
-
-					// Rescale crop rect to preserve pixel size.
-					const newW = Math.min( state.cropRect.width * scaleW, 1 );
-					const newH = Math.min( state.cropRect.height * scaleH, 1 );
-					const cx = state.cropRect.x + state.cropRect.width / 2;
-					const cy = state.cropRect.y + state.cropRect.height / 2;
-					newState.cropRect = {
-						x: Math.max( 0, Math.min( cx - newW / 2, 1 - newW ) ),
-						y: Math.max( 0, Math.min( cy - newH / 2, 1 - newH ) ),
-						width: newW,
-						height: newH,
-					};
-
-					// Rescale pan offset to preserve screen position.
 					newState.crop = {
-						x: state.crop.x * scaleW,
-						y: state.crop.y * scaleH,
+						x: state.crop.x * ( oldBoxW / newBoxW ),
+						y: state.crop.y * ( oldBoxH / newBoxH ),
 					};
 				}
 			}
