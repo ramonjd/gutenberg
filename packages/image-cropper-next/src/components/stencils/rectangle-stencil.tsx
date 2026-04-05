@@ -51,27 +51,16 @@ interface DragState {
 }
 
 /**
- * Internal state for tracking a crop-area move interaction.
- */
-interface MoveState {
-	/** The mouse position (pixels) when the move started. */
-	startX: number;
-	startY: number;
-	/** The crop rect (normalized) when the move started. */
-	startRect: NormalizedRect;
-}
-
-/**
  * Props for the RectangleStencil component.
  */
 type RectangleStencilProps = StencilProps;
 
 /**
- * A rectangular crop stencil with resize handles and move support.
+ * A rectangular crop stencil with resize handles.
  *
- * In freeform mode, clicking and dragging inside the crop area moves
- * the entire crop rect. Clicking on handles resizes it. Both are
- * constrained to cropBounds (image edge or container edge).
+ * In freeform mode, handles resize the crop area. Clicks inside the
+ * crop pass through to the container for image panning. The crop
+ * auto-centers after resize via SETTLE_CROP.
  *
  * @param props                   Component props implementing StencilProps.
  * @param props.cropRect          The crop rectangle in normalized coordinates.
@@ -102,7 +91,6 @@ export function RectangleStencil( {
 	const boundsMaxX = cropBounds?.maxX ?? 1;
 	const boundsMaxY = cropBounds?.maxY ?? 1;
 	const [ dragState, setDragState ] = useState< DragState | null >( null );
-	const [ moveState, setMoveState ] = useState< MoveState | null >( null );
 	const hasLockedRatio = !! ( aspectRatio && aspectRatio > 0 );
 
 	// The normalized aspect ratio: the w/h ratio in normalized space that
@@ -139,27 +127,6 @@ export function RectangleStencil( {
 			}
 			setDragState( {
 				handle,
-				startX: event.clientX,
-				startY: event.clientY,
-				startRect: { ...cropRect },
-			} );
-		},
-		[ cropRect ]
-	);
-
-	/**
-	 * Start a move drag on the crop area interior.
-	 */
-	const handleMoveMouseDown = useCallback(
-		( event: React.MouseEvent ) => {
-			event.preventDefault();
-			event.stopPropagation();
-			// Blur any focused handle.
-			const ownerDoc = event.currentTarget.ownerDocument;
-			if ( ownerDoc.activeElement instanceof HTMLElement ) {
-				ownerDoc.activeElement.blur();
-			}
-			setMoveState( {
 				startX: event.clientX,
 				startY: event.clientY,
 				startRect: { ...cropRect },
@@ -337,48 +304,6 @@ export function RectangleStencil( {
 	);
 
 	/**
-	 * Compute a moved crop rect, clamped to bounds.
-	 */
-	const computeMovedRect = useCallback(
-		(
-			move: MoveState,
-			clientX: number,
-			clientY: number
-		): NormalizedRect => {
-			const dx =
-				imageSize.width > 0
-					? ( clientX - move.startX ) / imageSize.width
-					: 0;
-			const dy =
-				imageSize.height > 0
-					? ( clientY - move.startY ) / imageSize.height
-					: 0;
-
-			const s = move.startRect;
-
-			// Clamp so the entire rect stays within bounds.
-			const newX = Math.max(
-				boundsMinX,
-				Math.min( s.x + dx, boundsMaxX - s.width )
-			);
-			const newY = Math.max(
-				boundsMinY,
-				Math.min( s.y + dy, boundsMaxY - s.height )
-			);
-
-			return { x: newX, y: newY, width: s.width, height: s.height };
-		},
-		[
-			imageSize.width,
-			imageSize.height,
-			boundsMinX,
-			boundsMinY,
-			boundsMaxX,
-			boundsMaxY,
-		]
-	);
-
-	/**
 	 * Handle keyboard arrow keys on a resize handle.
 	 * Moves the corresponding edge(s) by KEYBOARD_STEP in normalized space.
 	 */
@@ -487,31 +412,6 @@ export function RectangleStencil( {
 		onResizeEnd,
 	] );
 
-	// Handle move drag events.
-	useEffect( () => {
-		if ( ! moveState ) {
-			return;
-		}
-
-		const handleMouseMove = ( event: MouseEvent ) => {
-			onCropChange(
-				computeMovedRect( moveState, event.clientX, event.clientY )
-			);
-		};
-
-		const handleMouseUp = () => {
-			setMoveState( null );
-		};
-
-		document.addEventListener( 'mousemove', handleMouseMove );
-		document.addEventListener( 'mouseup', handleMouseUp );
-
-		return () => {
-			document.removeEventListener( 'mousemove', handleMouseMove );
-			document.removeEventListener( 'mouseup', handleMouseUp );
-		};
-	}, [ moveState, computeMovedRect, onCropChange ] );
-
 	if ( containerSize.width === 0 || containerSize.height === 0 ) {
 		return null;
 	}
@@ -529,8 +429,8 @@ export function RectangleStencil( {
 				transition: stencilTransition,
 			} }
 		>
-			{ /* The crop rectangle interior — draggable in freeform mode */ }
-			{ /* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- crop area needs mouse events for move drag */ }
+			{ /* The crop rectangle border. pointer-events: none is set in
+				   CSS so clicks pass through to the container for panning. */ }
 			<div
 				className="wp-image-cropper-next__stencil-rect"
 				style={ {
@@ -538,10 +438,7 @@ export function RectangleStencil( {
 					height: '100%',
 					top: 0,
 					left: 0,
-					cursor: freeformCrop ? 'move' : undefined,
-					pointerEvents: freeformCrop ? 'auto' : 'none',
 				} }
-				onMouseDown={ freeformCrop ? handleMoveMouseDown : undefined }
 			/>
 			{ /* Resize handles — only in freeform mode */ }
 			{ freeformCrop &&
