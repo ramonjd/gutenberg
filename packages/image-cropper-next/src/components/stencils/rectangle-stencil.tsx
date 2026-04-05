@@ -149,6 +149,11 @@ export function RectangleStencil( {
 		( event: React.MouseEvent ) => {
 			event.preventDefault();
 			event.stopPropagation();
+			// Blur any focused handle.
+			const ownerDoc = event.currentTarget.ownerDocument;
+			if ( ownerDoc.activeElement instanceof HTMLElement ) {
+				ownerDoc.activeElement.blur();
+			}
 			setMoveState( {
 				startX: event.clientX,
 				startY: event.clientY,
