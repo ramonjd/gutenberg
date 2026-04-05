@@ -20,7 +20,12 @@ import {
 import { Cropper } from '../components/cropper';
 import { useCropperState } from '../hooks/use-cropper-state';
 import type { TransformOperation } from '../core/types';
-import { MIN_ZOOM, MAX_ZOOM, MAX_ROTATION_OFFSET } from '../core/constants';
+import {
+	MIN_ZOOM,
+	MAX_ZOOM,
+	MAX_ROTATION_OFFSET,
+	DEFAULT_ASPECT_RATIOS,
+} from '../core/constants';
 import {
 	loadImage,
 	renderToCanvas,
@@ -220,14 +225,14 @@ const WithControlsComponent = () => {
 						value={ aspectRatioValue }
 						onChange={ handleAspectRatioChange }
 					>
-						<option value="0">Free</option>
-						<option value="1">1:1 (Square)</option>
-						<option value={ ( 16 / 9 ).toString() }>
-							16:9 (Widescreen)
-						</option>
-						<option value={ ( 4 / 3 ).toString() }>
-							4:3 (Standard)
-						</option>
+						{ DEFAULT_ASPECT_RATIOS.map( ( preset ) => (
+							<option
+								key={ preset.label }
+								value={ preset.value.toString() }
+							>
+								{ preset.label }
+							</option>
+						) ) }
 					</select>
 				</div>
 
