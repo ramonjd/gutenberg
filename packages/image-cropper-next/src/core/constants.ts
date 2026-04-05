@@ -37,3 +37,42 @@ export const DEFAULT_STATE: CropperState = {
 	flip: { ...DEFAULT_FLIP },
 	cropRect: { ...DEFAULT_CROP_RECT },
 };
+
+/**
+ * An aspect ratio preset with a human-readable label.
+ */
+export interface AspectRatioPreset {
+	/** Display label (e.g., "Square (1:1)"). */
+	label: string;
+	/** The aspect ratio value (width / height). 0 = free / original. */
+	value: number;
+}
+
+/**
+ * Default aspect ratio presets. Consumers can use these as-is, override
+ * with their own list, or extend with additional presets.
+ *
+ * @example
+ * // Use defaults:
+ * <CropControls presets={ DEFAULT_ASPECT_RATIOS } />
+ *
+ * // Custom presets:
+ * const socialPresets = [
+ *   { label: 'Instagram Post', value: 1 },
+ *   { label: 'Instagram Story', value: 9 / 16 },
+ *   { label: 'YouTube Thumbnail', value: 16 / 9 },
+ * ];
+ *
+ * // Extend defaults:
+ * const extended = [ ...DEFAULT_ASPECT_RATIOS, { label: 'Cinema (21:9)', value: 21 / 9 } ];
+ */
+export const DEFAULT_ASPECT_RATIOS: AspectRatioPreset[] = [
+	{ label: 'Original', value: 0 },
+	{ label: 'Square (1:1)', value: 1 },
+	{ label: 'Landscape (16:9)', value: 16 / 9 },
+	{ label: 'Portrait (9:16)', value: 9 / 16 },
+	{ label: 'Classic (4:3)', value: 4 / 3 },
+	{ label: 'Classic portrait (3:4)', value: 3 / 4 },
+	{ label: 'Photo (3:2)', value: 3 / 2 },
+	{ label: 'Photo portrait (2:3)', value: 2 / 3 },
+];
