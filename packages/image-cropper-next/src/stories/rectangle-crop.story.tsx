@@ -574,3 +574,195 @@ const WithPreviewComponent = () => {
 export const WithPreview: Story = {
 	render: WithPreviewComponent,
 };
+
+/**
+ * Undo/redo history integration using the pipeline API.
+ * Demonstrates how to build a non-destructive editing workflow
+ * where every action is recorded and replayable.
+ */
+const UndoRedoComponent = () => {
+	const { state, dispatch } = useCropperState();
+
+	// Operation history: past and future stacks.
+	const [ past, setPast ] = useState< TransformOperation[][] >( [] );
+	const [ future, setFuture ] = useState< TransformOperation[][] >( [] );
+	const [ pipeline, setPipeline ] = useState< TransformOperation[] >( [] );
+
+	// Record an operation: push current pipeline to past, clear future.
+	const recordOperation = useCallback(
+		( op: TransformOperation ) => {
+			setPast( ( prev ) => [ ...prev, pipeline ] );
+			setFuture( [] );
+			const newPipeline = [ ...pipeline, op ];
+			setPipeline( newPipeline );
+
+			// Apply the operation via dispatch.
+			dispatch( { type: 'APPLY_OPERATION', payload: op } );
+		},
+		[ pipeline, dispatch ]
+	);
+
+	// Undo: pop from past, push current to future, replay.
+	const undo = useCallback( () => {
+		if ( past.length === 0 ) {
+			return;
+		}
+		const newPast = [ ...past ];
+		const previous = newPast.pop()!;
+		setPast( newPast );
+		setFuture( ( prev ) => [ ...prev, pipeline ] );
+		setPipeline( previous );
+
+		// Reset and replay the previous pipeline.
+		dispatch( { type: 'RESET' } );
+		for ( const op of previous ) {
+			dispatch( { type: 'APPLY_OPERATION', payload: op } );
+		}
+	}, [ past, pipeline, dispatch ] );
+
+	// Redo: pop from future, push current to past, replay.
+	const redo = useCallback( () => {
+		if ( future.length === 0 ) {
+			return;
+		}
+		const newFuture = [ ...future ];
+		const next = newFuture.pop()!;
+		setPast( ( prev ) => [ ...prev, pipeline ] );
+		setFuture( newFuture );
+		setPipeline( next );
+
+		// Reset and replay the next pipeline.
+		dispatch( { type: 'RESET' } );
+		for ( const op of next ) {
+			dispatch( { type: 'APPLY_OPERATION', payload: op } );
+		}
+	}, [ future, pipeline, dispatch ] );
+
+	// Keyboard shortcuts.
+	useEffect( () => {
+		const handler = ( e: KeyboardEvent ) => {
+			if ( ( e.metaKey || e.ctrlKey ) && e.key === 'z' ) {
+				e.preventDefault();
+				if ( e.shiftKey ) {
+					redo();
+				} else {
+					undo();
+				}
+			}
+		};
+		document.addEventListener( 'keydown', handler );
+		return () => document.removeEventListener( 'keydown', handler );
+	}, [ undo, redo ] );
+
+	return (
+		<div>
+			<div className="image-cropper-next-story__controls">
+				<div className="image-cropper-next-story__row">
+					<button onClick={ undo } disabled={ past.length === 0 }>
+						Undo ({ past.length })
+					</button>
+					<button onClick={ redo } disabled={ future.length === 0 }>
+						Redo ({ future.length })
+					</button>
+					<button
+						onClick={ () =>
+							recordOperation( {
+								type: 'rotate',
+								degrees: 15,
+							} )
+						}
+					>
+						Rotate +15
+					</button>
+					<button
+						onClick={ () =>
+							recordOperation( {
+								type: 'flip',
+								direction: 'horizontal',
+							} )
+						}
+					>
+						Flip H
+					</button>
+					<button
+						onClick={ () =>
+							recordOperation( {
+								type: 'zoom',
+								factor: Math.min( MAX_ZOOM, state.zoom + 0.5 ),
+							} )
+						}
+					>
+						Zoom In
+					</button>
+					<button
+						onClick={ () =>
+							recordOperation( {
+								type: 'crop',
+								rect: {
+									x: 0.1,
+									y: 0.1,
+									width: 0.8,
+									height: 0.8,
+								},
+							} )
+						}
+					>
+						Crop 80%
+					</button>
+				</div>
+			</div>
+
+			<div className="image-cropper-next-story__container">
+				<Cropper
+					src={ SAMPLE_IMAGE }
+					state={ state }
+					dispatch={ dispatch }
+					showDimming
+					freeformCrop
+				/>
+			</div>
+
+			<div style={ { marginTop: 16 } }>
+				<strong>Pipeline ({ pipeline.length } operations):</strong>
+				<pre className="image-cropper-next-story__state">
+					{ pipeline.length === 0
+						? '(empty)'
+						: pipeline
+								.map(
+									( op, i ) =>
+										`${ i + 1 }. ${ op.type }${
+											'degrees' in op
+												? ` ${ op.degrees }°`
+												: ''
+										}${
+											'direction' in op
+												? ` ${ op.direction }`
+												: ''
+										}${
+											'factor' in op
+												? ` ${ op.factor }x`
+												: ''
+										}${
+											'rect' in op
+												? ` (${ Math.round(
+														op.rect.width * 100
+												  ) }%×${ Math.round(
+														op.rect.height * 100
+												  ) }%)`
+												: ''
+										}`
+								)
+								.join( '\n' ) }
+				</pre>
+				<p style={ { fontSize: 12, color: '#666' } }>
+					Tip: Ctrl+Z / Cmd+Z to undo, Ctrl+Shift+Z / Cmd+Shift+Z to
+					redo
+				</p>
+			</div>
+		</div>
+	);
+};
+
+export const UndoRedo: Story = {
+	render: UndoRedoComponent,
+};
