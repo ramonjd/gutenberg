@@ -104,8 +104,8 @@ export function useInteraction(
 			e.preventDefault();
 
 			// Blur any focused handle so its focus ring doesn't linger.
-			const ownerDoc = e.currentTarget.ownerDocument;
-			if ( ownerDoc.activeElement instanceof HTMLElement ) {
+			const ownerDoc = e.currentTarget?.ownerDocument;
+			if ( ownerDoc?.activeElement instanceof HTMLElement ) {
 				ownerDoc.activeElement.blur();
 			}
 
