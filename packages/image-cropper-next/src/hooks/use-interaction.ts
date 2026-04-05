@@ -103,6 +103,12 @@ export function useInteraction(
 		( e: React.MouseEvent ) => {
 			e.preventDefault();
 
+			// Blur any focused handle so its focus ring doesn't linger.
+			const ownerDoc = e.currentTarget.ownerDocument;
+			if ( ownerDoc.activeElement instanceof HTMLElement ) {
+				ownerDoc.activeElement.blur();
+			}
+
 			const currentState = stateRef.current;
 			dragRef.current = {
 				startX: e.clientX,
