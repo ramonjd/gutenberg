@@ -6,6 +6,7 @@ import { DEFAULT_STATE } from '../../constants';
 import {
 	loadImage,
 	renderToCanvas,
+	applyToCanvas,
 	canvasToBlob,
 	canvasToDataURL,
 	exportCroppedImage,
@@ -458,5 +459,266 @@ describe( 'exportCroppedImage', () => {
 		);
 
 		expect( result ).toBeNull();
+	} );
+} );
+
+describe( 'renderToCanvas — export matrix verification', () => {
+	let mockCtx: ReturnType< typeof createMockContext >;
+
+	function setupMockCanvas() {
+		mockCtx = createMockContext();
+		jest.spyOn( document, 'createElement' ).mockImplementation(
+			( tag: string ) => {
+				if ( tag === 'canvas' ) {
+					return createMockCanvas(
+						mockCtx
+					) as unknown as HTMLElement;
+				}
+				return document.createElement( tag );
+			}
+		);
+	}
+
+	afterEach( () => {
+		jest.restoreAllMocks();
+	} );
+
+	it( 'identity state (no rotation, no zoom, full crop) should produce a 1:1 mapping', () => {
+		setupMockCanvas();
+		const state = createTestState( {
+			rotation: 0,
+			zoom: 1,
+			flip: { horizontal: false, vertical: false },
+			crop: { x: 0, y: 0 },
+			cropRect: { x: 0, y: 0, width: 1, height: 1 },
+		} );
+		const mockImage = {
+			naturalWidth: 800,
+			naturalHeight: 600,
+		} as HTMLImageElement;
+
+		renderToCanvas( mockImage, state );
+
+		expect( mockCtx.setTransform ).toHaveBeenCalledTimes( 1 );
+		const [ a, b, c, d, e, f ] = mockCtx.setTransform.mock.calls[ 0 ];
+
+		// For identity: a and d should be positive scale factors (output/input),
+		// b and c should be ~0 (no skew/rotation).
+		expect( b ).toBeCloseTo( 0, 5 );
+		expect( c ).toBeCloseTo( 0, 5 );
+		expect( a ).toBeGreaterThan( 0 );
+		expect( d ).toBeGreaterThan( 0 );
+		// a and d should be approximately equal (uniform scale for 800x600 full crop).
+		expect( a ).toBeCloseTo( d, 5 );
+
+		// Translation e,f should position the image so that pixel (0,0) maps
+		// to a consistent output location.
+		expect( typeof e ).toBe( 'number' );
+		expect( typeof f ).toBe( 'number' );
+	} );
+
+	it( '90-degree rotation should encode rotation in the matrix a,b,c,d values', () => {
+		setupMockCanvas();
+		const state = createTestState( {
+			rotation: 90,
+			zoom: 1,
+			flip: { horizontal: false, vertical: false },
+			crop: { x: 0, y: 0 },
+			cropRect: { x: 0, y: 0, width: 1, height: 1 },
+		} );
+		const mockImage = {
+			naturalWidth: 800,
+			naturalHeight: 600,
+		} as HTMLImageElement;
+
+		renderToCanvas( mockImage, state );
+
+		expect( mockCtx.setTransform ).toHaveBeenCalledTimes( 1 );
+		const [ a, b, c, d ] = mockCtx.setTransform.mock.calls[ 0 ];
+
+		// For a 90° rotation, cos(90°)=0, sin(90°)=1.
+		// The diagonal (a, d) should be ~0 and the off-diagonal (b, c) should
+		// be non-zero, encoding the rotation.
+		expect( a ).toBeCloseTo( 0, 3 );
+		expect( d ).toBeCloseTo( 0, 3 );
+		expect( Math.abs( b ) ).toBeGreaterThan( 0.1 );
+		expect( Math.abs( c ) ).toBeGreaterThan( 0.1 );
+		// b and c should have opposite signs for a proper rotation matrix.
+		expect( Math.sign( b ) ).not.toBe( Math.sign( c ) );
+	} );
+
+	it( 'zoom 2x should double the scale components', () => {
+		setupMockCanvas();
+
+		// Render at zoom=1.
+		const stateZ1 = createTestState( {
+			rotation: 0,
+			zoom: 1,
+			flip: { horizontal: false, vertical: false },
+			crop: { x: 0, y: 0 },
+			cropRect: { x: 0, y: 0, width: 1, height: 1 },
+		} );
+		const mockImage = {
+			naturalWidth: 800,
+			naturalHeight: 600,
+		} as HTMLImageElement;
+		renderToCanvas( mockImage, stateZ1 );
+		const [ a1, , , d1 ] = mockCtx.setTransform.mock.calls[ 0 ];
+
+		// Reset for zoom=2.
+		jest.restoreAllMocks();
+		setupMockCanvas();
+		const stateZ2 = createTestState( {
+			rotation: 0,
+			zoom: 2,
+			flip: { horizontal: false, vertical: false },
+			crop: { x: 0, y: 0 },
+			cropRect: { x: 0, y: 0, width: 1, height: 1 },
+		} );
+		renderToCanvas( mockImage, stateZ2 );
+		const [ a2, , , d2 ] = mockCtx.setTransform.mock.calls[ 0 ];
+
+		// The scale components should double.
+		expect( a2 ).toBeCloseTo( a1 * 2, 5 );
+		expect( d2 ).toBeCloseTo( d1 * 2, 5 );
+	} );
+
+	it( 'horizontal flip should negate the x-scale component', () => {
+		setupMockCanvas();
+
+		// No flip.
+		const stateNoFlip = createTestState( {
+			rotation: 0,
+			zoom: 1,
+			flip: { horizontal: false, vertical: false },
+			crop: { x: 0, y: 0 },
+			cropRect: { x: 0, y: 0, width: 1, height: 1 },
+		} );
+		const mockImage = {
+			naturalWidth: 800,
+			naturalHeight: 600,
+		} as HTMLImageElement;
+		renderToCanvas( mockImage, stateNoFlip );
+		const [ aNoFlip ] = mockCtx.setTransform.mock.calls[ 0 ];
+
+		// Reset for horizontal flip.
+		jest.restoreAllMocks();
+		setupMockCanvas();
+		const stateFlip = createTestState( {
+			rotation: 0,
+			zoom: 1,
+			flip: { horizontal: true, vertical: false },
+			crop: { x: 0, y: 0 },
+			cropRect: { x: 0, y: 0, width: 1, height: 1 },
+		} );
+		renderToCanvas( mockImage, stateFlip );
+		const [ aFlip ] = mockCtx.setTransform.mock.calls[ 0 ];
+
+		// The x-scale (a) should be negated.
+		expect( aNoFlip ).toBeGreaterThan( 0 );
+		expect( aFlip ).toBeLessThan( 0 );
+		expect( aFlip ).toBeCloseTo( -aNoFlip, 5 );
+	} );
+} );
+
+describe( 'applyToCanvas — export matrix verification', () => {
+	let mockCtx: ReturnType< typeof createMockContext >;
+	let canvasWidths: number[];
+	let canvasHeights: number[];
+
+	function setupMockCanvas() {
+		mockCtx = createMockContext();
+		canvasWidths = [];
+		canvasHeights = [];
+		jest.spyOn( document, 'createElement' ).mockImplementation(
+			( tag: string ) => {
+				if ( tag === 'canvas' ) {
+					const canvas = createMockCanvas( mockCtx );
+					// Track canvas size assignments.
+					const originalDescriptor = {
+						width: 0,
+						height: 0,
+					};
+					Object.defineProperty( canvas, 'width', {
+						get: () => originalDescriptor.width,
+						set: ( v: number ) => {
+							originalDescriptor.width = v;
+							canvasWidths.push( v );
+						},
+					} );
+					Object.defineProperty( canvas, 'height', {
+						get: () => originalDescriptor.height,
+						set: ( v: number ) => {
+							originalDescriptor.height = v;
+							canvasHeights.push( v );
+						},
+					} );
+					return canvas as unknown as HTMLElement;
+				}
+				return document.createElement( tag );
+			}
+		);
+	}
+
+	afterEach( () => {
+		jest.restoreAllMocks();
+	} );
+
+	it( 'should create a canvas with correct dimensions and call setTransform', () => {
+		setupMockCanvas();
+
+		const state = createTestState( {
+			rotation: 0,
+			zoom: 1,
+			flip: { horizontal: false, vertical: false },
+			crop: { x: 0, y: 0 },
+			cropRect: { x: 0.1, y: 0.2, width: 0.5, height: 0.5 },
+		} );
+		const sourceSize = { width: 800, height: 600 };
+		const mockSource = {} as CanvasImageSource;
+
+		applyToCanvas( mockSource, sourceSize, state );
+
+		// Canvas dimensions should match the crop region in natural pixels.
+		const expectedW = Math.round( 0.5 * 800 );
+		const expectedH = Math.round( 0.5 * 600 );
+		expect( canvasWidths ).toContain( expectedW );
+		expect( canvasHeights ).toContain( expectedH );
+
+		// setTransform should be called with 6 numeric matrix values.
+		expect( mockCtx.setTransform ).toHaveBeenCalledTimes( 1 );
+		expect( mockCtx.setTransform ).toHaveBeenCalledWith(
+			expect.any( Number ),
+			expect.any( Number ),
+			expect.any( Number ),
+			expect.any( Number ),
+			expect.any( Number ),
+			expect.any( Number )
+		);
+
+		// drawImage should be called with the source.
+		expect( mockCtx.drawImage ).toHaveBeenCalledTimes( 1 );
+		expect( mockCtx.drawImage ).toHaveBeenCalledWith( mockSource, 0, 0 );
+	} );
+
+	it( 'should use custom output size when provided', () => {
+		setupMockCanvas();
+
+		const state = createTestState( {
+			rotation: 0,
+			zoom: 1,
+			flip: { horizontal: false, vertical: false },
+			crop: { x: 0, y: 0 },
+			cropRect: { x: 0, y: 0, width: 1, height: 1 },
+		} );
+		const sourceSize = { width: 800, height: 600 };
+		const outputSize = { width: 200, height: 150 };
+		const mockSource = {} as CanvasImageSource;
+
+		applyToCanvas( mockSource, sourceSize, state, outputSize );
+
+		expect( canvasWidths ).toContain( 200 );
+		expect( canvasHeights ).toContain( 150 );
+		expect( mockCtx.setTransform ).toHaveBeenCalledTimes( 1 );
 	} );
 } );
