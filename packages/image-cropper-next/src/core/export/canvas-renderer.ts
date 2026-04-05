@@ -2,8 +2,7 @@
  * Internal dependencies
  */
 import type { CropperState } from '../types';
-import { createExportCamera } from '../camera';
-import { degreesToRadians } from '../math/rotation';
+import { createExportCamera, getRotatedBBox } from '../camera';
 
 /**
  * Load an image from a URL with CORS support.
@@ -39,13 +38,9 @@ export function renderToCanvas(
 	const { rotation, cropRect } = state;
 	const imageSize = { width: naturalWidth, height: naturalHeight };
 
-	const rad = degreesToRadians( rotation );
-	const cosR = Math.abs( Math.cos( rad ) );
-	const sinR = Math.abs( Math.sin( rad ) );
-	const rotW = cosR * naturalWidth + sinR * naturalHeight;
-	const rotH = sinR * naturalWidth + cosR * naturalHeight;
-	const outW = Math.round( cropRect.width * rotW );
-	const outH = Math.round( cropRect.height * rotH );
+	const rotBBox = getRotatedBBox( naturalWidth, naturalHeight, rotation );
+	const outW = Math.round( cropRect.width * rotBBox.width );
+	const outH = Math.round( cropRect.height * rotBBox.height );
 
 	const canvas = document.createElement( 'canvas' );
 	canvas.width = outW;
@@ -164,16 +159,18 @@ export function applyToCanvas(
 	state: CropperState,
 	outputSize?: { width: number; height: number }
 ): HTMLCanvasElement {
-	const rad = degreesToRadians( state.rotation );
-	const cosR = Math.abs( Math.cos( rad ) );
-	const sinR = Math.abs( Math.sin( rad ) );
-	const rotW = cosR * sourceSize.width + sinR * sourceSize.height;
-	const rotH = sinR * sourceSize.width + cosR * sourceSize.height;
+	const rotBBox = getRotatedBBox(
+		sourceSize.width,
+		sourceSize.height,
+		state.rotation
+	);
 
 	// Default output size: the crop region in natural pixels.
-	const outW = outputSize?.width ?? Math.round( state.cropRect.width * rotW );
+	const outW =
+		outputSize?.width ?? Math.round( state.cropRect.width * rotBBox.width );
 	const outH =
-		outputSize?.height ?? Math.round( state.cropRect.height * rotH );
+		outputSize?.height ??
+		Math.round( state.cropRect.height * rotBBox.height );
 
 	const canvas = document.createElement( 'canvas' );
 	canvas.width = outW;
