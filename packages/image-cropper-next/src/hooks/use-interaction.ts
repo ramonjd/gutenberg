@@ -194,21 +194,44 @@ export function useInteraction(
 				return;
 			}
 
-			// Focal-point zoom: keep the point under the cursor stationary.
+			// Focal-point zoom: keep the point under the cursor stationary
+			// on screen. Without this, zooming always scales from the image
+			// center, which feels wrong when the cursor is at an edge.
+			//
+			// How it works:
+			// 1. Get the cursor position relative to the container center
+			//    (fx, fy) in screen pixels.
+			// 2. Convert to visual-normalized space by dividing by visSize.
+			//    This gives the cursor's position as the image "sees" it.
+			// 3. When zoom changes from z1 to z2, every point on the image
+			//    moves away from / toward the image center by the ratio
+			//    z2/z1. The cursor point would drift by:
+			//      drift = (focalNorm - pan) * (1 - z2/z1)
+			//    where focalNorm is the focal point in normalized space
+			//    and pan is the current image offset.
+			// 4. We add this drift to the pan so the focal point stays put.
+			// 5. restrictPanZoom clamps the result so the image still
+			//    covers the crop — near edges the focal point can't be
+			//    perfectly honored, which is the correct behavior.
 			const visSize = imageSize ?? containerSize;
 			const rect = e.currentTarget?.getBoundingClientRect?.();
 			if ( visSize.width > 0 && visSize.height > 0 && rect ) {
-				// Focal point relative to container center, in pixels.
+				// Step 1: cursor position relative to container center.
 				const fx = e.clientX - rect.left - containerSize.width / 2;
 				const fy = e.clientY - rect.top - containerSize.height / 2;
-				// Pan correction so the focal point stays at the same
-				// screen position after the zoom change.
-				const zoomRatio = 1 - newZoom / s.zoom;
-				const newCropX =
-					s.crop.x + ( fx / visSize.width - s.crop.x ) * zoomRatio;
-				const newCropY =
-					s.crop.y + ( fy / visSize.height - s.crop.y ) * zoomRatio;
 
+				// Step 2-4: compute the pan correction.
+				// zoomRatio = (1 - newZoom/oldZoom) is the fraction of
+				// the focal-to-center offset that becomes drift.
+				const zoomRatio = 1 - newZoom / s.zoom;
+				const focalNormX = fx / visSize.width;
+				const focalNormY = fy / visSize.height;
+				const newCropX =
+					s.crop.x + ( focalNormX - s.crop.x ) * zoomRatio;
+				const newCropY =
+					s.crop.y + ( focalNormY - s.crop.y ) * zoomRatio;
+
+				// Step 5: clamp pan so the image covers the crop.
 				const imgSize = s.image
 					? {
 							width: s.image.naturalWidth,
@@ -223,6 +246,7 @@ export function useInteraction(
 				dispatch( { type: 'SET_CROP', payload: clampedCrop } );
 				dispatch( { type: 'SET_ZOOM', payload: newZoom } );
 			} else {
+				// Fallback: uniform zoom (no focal point available).
 				dispatch( { type: 'SET_ZOOM', payload: newZoom } );
 			}
 		},
@@ -277,6 +301,10 @@ export function useInteraction(
 						moveEvent.touches.length === 2
 					) {
 						// Pinch zoom with focal point at finger midpoint.
+						// Same algorithm as mouse wheel zoom (see comments
+						// there) but uses the midpoint between the two
+						// touch points as the focal point instead of the
+						// cursor position.
 						const t0 = moveEvent
 							.touches[ 0 ] as unknown as React.Touch;
 						const t1 = moveEvent
@@ -296,7 +324,8 @@ export function useInteraction(
 							rect &&
 							newZoom !== s.zoom
 						) {
-							// Midpoint of the two fingers.
+							// Focal point: midpoint of two fingers,
+							// relative to container center.
 							const mx =
 								( t0.clientX + t1.clientX ) / 2 -
 								rect.left -
@@ -305,14 +334,19 @@ export function useInteraction(
 								( t0.clientY + t1.clientY ) / 2 -
 								rect.top -
 								containerSize.height / 2;
+
+							// Same drift correction as mouse wheel.
 							const zoomRatio = 1 - newZoom / s.zoom;
+							const focalNormX = mx / visSize.width;
+							const focalNormY = my / visSize.height;
 							const newCropX =
 								s.crop.x +
-								( mx / visSize.width - s.crop.x ) * zoomRatio;
+								( focalNormX - s.crop.x ) * zoomRatio;
 							const newCropY =
 								s.crop.y +
-								( my / visSize.height - s.crop.y ) * zoomRatio;
+								( focalNormY - s.crop.y ) * zoomRatio;
 
+							// Clamp so image covers the crop.
 							const imgSize = s.image
 								? {
 										width: s.image.naturalWidth,

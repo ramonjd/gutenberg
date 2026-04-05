@@ -574,6 +574,20 @@ export function restrictPanZoom(
 	imageSize: Size,
 	cropRect: NormalizedRect
 ): { crop: { x: number; y: number }; zoom: number } {
+	// Algorithm overview:
+	// 1. Ensure zoom is high enough for the rotated image to cover the crop.
+	// 2. Build a camera (world→screen matrix) with the candidate state.
+	// 3. Build a base camera (no pan, zoom=1) to find where the stencil
+	//    sits in screen space — the stencil is anchored to the container,
+	//    not the image, so it doesn't move with pan or scale with zoom.
+	// 4. Project the 4 stencil corners through the INVERSE of the main
+	//    camera to get world-space positions. A world point outside [0,1]
+	//    means that corner of the stencil isn't covered by the image.
+	// 5. Compute the minimal translation in world space to push all corners
+	//    back inside [0,1].
+	// 6. Convert the world-space correction to a pan-field correction by
+	//    mapping it through the camera's linear part back to screen space,
+	//    then dividing by the visual bounds.
 	const a =
 		imageSize.width > 0 && imageSize.height > 0
 			? imageSize.width / imageSize.height
@@ -581,7 +595,7 @@ export function restrictPanZoom(
 	const minZoom = getMinZoomForCover( state.rotation, a, cropRect );
 	const zoom = Math.max( state.zoom, minZoom );
 
-	// Build camera with candidate pan and corrected zoom.
+	// Step 2: build camera with candidate pan and corrected zoom.
 	const candidateState = { ...state, zoom };
 	const camera = createCamera(
 		candidateState,
