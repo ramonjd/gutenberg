@@ -385,6 +385,7 @@ export function RectangleStencil( {
 			}
 
 			event.preventDefault();
+			event.stopPropagation();
 
 			// Determine the normalized delta from the arrow key.
 			let dx = 0;
