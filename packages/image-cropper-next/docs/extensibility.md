@@ -404,6 +404,206 @@ The cropper is keyboard-accessible and screen-reader friendly:
 - Use `aria-live="polite"` for any custom state announcements
 - Ensure custom overlays don't trap keyboard focus
 
+## WordPress integration patterns
+
+These patterns show how the cropper integrates with WordPress-specific systems. They consume the existing API — no package changes needed.
+
+### Theme-aware aspect ratio presets
+
+WordPress themes register image sizes via `add_image_size()`. The cropper can suggest aspect ratios that match the active theme's layout:
+
+```typescript
+import { DEFAULT_ASPECT_RATIOS } from '@wordpress/image-cropper-next';
+import type { AspectRatioPreset } from '@wordpress/image-cropper-next';
+
+// Build presets from theme's registered image sizes.
+function getThemePresets( imageSizes ): AspectRatioPreset[] {
+  const themePresets = imageSizes
+    .filter( size => size.width && size.height )
+    .map( size => ( {
+      label: `${ size.name } (${ size.width }×${ size.height })`,
+      value: size.width / size.height,
+    } ) );
+  return [ ...DEFAULT_ASPECT_RATIOS, ...themePresets ];
+}
+
+// Or let plugins add presets via WordPress hooks:
+const presets = wp.hooks.applyFilters(
+  'imageEditing.aspectRatioPresets',
+  DEFAULT_ASPECT_RATIOS
+);
+```
+
+### Block context integration
+
+When the cropper opens from a block (Image, Cover, Media & Text), the block knows its target layout. Pass the block's aspect ratio as the default:
+
+```typescript
+// In the Image block's edit component:
+const blockAspectRatio = getBlockAspectRatio( blockAttributes );
+
+<Cropper
+  src={ imageUrl }
+  state={ state }
+  dispatch={ dispatch }
+  aspectRatio={ blockAspectRatio }  // Pre-set to match block layout
+/>
+```
+
+Cover blocks at 16:9 open the cropper at 16:9. Avatar blocks open at 1:1. The user sees the right crop immediately.
+
+### WordPress hooks integration
+
+Use `onStateChange` to bridge into the WordPress hooks system:
+
+```typescript
+<Cropper
+  src={ imageUrl }
+  state={ state }
+  dispatch={ dispatch }
+  onStateChange={ ( currentState ) => {
+    // Let plugins react to crop changes.
+    wp.hooks.doAction( 'imageEditing.stateChanged', currentState );
+  } }
+/>
+
+// In a plugin:
+wp.hooks.addAction( 'imageEditing.stateChanged', 'my-plugin', ( state ) => {
+  // Update preview, sync with server, trigger AI analysis, etc.
+} );
+```
+
+Plugins can also filter the available controls:
+
+```typescript
+// Let plugins add custom toolbar buttons.
+const extraControls = wp.hooks.applyFilters(
+  'imageEditing.toolbarControls',
+  [],
+  state
+);
+
+// Let plugins modify the export before saving.
+wp.hooks.addFilter( 'imageEditing.beforeSave', 'my-plugin', ( blob, state ) => {
+  // Add watermark, compress further, convert format, etc.
+  return processedBlob;
+} );
+```
+
+### REST API and media library
+
+Save crop metadata to the attachment via the REST API so the server can regenerate crops:
+
+```typescript
+import { getSourceRegion } from '@wordpress/image-cropper-next';
+
+// After the user finishes editing:
+const region = getSourceRegion( state, {
+  width: attachment.naturalWidth,
+  height: attachment.naturalHeight,
+} );
+
+// Save to the attachment's metadata.
+wp.apiFetch( {
+  path: `/wp/v2/media/${ attachment.id }`,
+  method: 'POST',
+  data: {
+    meta: {
+      crop_region: {
+        x: region.x,
+        y: region.y,
+        width: region.width,
+        height: region.height,
+        rotation: region.rotation,
+        flip: region.flip,
+      },
+    },
+  },
+} );
+```
+
+This enables:
+- Server-side crop regeneration when themes change image sizes
+- Crop history per attachment
+- "Reset to original" using stored metadata
+- Multiple crops per registered size (future)
+
+### Multi-size cropping (future)
+
+WordPress generates multiple sizes from one upload. The cropper could let users define per-size crops:
+
+```typescript
+// Future API concept:
+const crops = {
+  thumbnail: { cropRect: { x: 0.2, y: 0.1, width: 0.6, height: 0.8 }, rotation: 0 },
+  medium:    { cropRect: { x: 0, y: 0, width: 1, height: 1 }, rotation: 5 },
+  featured:  { cropRect: { x: 0.1, y: 0, width: 0.8, height: 0.5 }, rotation: 0 },
+};
+
+// Each size stores its own CropperState, all from the same source image.
+// getSourceRegion() + server-side processing generates each size independently.
+```
+
+### AI plugin integration
+
+AI plugins (Jetpack AI, third-party) can add features using the existing extension points:
+
+```typescript
+// An AI plugin adds an "Auto straighten" button:
+wp.hooks.addFilter( 'imageEditing.toolbarControls', 'jetpack-ai', ( controls, state ) => {
+  return [
+    ...controls,
+    {
+      label: 'Auto straighten',
+      onClick: async () => {
+        const region = getSourceRegion( state, imageSize );
+        const result = await jetpackAI.analyzeStraighten( region );
+        // result.rotation = 2.3 (degrees to correct)
+        applyOperation( { type: 'rotate', degrees: result.rotation } );
+      },
+    },
+  ];
+} );
+
+// An AI plugin adds "Smart crop" that detects the subject:
+wp.hooks.addFilter( 'imageEditing.toolbarControls', 'jetpack-ai', ( controls, state ) => {
+  return [
+    ...controls,
+    {
+      label: 'Smart crop',
+      onClick: async () => {
+        const suggestion = await jetpackAI.suggestCrop( attachment.url );
+        // suggestion = { x: 0.1, y: 0.05, width: 0.8, height: 0.9 }
+        applyOperation( { type: 'crop', rect: suggestion } );
+      },
+    },
+  ];
+} );
+```
+
+### Remembering preferences per block type
+
+Store the last-used aspect ratio per block type so the cropper opens with the right preset:
+
+```typescript
+// When the user selects an aspect ratio:
+wp.data.dispatch( 'core/preferences' ).set(
+  'image-editing',
+  `lastAspectRatio/${ blockName }`,
+  selectedRatio
+);
+
+// When opening the cropper:
+const lastRatio = wp.data.select( 'core/preferences' ).get(
+  'image-editing',
+  `lastAspectRatio/${ blockName }`
+);
+
+<Cropper aspectRatio={ lastRatio ?? undefined } ... />
+```
+
+Cover blocks remember 16:9, avatar blocks remember 1:1, and the user never has to re-select.
+
 ## Future extension areas
 
 These features are not built yet but the architecture supports them:
