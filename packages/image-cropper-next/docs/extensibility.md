@@ -410,6 +410,62 @@ These features are not built yet but the architecture supports them:
 | Custom overlays | Stencil system | Compose multiple stencils or overlay components |
 | WP media processing | `getSourceRegion()` + `applyToCanvas()` | Bridge to WordPress 7 media library |
 
+## Testing
+
+### Running unit tests
+
+```bash
+# All image-cropper-next unit tests
+npx wp-scripts test-unit-js --testPathPattern="image-cropper-next"
+
+# Specific test file (e.g., camera tests only)
+npx wp-scripts test-unit-js --testPathPattern="image-cropper-next" --testNamePattern="camera"
+
+# TypeScript type checking (no emit)
+npx tsc --project packages/image-cropper-next/tsconfig.json --noEmit
+```
+
+### Running visual regression tests (storybook-playwright)
+
+Visual regression tests use Playwright to screenshot Storybook stories and compare against baseline images. The spec is at `test/storybook-playwright/specs/image-cropper-next.spec.ts`.
+
+```bash
+# Start Storybook first (port 50241)
+npm run storybook
+
+# Run the visual regression tests
+npx playwright test test/storybook-playwright/specs/image-cropper-next.spec.ts
+
+# Update screenshots after intentional visual changes
+npx playwright test test/storybook-playwright/specs/image-cropper-next.spec.ts --update-snapshots
+```
+
+### What the tests cover
+
+**Export matrix verification** (`core/export/test/canvas-renderer.ts`):
+- Identity state produces a 1:1 scale mapping with no rotation components
+- 90-degree rotation encodes rotation in the off-diagonal matrix values (a,d near zero; b,c non-zero with opposite signs)
+- Zoom 2x doubles the scale components relative to zoom 1x
+- Horizontal flip negates the x-scale component
+- `applyToCanvas` creates a canvas with correct dimensions and calls `setTransform`
+
+**Containment invariant** (`core/test/camera.ts`):
+- Verifies the image fully covers the crop area across multiple rotation and zoom combinations
+- Tests `restrictPanZoom` and `restrictCropRect` boundary enforcement
+- Run after any changes to camera restriction logic
+
+**Visual regression** (`test/storybook-playwright/specs/image-cropper-next.spec.ts`):
+- Screenshots the Default and WithControls stories
+- Catches unintended visual changes to the cropper UI
+
+### Adding new test cases
+
+1. **New export transform tests**: Add to the `renderToCanvas -- export matrix verification` describe block in `core/export/test/canvas-renderer.ts`. Use `setupMockCanvas()` to initialize mocks, then call `renderToCanvas` and inspect `mockCtx.setTransform.mock.calls[0]` for the 6 matrix values `[a, b, c, d, e, f]`.
+
+2. **New containment invariant cases**: Add rotation/zoom combinations to the parametric test in `core/test/camera.ts`.
+
+3. **New visual regression stories**: Add a new test case in `test/storybook-playwright/specs/image-cropper-next.spec.ts` using `gotoStoryId` with the Storybook story ID (format: `imagecroppernext-rectanglecrop--story-name`).
+
 ## For AI agents maintaining this codebase
 
 ### Key files and their roles
