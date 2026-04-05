@@ -368,6 +368,17 @@ const adjustedCanvas = await wpMediaAdjust( imageFile, filters );
 const croppedResult = applyToCanvas( adjustedCanvas, imageSize, state );
 ```
 
+### Undo/redo via pipeline
+
+The pipeline API supports undo/redo out of the box. See the `UndoRedo` story for a working example. The pattern:
+
+- Maintain `past` and `future` stacks of pipeline snapshots
+- On each action: push current pipeline to `past`, clear `future`, append operation
+- Undo: pop `past`, push current to `future`, `RESET` + replay previous pipeline
+- Redo: pop `future`, push current to `past`, `RESET` + replay next pipeline
+
+**Canvas interactions (drag, wheel zoom, handle resize)** generate many rapid state changes. To integrate these with undo/redo, use **gesture grouping**: snapshot the state at mousedown and mouseup, treating the entire drag as one undo step. The pipeline API supports this — the missing piece is gesture boundary detection, which is a consumer-side concern. A debounced approach (snapshot after N ms of inactivity) also works for wheel zoom.
+
 ### Extensible operations (planned)
 
 The `TransformOperation` type currently supports crop, rotate, flip, and zoom. For future operations (brightness, contrast, filters), the pipeline can be extended by adding new variants to the type and handlers in `applyOperationToState()`. External code can also wrap the pipeline with custom pre/post processing steps.
