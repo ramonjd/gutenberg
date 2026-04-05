@@ -166,7 +166,80 @@ const screenPos = worldToScreen( camera, { x: 0.25, y: 0.75 } );
 const imagePos = screenToWorld( camera, { x: 300, y: 200 } );
 ```
 
-### 6. Theming and styling
+### 6. Source region for external tools
+
+`getSourceRegion()` converts the current crop state to source-pixel coordinates. This is the bridge between the cropper and external tools (image processing libraries, AI APIs, server-side processing) that work in source-pixel coordinates.
+
+```typescript
+import { getSourceRegion } from '@wordpress/image-cropper-next';
+
+const region = getSourceRegion( state, { width: naturalWidth, height: naturalHeight } );
+// region = { x, y, width, height, rotation, flip, zoom }
+
+// Send to server for processing:
+fetch( '/api/process', {
+  method: 'POST',
+  body: JSON.stringify( {
+    imageId: 123,
+    crop: { x: region.x, y: region.y, width: region.width, height: region.height },
+    rotation: region.rotation,
+    flip: region.flip,
+  } ),
+} );
+
+// Send to AI API for region-specific editing:
+const aiRequest = {
+  region: { x: region.x, y: region.y, width: region.width, height: region.height },
+  prompt: 'Remove the background in this area',
+};
+```
+
+### 7. Multi-step editing pipelines
+
+`applyToCanvas()` applies the cropper's transform to an existing canvas or image source. This enables multi-step editing where an upstream tool (brightness, color, filters) has already processed the image.
+
+```typescript
+import { applyToCanvas } from '@wordpress/image-cropper-next';
+
+// Step 1: Apply brightness/color adjustments to a canvas
+const processedCanvas = applyBrightness( sourceImage, { brightness: 1.2 } );
+
+// Step 2: Apply the crop/rotate/flip on top
+const finalCanvas = applyToCanvas(
+  processedCanvas,
+  { width: processedCanvas.width, height: processedCanvas.height },
+  cropperState
+);
+
+// Step 3: Export
+const blob = await canvasToBlob( finalCanvas, 'image/jpeg', 0.9 );
+```
+
+Accepts any `CanvasImageSource`: `HTMLImageElement`, `HTMLCanvasElement`, `OffscreenCanvas`, `ImageBitmap`, `HTMLVideoElement`.
+
+### 8. State change notifications
+
+The `onStateChange` callback on the Cropper component fires on every state change. Use it for syncing with external tools, analytics, WordPress hooks, or AI agents.
+
+```tsx
+<Cropper
+  src="image.jpg"
+  state={ state }
+  dispatch={ dispatch }
+  onStateChange={ ( currentState ) => {
+    // Sync with WordPress hooks:
+    wp.hooks.doAction( 'image-cropper.stateChanged', currentState );
+
+    // Update AI agent context:
+    agentContext.setCropState( currentState );
+
+    // Analytics:
+    trackEvent( 'crop_changed', { zoom: currentState.zoom, rotation: currentState.rotation } );
+  } }
+/>
+```
+
+### 9. Theming and styling
 
 The component uses BEM-style CSS classes that themes can override:
 
@@ -243,22 +316,69 @@ const aiRegion = {
 };
 ```
 
+## Multi-step editing integration
+
+The package is designed to be one step in a broader image editing pipeline. Key integration patterns:
+
+### Crop as a step (Google Photos style)
+
+The state is external and serializable. You can:
+1. Mount the Cropper, let the user crop
+2. Snapshot `state` (it's a plain object)
+3. Switch to a brightness/color tab (unmount Cropper, the state persists)
+4. Switch back — restore `state`, remount Cropper, pick up where you left off
+
+```typescript
+// Save state when switching tabs:
+const savedCropState = { ...state };
+
+// Restore when coming back:
+const { state, dispatch } = useCropperState( savedCropState );
+```
+
+### Integration with WordPress media processing library
+
+When the WordPress 7 client-side media processing library is available:
+
+```typescript
+// 1. User crops in the Cropper
+// 2. Get the source region for server/client processing:
+const region = getSourceRegion( state, imageSize );
+
+// 3. Pass to the media processing library:
+const processed = await wpMediaProcess( imageFile, {
+  crop: region,
+  filters: userSelectedFilters,
+  format: 'webp',
+  quality: 0.85,
+} );
+
+// 4. Or apply crop to an already-processed canvas:
+const adjustedCanvas = await wpMediaAdjust( imageFile, filters );
+const croppedResult = applyToCanvas( adjustedCanvas, imageSize, state );
+```
+
+### Extensible operations (planned)
+
+The `TransformOperation` type currently supports crop, rotate, flip, and zoom. For future operations (brightness, contrast, filters), the pipeline can be extended by adding new variants to the type and handlers in `applyOperationToState()`. External code can also wrap the pipeline with custom pre/post processing steps.
+
 ## Future extension areas
 
 These features are not built yet but the architecture supports them:
 
 | Feature | Extension point | Approach |
 |---------|----------------|----------|
-| Image filters/effects | Custom export pipeline | Post-process the export canvas |
+| Image filters/effects | `applyToCanvas()` | Process canvas, then apply crop |
 | Format conversion | `canvasToBlob()` | Already supports MIME type parameter |
 | AI auto-crop | Pipeline API | Agent generates `TransformOperation[]` |
-| AI region editing | Camera + custom stencil | `screenToWorld` for coordinates, custom stencil for selection UI |
+| AI region editing | `getSourceRegion()` + custom stencil | Source-pixel coords for AI API |
 | Undo/redo | Pipeline | Store operations, replay subsets |
-| Video frame extraction | Export system | Extract frame → feed to cropper state |
+| Video frame extraction | `applyToCanvas()` | Extract frame → feed as `CanvasImageSource` |
 | Batch processing | Pipeline + state | `stateFromPipeline()` on multiple images |
 | Remote collaboration | State serialization | Sync `CropperState` via WebSocket |
 | Keyboard accessibility | Interaction hook | Extend `useInteraction` key handlers |
 | Custom overlays | Stencil system | Compose multiple stencils or overlay components |
+| WP media processing | `getSourceRegion()` + `applyToCanvas()` | Bridge to WordPress 7 media library |
 
 ## For AI agents maintaining this codebase
 
