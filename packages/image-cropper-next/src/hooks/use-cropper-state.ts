@@ -156,14 +156,6 @@ function cropperReducer(
 				crop: { x: 0, y: 0 },
 			} );
 
-		case 'SET_ROTATION_WITH_CONTAINER':
-			// Same as SET_ROTATION.
-			return enforceContainment( {
-				...state,
-				rotation: normalizeRotation( action.payload.rotation ),
-				crop: { x: 0, y: 0 },
-			} );
-
 		case 'SNAP_ROTATE_90': {
 			// 90° snap: swap crop width↔height so the selection rotates
 			// with the image (Google Photos style). Keep the same center,
