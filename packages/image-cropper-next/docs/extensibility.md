@@ -95,11 +95,21 @@ const json = serializePipeline( operations );
 const ops = deserializePipeline( json );
 ```
 
+**JSON Schemas for agent discovery:**
+
+The package includes JSON Schema files that agents can read to discover the API without parsing TypeScript:
+
+- `schemas/transform-operation.json` — describes all operation types and their parameters
+- `schemas/cropper-state.json` — describes the full state shape
+
+These are standard JSON Schema 2020-12 and can be consumed by any tool that understands JSON Schema (OpenAPI, LLM function calling, etc.).
+
 **Adding new operation types:**
 
 1. Add the operation variant to `TransformOperation` in `core/types.ts`
 2. Handle it in `applyOperationToState()` in `core/transforms/pipeline.ts`
 3. Add serialization/deserialization support in `deserializePipeline()`
+4. Update `schemas/transform-operation.json` with the new operation schema
 
 ### 3. Custom export pipelines
 
@@ -362,6 +372,27 @@ const croppedResult = applyToCanvas( adjustedCanvas, imageSize, state );
 
 The `TransformOperation` type currently supports crop, rotate, flip, and zoom. For future operations (brightness, contrast, filters), the pipeline can be extended by adding new variants to the type and handlers in `applyOperationToState()`. External code can also wrap the pipeline with custom pre/post processing steps.
 
+## Accessibility
+
+The cropper is keyboard-accessible and screen-reader friendly:
+
+**Keyboard controls:**
+- **Arrow keys** on the container: pan the image
+- **+/-** on the container: zoom in/out
+- **R** on the container: snap rotate 90°
+- **Tab** to crop handles, then **arrow keys** to resize (0.02 step per keypress)
+- Aspect ratio lock is respected during keyboard resize
+
+**Screen reader support:**
+- Container has `role="application"` and `aria-label="Image cropper"`
+- Resize handles have `role="separator"`, `aria-orientation`, and descriptive `aria-label` (e.g., "Resize north-west corner")
+- An ARIA live region announces state changes (zoom, rotation, crop dimensions) with 300ms debounce
+
+**For theme/plugin developers:**
+- Custom stencils should preserve `tabIndex`, `role`, and `aria-*` attributes on interactive elements
+- Use `aria-live="polite"` for any custom state announcements
+- Ensure custom overlays don't trap keyboard focus
+
 ## Future extension areas
 
 These features are not built yet but the architecture supports them:
@@ -376,7 +407,6 @@ These features are not built yet but the architecture supports them:
 | Video frame extraction | `applyToCanvas()` | Extract frame → feed as `CanvasImageSource` |
 | Batch processing | Pipeline + state | `stateFromPipeline()` on multiple images |
 | Remote collaboration | State serialization | Sync `CropperState` via WebSocket |
-| Keyboard accessibility | Interaction hook | Extend `useInteraction` key handlers |
 | Custom overlays | Stencil system | Compose multiple stencils or overlay components |
 | WP media processing | `getSourceRegion()` + `applyToCanvas()` | Bridge to WordPress 7 media library |
 
