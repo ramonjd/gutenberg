@@ -33,6 +33,11 @@ const ALL_POSITIONS: HandlePosition[] = [
 ];
 
 /**
+ * Step size for keyboard-driven handle resize, in normalized coordinates.
+ */
+const KEYBOARD_STEP = 0.02;
+
+/**
  * Internal drag state for tracking a resize interaction.
  */
 interface DragState {
@@ -77,8 +82,8 @@ type RectangleStencilProps = StencilProps;
  * @param props.aspectRatio       Optional fixed aspect ratio (width / height).
  * @param props.freeformCrop      Whether resize handles are shown.
  * @param props.stencilTransition CSS transition string for settle animation.
- * @param props.cropBounds        Maximum crop rect bounds from camera.
- * @return                        The rectangle stencil element.
+ * @param props.cropBounds        Maximum crop rect bounds from camera (zoom/rotation-aware).
+ * @return The rectangle stencil element.
  */
 export function RectangleStencil( {
 	cropRect,
@@ -363,6 +368,80 @@ export function RectangleStencil( {
 		]
 	);
 
+	/**
+	 * Handle keyboard arrow keys on a resize handle.
+	 * Moves the corresponding edge(s) by KEYBOARD_STEP in normalized space.
+	 */
+	const handleKeyDown = useCallback(
+		( handle: HandlePosition, event: React.KeyboardEvent ) => {
+			const key = event.key;
+			if (
+				key !== 'ArrowUp' &&
+				key !== 'ArrowDown' &&
+				key !== 'ArrowLeft' &&
+				key !== 'ArrowRight'
+			) {
+				return;
+			}
+
+			event.preventDefault();
+
+			// Determine the normalized delta from the arrow key.
+			let dx = 0;
+			let dy = 0;
+			if ( key === 'ArrowLeft' ) {
+				dx = -KEYBOARD_STEP;
+			}
+			if ( key === 'ArrowRight' ) {
+				dx = KEYBOARD_STEP;
+			}
+			if ( key === 'ArrowUp' ) {
+				dy = -KEYBOARD_STEP;
+			}
+			if ( key === 'ArrowDown' ) {
+				dy = KEYBOARD_STEP;
+			}
+
+			if ( hasLockedRatio ) {
+				// For locked aspect ratio, synthesize a drag from the
+				// current rect and apply the delta via computeLockedRect.
+				const syntheticDrag: DragState = {
+					handle,
+					startX: 0,
+					startY: 0,
+					startRect: { ...cropRect },
+				};
+				const clientX = dx * imageSize.width;
+				const clientY = dy * imageSize.height;
+				onCropChange(
+					computeLockedRect( syntheticDrag, clientX, clientY )
+				);
+			} else {
+				// For freeform resize, synthesize a drag via computeFreeRect.
+				const syntheticDrag: DragState = {
+					handle,
+					startX: 0,
+					startY: 0,
+					startRect: { ...cropRect },
+				};
+				const clientX = dx * imageSize.width;
+				const clientY = dy * imageSize.height;
+				onCropChange(
+					computeFreeRect( syntheticDrag, clientX, clientY )
+				);
+			}
+		},
+		[
+			cropRect,
+			hasLockedRatio,
+			imageSize.width,
+			imageSize.height,
+			computeLockedRect,
+			computeFreeRect,
+			onCropChange,
+		]
+	);
+
 	// Handle resize drag events.
 	useEffect( () => {
 		if ( ! dragState ) {
@@ -456,19 +535,21 @@ export function RectangleStencil( {
 			{ /* Resize handles — only in freeform mode */ }
 			{ freeformCrop &&
 				handles.map( ( pos ) => (
-					// eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- resize handles need mouse events.
+					// eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- resize handles need mouse and keyboard events.
 					<div
 						key={ pos }
 						className={ `wp-image-cropper-next__handle wp-image-cropper-next__handle--${ pos }` }
 						onMouseDown={ ( event ) =>
 							handleMouseDown( pos, event )
 						}
+						onKeyDown={ ( event ) => handleKeyDown( pos, event ) }
 						role="separator"
 						aria-orientation={
 							pos === 'n' || pos === 's'
 								? 'horizontal'
 								: 'vertical'
 						}
+						aria-label={ `Resize ${ pos }` }
 						tabIndex={ 0 }
 					/>
 				) ) }
