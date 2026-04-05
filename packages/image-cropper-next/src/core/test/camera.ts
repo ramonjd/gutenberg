@@ -11,6 +11,7 @@ import {
 	createExportCamera,
 	getCropBounds,
 	getImageFit,
+	getSourceRegion,
 } from '../camera';
 import { DEFAULT_STATE } from '../constants';
 import type { CropperState, Size } from '../types';
@@ -307,6 +308,182 @@ describe( 'createExportCamera', () => {
 		);
 		expect( bottomRight[ 0 ] ).toBeCloseTo( outputSize.width, 0 );
 		expect( bottomRight[ 1 ] ).toBeCloseTo( outputSize.height, 0 );
+	} );
+} );
+
+describe( 'containment invariant (property-based)', () => {
+	/**
+	 * Verify that the image fully covers the crop rect by projecting all
+	 * four crop corners through the inverse camera and checking that the
+	 * resulting world-space points lie within [0,1] x [0,1] (the image).
+	 *
+	 * @param state     The cropper state to verify.
+	 * @param imageSize The natural image dimensions.
+	 */
+	function verifyImageCoversCrop(
+		state: CropperState,
+		imageSize: Size
+	): void {
+		const container: Size = { width: 1000, height: 1000 };
+		const camera = createCamera( state, container, imageSize );
+
+		// Build base camera (zero pan, zoom=1) for stencil positioning.
+		const baseCamera = createCamera(
+			{ ...state, crop: { x: 0, y: 0 }, zoom: 1 },
+			container,
+			imageSize
+		);
+		const vb = getVisibleBounds( baseCamera );
+		const cr = state.cropRect;
+
+		// Stencil corners in screen space.
+		const stencilCorners: [ number, number ][] = [
+			[ vb.left + cr.x * vb.width, vb.top + cr.y * vb.height ],
+			[
+				vb.left + ( cr.x + cr.width ) * vb.width,
+				vb.top + cr.y * vb.height,
+			],
+			[
+				vb.left + ( cr.x + cr.width ) * vb.width,
+				vb.top + ( cr.y + cr.height ) * vb.height,
+			],
+			[
+				vb.left + cr.x * vb.width,
+				vb.top + ( cr.y + cr.height ) * vb.height,
+			],
+		];
+
+		// Map to world space via inverse camera.
+		for ( const corner of stencilCorners ) {
+			const w = screenToWorld( camera, {
+				x: corner[ 0 ],
+				y: corner[ 1 ],
+			} );
+			expect( w.x ).toBeGreaterThanOrEqual( -0.001 );
+			expect( w.x ).toBeLessThanOrEqual( 1.001 );
+			expect( w.y ).toBeGreaterThanOrEqual( -0.001 );
+			expect( w.y ).toBeLessThanOrEqual( 1.001 );
+		}
+	}
+
+	const ROTATIONS = [ 0, 15, 30, 45, 60, 75, 90, 135, 180, 270 ];
+	const ZOOMS = [ 1, 1.5, 2, 3, 5 ];
+	const CROP_RECTS = [
+		{ label: 'full', rect: { x: 0, y: 0, width: 1, height: 1 } },
+		{
+			label: 'centered-small',
+			rect: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
+		},
+		{
+			label: 'off-center',
+			rect: { x: 0.1, y: 0.1, width: 0.3, height: 0.4 },
+		},
+	];
+
+	for ( const rotation of ROTATIONS ) {
+		for ( const zoom of ZOOMS ) {
+			for ( const { label, rect } of CROP_RECTS ) {
+				it( `rotation=${ rotation } zoom=${ zoom } crop=${ label }`, () => {
+					const state = makeState( {
+						rotation,
+						zoom,
+						cropRect: rect,
+					} );
+					const restricted = restrictPanZoom( state, IMAGE, rect );
+					expect( restricted.zoom ).toBeGreaterThanOrEqual( 1 );
+					const restrictedState = makeState( {
+						...state,
+						crop: restricted.crop,
+						zoom: restricted.zoom,
+						cropRect: rect,
+					} );
+					verifyImageCoversCrop( restrictedState, IMAGE );
+				} );
+			}
+		}
+	}
+
+	it( 'holds across 200 random pan/zoom/rotation/crop combinations', () => {
+		let passCount = 0;
+		for ( let i = 0; i < 200; i++ ) {
+			// Deterministic-ish: use i to seed values.
+			const rotation =
+				ROTATIONS[ i % ROTATIONS.length ] + ( ( i * 7 ) % 15 );
+			const zoom = 1 + ( ( i * 13 ) % 40 ) / 10;
+			const cropW = 0.2 + ( ( i * 3 ) % 8 ) / 10;
+			const cropH = 0.2 + ( ( i * 5 ) % 8 ) / 10;
+			const cropX = Math.min( ( ( i * 11 ) % 10 ) / 10, 1 - cropW );
+			const cropY = Math.min( ( ( i * 17 ) % 10 ) / 10, 1 - cropH );
+			const rect = {
+				x: cropX,
+				y: cropY,
+				width: cropW,
+				height: cropH,
+			};
+
+			const panX = ( ( ( i * 19 ) % 20 ) - 10 ) / 10;
+			const panY = ( ( ( i * 23 ) % 20 ) - 10 ) / 10;
+
+			const state = makeState( {
+				rotation,
+				zoom,
+				crop: { x: panX, y: panY },
+				cropRect: rect,
+			} );
+
+			const restricted = restrictPanZoom( state, IMAGE, rect );
+			const restrictedState = makeState( {
+				...state,
+				crop: restricted.crop,
+				zoom: restricted.zoom,
+				cropRect: rect,
+			} );
+
+			verifyImageCoversCrop( restrictedState, IMAGE );
+			passCount++;
+		}
+		expect( passCount ).toBe( 200 );
+	} );
+} );
+
+describe( 'getSourceRegion', () => {
+	it( 'at default state, source region matches full image', () => {
+		const state = makeState();
+		const region = getSourceRegion( state, IMAGE );
+		expect( region.x ).toBeCloseTo( 0, 0 );
+		expect( region.y ).toBeCloseTo( 0, 0 );
+		expect( region.width ).toBeCloseTo( IMAGE.width, 0 );
+		expect( region.height ).toBeCloseTo( IMAGE.height, 0 );
+		expect( region.rotation ).toBe( 0 );
+		expect( region.zoom ).toBe( 1 );
+	} );
+
+	it( 'at zoom=2 with centered crop, source region is half the image dimensions', () => {
+		const state = makeState( { zoom: 2 } );
+		const region = getSourceRegion( state, IMAGE );
+		expect( region.width ).toBeCloseTo( IMAGE.width / 2, 0 );
+		expect( region.height ).toBeCloseTo( IMAGE.height / 2, 0 );
+		// Centered: source region center should be at image center.
+		expect( region.x + region.width / 2 ).toBeCloseTo( IMAGE.width / 2, 0 );
+		expect( region.y + region.height / 2 ).toBeCloseTo(
+			IMAGE.height / 2,
+			0
+		);
+	} );
+
+	it( 'at 90-degree rotation, source region dimensions are swapped', () => {
+		const state = makeState( { rotation: 90 } );
+		const region = getSourceRegion( state, IMAGE );
+		// At 90° the rotated bounding box swaps roles: the crop covers the
+		// full visual area, so the visible source width maps from the image
+		// height and vice versa. The key invariant is that the region's
+		// aspect ratio flips relative to the default.
+		const defaultRegion = getSourceRegion( makeState(), IMAGE );
+		const defaultAR = defaultRegion.width / defaultRegion.height;
+		const rotatedAR = region.width / region.height;
+		// Rotated AR should be roughly the inverse of default AR.
+		expect( rotatedAR ).toBeCloseTo( 1 / defaultAR, 1 );
+		expect( region.rotation ).toBe( 90 );
 	} );
 } );
 

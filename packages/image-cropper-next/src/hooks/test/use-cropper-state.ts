@@ -575,6 +575,209 @@ describe( 'useCropperState', () => {
 		} );
 	} );
 
+	describe( 'SETTLE_CROP', () => {
+		function setupWithImage() {
+			const view = renderHook( () => useCropperState() );
+			act( () => {
+				view.result.current.dispatch( {
+					type: 'SET_IMAGE',
+					payload: {
+						src: 'test.jpg',
+						naturalWidth: 1000,
+						naturalHeight: 500,
+					},
+				} );
+			} );
+			return view;
+		}
+
+		it( 'expands a small crop to fill height and centers it', () => {
+			const { result } = setupWithImage();
+
+			// Shrink the crop rect to a small centered area.
+			act( () => {
+				result.current.setCropRect( {
+					x: 0.25,
+					y: 0.25,
+					width: 0.5,
+					height: 0.5,
+				} );
+			} );
+
+			act( () => {
+				result.current.dispatch( { type: 'SETTLE_CROP' } );
+			} );
+
+			const { cropRect } = result.current.state;
+			// Should expand to fill height (height=1) or width (width=1).
+			expect(
+				Math.abs( cropRect.height - 1 ) < 0.01 ||
+					Math.abs( cropRect.width - 1 ) < 0.01
+			).toBe( true );
+			// Should be centered.
+			const cx = cropRect.x + cropRect.width / 2;
+			const cy = cropRect.y + cropRect.height / 2;
+			expect( cx ).toBeCloseTo( 0.5, 1 );
+			expect( cy ).toBeCloseTo( 0.5, 1 );
+		} );
+
+		it( 'preserves the image selection (visible content center does not jump)', () => {
+			const { result } = setupWithImage();
+
+			// Zoom in so there is room to pan.
+			act( () => {
+				result.current.setZoom( 3 );
+			} );
+
+			// Resize crop to a smaller centered area (center at 0.5, 0.5).
+			act( () => {
+				result.current.setCropRect( {
+					x: 0.25,
+					y: 0.25,
+					width: 0.5,
+					height: 0.5,
+				} );
+			} );
+
+			// Record pre-settle state.
+			const preCropRect = result.current.state.cropRect;
+			const preZoom = result.current.state.zoom;
+
+			act( () => {
+				result.current.dispatch( { type: 'SETTLE_CROP' } );
+			} );
+
+			const postCropRect = result.current.state.cropRect;
+			const postZoom = result.current.state.zoom;
+
+			// The zoom should scale by the expansion factor.
+			const s = postCropRect.height / preCropRect.height;
+			expect( postZoom ).toBeCloseTo( preZoom * s, 1 );
+
+			// The crop center should remain at (0.5, 0.5).
+			const postCx = postCropRect.x + postCropRect.width / 2;
+			const postCy = postCropRect.y + postCropRect.height / 2;
+			expect( postCx ).toBeCloseTo( 0.5, 1 );
+			expect( postCy ).toBeCloseTo( 0.5, 1 );
+		} );
+
+		it( 'is a no-op when crop is already full and centered', () => {
+			const { result } = setupWithImage();
+
+			// State is already default: full crop, centered.
+			const stateBefore = result.current.state;
+
+			act( () => {
+				result.current.dispatch( { type: 'SETTLE_CROP' } );
+			} );
+
+			const stateAfter = result.current.state;
+			expect( stateAfter.cropRect ).toEqual( stateBefore.cropRect );
+			expect( stateAfter.zoom ).toEqual( stateBefore.zoom );
+			expect( stateAfter.crop.x ).toBeCloseTo( stateBefore.crop.x, 5 );
+			expect( stateAfter.crop.y ).toBeCloseTo( stateBefore.crop.y, 5 );
+		} );
+	} );
+
+	describe( 'SNAP_ROTATE_90', () => {
+		function setupWithImage() {
+			const view = renderHook( () => useCropperState() );
+			act( () => {
+				view.result.current.dispatch( {
+					type: 'SET_IMAGE',
+					payload: {
+						src: 'test.jpg',
+						naturalWidth: 1000,
+						naturalHeight: 500,
+					},
+				} );
+			} );
+			return view;
+		}
+
+		it( 'after snap rotate CW, crop width and height are swapped', () => {
+			const { result } = setupWithImage();
+
+			// Set a non-square crop so the swap is visible.
+			act( () => {
+				result.current.setCropRect( {
+					x: 0.1,
+					y: 0.2,
+					width: 0.6,
+					height: 0.4,
+				} );
+			} );
+
+			const widthBefore = result.current.state.cropRect.width;
+			const heightBefore = result.current.state.cropRect.height;
+
+			act( () => {
+				result.current.snapRotate90( 1 );
+			} );
+
+			// After snap rotate, width and height should be swapped
+			// (though enforceContainment may adjust slightly).
+			const { cropRect } = result.current.state;
+			expect( cropRect.width ).toBeCloseTo( heightBefore, 1 );
+			expect( cropRect.height ).toBeCloseTo( widthBefore, 1 );
+			expect( result.current.state.rotation ).toBe( 90 );
+		} );
+
+		it( 'after snap rotate CCW, crop width and height are swapped', () => {
+			const { result } = setupWithImage();
+
+			act( () => {
+				result.current.setCropRect( {
+					x: 0.1,
+					y: 0.2,
+					width: 0.6,
+					height: 0.4,
+				} );
+			} );
+
+			const widthBefore = result.current.state.cropRect.width;
+			const heightBefore = result.current.state.cropRect.height;
+
+			act( () => {
+				result.current.snapRotate90( -1 );
+			} );
+
+			const { cropRect } = result.current.state;
+			expect( cropRect.width ).toBeCloseTo( heightBefore, 1 );
+			expect( cropRect.height ).toBeCloseTo( widthBefore, 1 );
+			expect( result.current.state.rotation ).toBe( 270 );
+		} );
+
+		it( 'after two snap rotates CW (180 degrees), dimensions return to original', () => {
+			const { result } = setupWithImage();
+
+			act( () => {
+				result.current.setCropRect( {
+					x: 0.1,
+					y: 0.2,
+					width: 0.6,
+					height: 0.4,
+				} );
+			} );
+
+			const widthBefore = result.current.state.cropRect.width;
+			const heightBefore = result.current.state.cropRect.height;
+
+			act( () => {
+				result.current.snapRotate90( 1 );
+			} );
+
+			act( () => {
+				result.current.snapRotate90( 1 );
+			} );
+
+			const { cropRect } = result.current.state;
+			expect( cropRect.width ).toBeCloseTo( widthBefore, 1 );
+			expect( cropRect.height ).toBeCloseTo( heightBefore, 1 );
+			expect( result.current.state.rotation ).toBe( 180 );
+		} );
+	} );
+
 	describe( 'direct dispatch', () => {
 		it( 'should handle SET_IMAGE via dispatch', () => {
 			const { result } = renderHook( () => useCropperState() );
