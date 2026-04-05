@@ -15,6 +15,12 @@ import type {
 } from './types';
 import { degreesToRadians } from './math/rotation';
 
+// Pre-allocated scratch buffers for hot-path functions (restrictPanZoom,
+// screenToWorld, etc.) to avoid Float32Array allocation on every call.
+// These are module-level singletons — safe because all usage is synchronous.
+const _scratchMat = mat2d.create();
+const _scratchVec = vec2.create();
+
 /**
  * Compute the axis-aligned bounding box of a rectangle after rotation.
  *
@@ -200,10 +206,9 @@ export function screenToWorld(
 	camera: Camera,
 	point: { x: number; y: number }
 ): NormalizedPoint {
-	const inv = mat2d.create();
-	mat2d.invert( inv, camera );
-	const out = vec2.create();
-	vec2.transformMat2d( out, [ point.x, point.y ], inv );
+	mat2d.invert( _scratchMat, camera );
+	const out = _scratchVec;
+	vec2.transformMat2d( out, [ point.x, point.y ], _scratchMat );
 	return { x: out[ 0 ], y: out[ 1 ] };
 }
 
@@ -614,8 +619,8 @@ export function restrictPanZoom(
 
 	// Map stencil corners to world space via inverse camera.
 	// If a world point is outside [0,1], the image doesn't cover that spot.
-	const inv = mat2d.create();
-	mat2d.invert( inv, camera );
+	// Reuse module-level scratch buffers to avoid allocation per frame.
+	mat2d.invert( _scratchMat, camera );
 
 	let minWx = Infinity;
 	let maxWx = -Infinity;
@@ -623,8 +628,8 @@ export function restrictPanZoom(
 	let maxWy = -Infinity;
 
 	for ( const corner of stencilCorners ) {
-		const w = vec2.create();
-		vec2.transformMat2d( w, corner, inv );
+		vec2.transformMat2d( _scratchVec, corner, _scratchMat );
+		const w = _scratchVec;
 		if ( w[ 0 ] < minWx ) {
 			minWx = w[ 0 ];
 		}
