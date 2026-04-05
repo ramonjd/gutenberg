@@ -78,31 +78,48 @@ graph TD
 
 This is both the restriction algorithm AND the test. If the camera says it's covered, it's covered on screen — because the camera IS the screen transform.
 
-## File Map
+## Extension points
+
+See [extensibility.md](extensibility.md) for the full developer guide. Summary:
+
+| Extension | Mechanism |
+|-----------|-----------|
+| Custom crop area UI | `stencil` prop — any component implementing `StencilProps` |
+| AI agent control | `TransformOperation[]` pipeline — JSON-serializable, replayable |
+| Custom export | `createExportCamera()` → `ctx.setTransform()` → post-process |
+| Coordinate transforms | `worldToScreen()` / `screenToWorld()` via camera |
+| Theming | BEM CSS classes (`.wp-image-cropper-next__*`) |
+| State observation | `CropperState` is a plain object, `dispatch` is standard React |
+
+## File map
 
 ```
 packages/image-cropper-next/
+├── docs/
+│   ├── architecture.md                  # This file
+│   └── extensibility.md                 # Developer extension guide
 ├── src/
 │   ├── index.ts                          # Public API
 │   ├── core/
-│   │   ├── camera.ts                     # Camera matrix, restriction, getImageFit
-│   │   ├── constants.ts                  # DEFAULT_STATE, MIN_ZOOM, MAX_ZOOM
-│   │   ├── types.ts                      # CropperState, Camera, StencilProps, etc.
+│   │   ├── camera.ts                     # Camera matrix, restriction, getImageFit, getCropBounds
+│   │   ├── constants.ts                  # DEFAULT_STATE, MIN_ZOOM, MAX_ZOOM, MAX_ROTATION_OFFSET
+│   │   ├── types.ts                      # CropperState, Camera, StencilProps, TransformOperation
 │   │   ├── math/
 │   │   │   └── rotation.ts               # normalizeRotation, degreesToRadians, radiansToDegrees
 │   │   ├── transforms/
-│   │   │   └── pipeline.ts               # TransformOperation replay
+│   │   │   └── pipeline.ts               # TransformOperation replay, serialize/deserialize
 │   │   └── export/
-│   │       └── canvas-renderer.ts        # createExportCamera → ctx.setTransform
+│   │       └── canvas-renderer.ts        # createExportCamera → ctx.setTransform → Blob
 │   ├── hooks/
-│   │   ├── use-cropper-state.ts          # Reducer, enforceContainment
+│   │   ├── use-cropper-state.ts          # Reducer, enforceContainment, SETTLE_CROP, SNAP_ROTATE_90
 │   │   ├── use-interaction.ts            # Mouse/touch/keyboard → dispatch
 │   │   └── use-transform-style.ts        # State → CSS matrix()
 │   ├── components/
-│   │   ├── cropper.tsx                   # Orchestrator — getImageFit, passes visualSize down
+│   │   ├── cropper.tsx                   # Orchestrator — getImageFit, settle animation
+│   │   ├── cropper-provider.tsx          # Context wrapper for state sharing
 │   │   ├── cropper.scss
 │   │   ├── stencils/
-│   │   │   └── rectangle-stencil.tsx     # Crop handles (corner-only when ratio locked)
+│   │   │   └── rectangle-stencil.tsx     # Resize handles + crop move + settle
 │   │   └── overlays/
 │   │       ├── dimming-overlay.tsx
 │   │       └── grid-overlay.tsx
