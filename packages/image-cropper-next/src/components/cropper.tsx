@@ -246,7 +246,8 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		] );
 
 		// Compute the crop handle bounds from the actual image footprint.
-		// Depends on pan, zoom, rotation, flip — the full transform state.
+		// Only recalculate when transform-relevant fields change, not on
+		// every cropRect change (which would be circular during drag).
 		const cropBounds = useMemo( () => {
 			if ( ! state.image || elementSize.width === 0 ) {
 				return undefined;
@@ -257,7 +258,18 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 				visualSize,
 				containerSize
 			);
-		}, [ state, elementSize, visualSize, containerSize ] );
+		}, [
+			state.image,
+			state.crop.x,
+			state.crop.y,
+			state.zoom,
+			state.rotation,
+			state.flip.horizontal,
+			state.flip.vertical,
+			elementSize,
+			visualSize,
+			containerSize,
+		] );
 
 		// Use the interaction hook for mouse, touch, and keyboard events.
 		const { handlers } = useInteraction(
