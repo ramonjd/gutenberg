@@ -97,6 +97,7 @@ export function useInteraction(
 		startCropX: number;
 		startCropY: number;
 		isSingleTouch: boolean;
+		containerRect?: DOMRect;
 	} | null >( null );
 
 	const onMouseDown = useCallback(
@@ -182,16 +183,50 @@ export function useInteraction(
 		( e: React.WheelEvent ) => {
 			e.preventDefault();
 
-			const currentState = stateRef.current;
+			const s = stateRef.current;
 			const delta = -e.deltaY * zoomSpeed;
 			const newZoom = Math.min(
 				maxZoom,
-				Math.max( minZoom, currentState.zoom + delta )
+				Math.max( minZoom, s.zoom + delta )
 			);
 
-			dispatch( { type: 'SET_ZOOM', payload: newZoom } );
+			if ( newZoom === s.zoom ) {
+				return;
+			}
+
+			// Focal-point zoom: keep the point under the cursor stationary.
+			const visSize = imageSize ?? containerSize;
+			const rect = e.currentTarget?.getBoundingClientRect?.();
+			if ( visSize.width > 0 && visSize.height > 0 && rect ) {
+				// Focal point relative to container center, in pixels.
+				const fx = e.clientX - rect.left - containerSize.width / 2;
+				const fy = e.clientY - rect.top - containerSize.height / 2;
+				// Pan correction so the focal point stays at the same
+				// screen position after the zoom change.
+				const zoomRatio = 1 - newZoom / s.zoom;
+				const newCropX =
+					s.crop.x + ( fx / visSize.width - s.crop.x ) * zoomRatio;
+				const newCropY =
+					s.crop.y + ( fy / visSize.height - s.crop.y ) * zoomRatio;
+
+				const imgSize = s.image
+					? {
+							width: s.image.naturalWidth,
+							height: s.image.naturalHeight,
+					  }
+					: { width: 1, height: 1 };
+				const { crop: clampedCrop } = restrictPanZoom(
+					{ ...s, zoom: newZoom, crop: { x: newCropX, y: newCropY } },
+					imgSize,
+					s.cropRect
+				);
+				dispatch( { type: 'SET_CROP', payload: clampedCrop } );
+				dispatch( { type: 'SET_ZOOM', payload: newZoom } );
+			} else {
+				dispatch( { type: 'SET_ZOOM', payload: newZoom } );
+			}
 		},
-		[ dispatch, zoomSpeed, minZoom, maxZoom ]
+		[ dispatch, zoomSpeed, minZoom, maxZoom, containerSize, imageSize ]
 	);
 
 	const onTouchStart = useCallback(
@@ -212,6 +247,7 @@ export function useInteraction(
 					startCropX: currentState.crop.x,
 					startCropY: currentState.crop.y,
 					isSingleTouch: false,
+					containerRect: e.currentTarget.getBoundingClientRect(),
 				};
 			} else if ( e.touches.length === 1 ) {
 				// Single finger pan.
@@ -240,16 +276,66 @@ export function useInteraction(
 						! touch.isSingleTouch &&
 						moveEvent.touches.length === 2
 					) {
-						// Pinch zoom.
-						const currentDistance = getTouchDistance(
-							moveEvent.touches[ 0 ] as unknown as React.Touch,
-							moveEvent.touches[ 1 ] as unknown as React.Touch
-						);
+						// Pinch zoom with focal point at finger midpoint.
+						const t0 = moveEvent
+							.touches[ 0 ] as unknown as React.Touch;
+						const t1 = moveEvent
+							.touches[ 1 ] as unknown as React.Touch;
+						const currentDistance = getTouchDistance( t0, t1 );
 						const ratio = currentDistance / touch.startDistance;
 						const newZoom = Math.min(
 							maxZoom,
 							Math.max( minZoom, touch.startZoom * ratio )
 						);
+
+						const visSize = imageSize ?? containerSize;
+						const rect = touch.containerRect;
+						if (
+							visSize.width > 0 &&
+							visSize.height > 0 &&
+							rect &&
+							newZoom !== s.zoom
+						) {
+							// Midpoint of the two fingers.
+							const mx =
+								( t0.clientX + t1.clientX ) / 2 -
+								rect.left -
+								containerSize.width / 2;
+							const my =
+								( t0.clientY + t1.clientY ) / 2 -
+								rect.top -
+								containerSize.height / 2;
+							const zoomRatio = 1 - newZoom / s.zoom;
+							const newCropX =
+								s.crop.x +
+								( mx / visSize.width - s.crop.x ) * zoomRatio;
+							const newCropY =
+								s.crop.y +
+								( my / visSize.height - s.crop.y ) * zoomRatio;
+
+							const imgSize = s.image
+								? {
+										width: s.image.naturalWidth,
+										height: s.image.naturalHeight,
+								  }
+								: { width: 1, height: 1 };
+							const { crop: clampedCrop } = restrictPanZoom(
+								{
+									...s,
+									zoom: newZoom,
+									crop: {
+										x: newCropX,
+										y: newCropY,
+									},
+								},
+								imgSize,
+								s.cropRect
+							);
+							dispatch( {
+								type: 'SET_CROP',
+								payload: clampedCrop,
+							} );
+						}
 						dispatch( {
 							type: 'SET_ZOOM',
 							payload: newZoom,
