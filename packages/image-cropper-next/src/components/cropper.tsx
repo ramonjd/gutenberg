@@ -65,6 +65,12 @@ export interface CropperProps {
 	freeformCrop?: boolean;
 	/** Callback fired when the image is loaded. */
 	onImageLoaded?: ( size: Size ) => void;
+	/**
+	 * Callback fired whenever the cropper state changes.
+	 * Useful for syncing with external tools, analytics, or AI agents.
+	 * Receives the full state — consumers can derive what they need.
+	 */
+	onStateChange?: ( state: CropperState ) => void;
 	/** Additional className for the container. */
 	className?: string;
 }
@@ -93,6 +99,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			aspectRatio,
 			freeformCrop = false,
 			onImageLoaded,
+			onStateChange,
 			className,
 		}: CropperProps,
 		ref: React.ForwardedRef< HTMLDivElement >
@@ -130,6 +137,11 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			width: 0,
 			height: 0,
 		} );
+
+		// Notify consumer of state changes.
+		useEffect( () => {
+			onStateChange?.( state );
+		}, [ state, onStateChange ] );
 
 		// Compute fitted image dimensions and visual bounds from camera math.
 		const { elementSize, visualSize } = useMemo(

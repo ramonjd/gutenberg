@@ -138,3 +138,63 @@ export async function exportCroppedImage(
 		return null;
 	}
 }
+
+/**
+ * Apply the cropper's transform (crop, rotation, flip, zoom) to an existing
+ * canvas or image source. This is the bridge for multi-step editing pipelines
+ * where an upstream tool (e.g., brightness/color adjustment) has already
+ * processed the image and you want to apply the crop on top.
+ *
+ * Accepts any CanvasImageSource: HTMLImageElement, HTMLCanvasElement,
+ * OffscreenCanvas, ImageBitmap, HTMLVideoElement, etc.
+ *
+ * @param source            - The image source to crop/transform.
+ * @param sourceSize        - The dimensions of the source (natural width/height).
+ * @param sourceSize.width  - The width of the source in pixels.
+ * @param sourceSize.height - The height of the source in pixels.
+ * @param state             - The cropper state with all transform settings.
+ * @param outputSize        - Optional output size. Defaults to the crop region's natural pixel size.
+ * @param outputSize.width  - The width of the output in pixels.
+ * @param outputSize.height - The height of the output in pixels.
+ * @return A canvas with the transforms applied.
+ */
+export function applyToCanvas(
+	source: CanvasImageSource,
+	sourceSize: { width: number; height: number },
+	state: CropperState,
+	outputSize?: { width: number; height: number }
+): HTMLCanvasElement {
+	const rad = degreesToRadians( state.rotation );
+	const cosR = Math.abs( Math.cos( rad ) );
+	const sinR = Math.abs( Math.sin( rad ) );
+	const rotW = cosR * sourceSize.width + sinR * sourceSize.height;
+	const rotH = sinR * sourceSize.width + cosR * sourceSize.height;
+
+	// Default output size: the crop region in natural pixels.
+	const outW = outputSize?.width ?? Math.round( state.cropRect.width * rotW );
+	const outH =
+		outputSize?.height ?? Math.round( state.cropRect.height * rotH );
+
+	const canvas = document.createElement( 'canvas' );
+	canvas.width = outW;
+	canvas.height = outH;
+	const ctx = canvas.getContext( '2d' );
+	if ( ! ctx ) {
+		return canvas;
+	}
+
+	const camera = createExportCamera( state, sourceSize, {
+		width: outW,
+		height: outH,
+	} );
+	ctx.setTransform(
+		camera[ 0 ],
+		camera[ 1 ],
+		camera[ 2 ],
+		camera[ 3 ],
+		camera[ 4 ],
+		camera[ 5 ]
+	);
+	ctx.drawImage( source, 0, 0 );
+	return canvas;
+}

@@ -733,3 +733,104 @@ export function createExportCamera(
 	mat2d.translate( m, m, [ -imageSize.width / 2, -imageSize.height / 2 ] );
 	return m;
 }
+
+/**
+ * The selected image region in source-pixel coordinates.
+ */
+export interface SourceRegion {
+	/** X offset in source pixels. */
+	x: number;
+	/** Y offset in source pixels. */
+	y: number;
+	/** Width in source pixels. */
+	width: number;
+	/** Height in source pixels. */
+	height: number;
+	/** Rotation in degrees (0-360). */
+	rotation: number;
+	/** Flip state. */
+	flip: { horizontal: boolean; vertical: boolean };
+	/** Zoom factor applied. */
+	zoom: number;
+}
+
+/**
+ * Get the selected image region in source-pixel coordinates.
+ *
+ * Converts the current crop state (normalized visual space) to the actual
+ * region of the original image that's selected. This is the bridge between
+ * the cropper's internal coordinate system and external tools (image
+ * processing libraries, AI APIs, server-side processing) that work in
+ * source-pixel coordinates.
+ *
+ * The returned rectangle accounts for pan, zoom, and the crop rect position,
+ * but expresses the crop in the unrotated image's coordinate space. Rotation
+ * and flip are included as separate fields since they represent transforms,
+ * not a region.
+ *
+ * @param state     The current cropper state.
+ * @param imageSize The natural dimensions of the source image.
+ * @return The selected region in source pixels plus rotation/flip metadata.
+ */
+export function getSourceRegion(
+	state: CropperState,
+	imageSize: Size
+): SourceRegion {
+	if ( imageSize.width === 0 || imageSize.height === 0 ) {
+		return {
+			x: 0,
+			y: 0,
+			width: 0,
+			height: 0,
+			rotation: state.rotation,
+			flip: { ...state.flip },
+			zoom: state.zoom,
+		};
+	}
+
+	const cr = state.cropRect;
+	const rad = degreesToRadians( state.rotation );
+	const cosR = Math.abs( Math.cos( rad ) );
+	const sinR = Math.abs( Math.sin( rad ) );
+	const rotW = cosR * imageSize.width + sinR * imageSize.height;
+	const rotH = sinR * imageSize.width + cosR * imageSize.height;
+
+	// The crop rect in pixel-proportional visual space.
+	const cropPixelX = cr.x * rotW;
+	const cropPixelY = cr.y * rotH;
+	const cropPixelW = cr.width * rotW;
+	const cropPixelH = cr.height * rotH;
+
+	// Account for pan: the pan shifts the visible region.
+	const panPixelX = state.crop.x * rotW;
+	const panPixelY = state.crop.y * rotH;
+
+	// The visible center of the crop in visual-pixel space, relative
+	// to the visual center.
+	const visCenterX = cropPixelX + cropPixelW / 2 - rotW / 2 - panPixelX;
+	const visCenterY = cropPixelY + cropPixelH / 2 - rotH / 2 - panPixelY;
+
+	// The visible region size in source pixels (accounting for zoom).
+	const sourceW = cropPixelW / state.zoom;
+	const sourceH = cropPixelH / state.zoom;
+
+	// The visible center in source pixels (rotate back to source frame).
+	const cos = Math.cos( rad );
+	const sin = Math.sin( rad );
+	const srcCenterX =
+		( visCenterX * cos + visCenterY * sin ) / state.zoom +
+		imageSize.width / 2;
+	const srcCenterY =
+		( -visCenterX * sin + visCenterY * cos ) / state.zoom +
+		imageSize.height / 2;
+
+	return {
+		x: srcCenterX - sourceW / 2,
+		y: srcCenterY - sourceH / 2,
+		width: sourceW,
+		height: sourceH,
+		rotation: state.rotation,
+		flip: { ...state.flip },
+		zoom: state.zoom,
+	};
+}
