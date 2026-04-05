@@ -16,6 +16,28 @@ import type {
 import { degreesToRadians } from './math/rotation';
 
 /**
+ * Compute the axis-aligned bounding box of a rectangle after rotation.
+ *
+ * @param width    The width of the rectangle.
+ * @param height   The height of the rectangle.
+ * @param rotation The rotation angle in degrees.
+ * @return The bounding box size after rotation.
+ */
+export function getRotatedBBox(
+	width: number,
+	height: number,
+	rotation: number
+): Size {
+	const rad = degreesToRadians( rotation );
+	const cosR = Math.abs( Math.cos( rad ) );
+	const sinR = Math.abs( Math.sin( rad ) );
+	return {
+		width: cosR * width + sinR * height,
+		height: sinR * width + cosR * height,
+	};
+}
+
+/**
  * Compute the fitted (unrotated) image element dimensions and the visual
  * (rotated) bounding box dimensions for a given container, image, and rotation.
  *
@@ -44,22 +66,21 @@ export function getImageFit(
 			visualSize: { width: 0, height: 0 },
 		};
 	}
-	const rad = degreesToRadians( rotation );
-	const cosR = Math.abs( Math.cos( rad ) );
-	const sinR = Math.abs( Math.sin( rad ) );
-	const rotW = cosR * imageSize.width + sinR * imageSize.height;
-	const rotH = sinR * imageSize.width + cosR * imageSize.height;
+	const naturalBBox = getRotatedBBox(
+		imageSize.width,
+		imageSize.height,
+		rotation
+	);
 	const fitScale = Math.min(
-		containerSize.width / rotW,
-		containerSize.height / rotH
+		containerSize.width / naturalBBox.width,
+		containerSize.height / naturalBBox.height
 	);
 	const renderedW = imageSize.width * fitScale;
 	const renderedH = imageSize.height * fitScale;
-	const visualW = cosR * renderedW + sinR * renderedH;
-	const visualH = sinR * renderedW + cosR * renderedH;
+	const visualSize = getRotatedBBox( renderedW, renderedH, rotation );
 	return {
 		elementSize: { width: renderedW, height: renderedH },
-		visualSize: { width: visualW, height: visualH },
+		visualSize,
 	};
 }
 
@@ -93,18 +114,17 @@ export function createCamera(
 		return m;
 	}
 
-	const rad = degreesToRadians( state.rotation );
-	const cosR = Math.abs( Math.cos( rad ) );
-	const sinR = Math.abs( Math.sin( rad ) );
-
 	// Rotated bounding box of the natural image.
-	const rotW = cosR * imageSize.width + sinR * imageSize.height;
-	const rotH = sinR * imageSize.width + cosR * imageSize.height;
+	const naturalBBox = getRotatedBBox(
+		imageSize.width,
+		imageSize.height,
+		state.rotation
+	);
 
 	// "Contain" fit: scale rotated bounding box to fit within container.
 	const fitScale = Math.min(
-		containerSize.width / rotW,
-		containerSize.height / rotH
+		containerSize.width / naturalBBox.width,
+		containerSize.height / naturalBBox.height
 	);
 
 	// The rendered (unrotated) image dimensions at this fit scale.
@@ -112,8 +132,11 @@ export function createCamera(
 	const renderedH = imageSize.height * fitScale;
 
 	// Visual (rotated) image footprint in pixels.
-	const visualW = cosR * renderedW + sinR * renderedH;
-	const visualH = sinR * renderedW + cosR * renderedH;
+	const { width: visualW, height: visualH } = getRotatedBBox(
+		renderedW,
+		renderedH,
+		state.rotation
+	);
 
 	// Build matrix left-to-right (outermost first).
 	// Innermost operations (last in code) are applied first to input point.
@@ -319,9 +342,10 @@ function getVisualDimensions(
 	const rad = degreesToRadians( rotation );
 	const absC = Math.abs( Math.cos( rad ) );
 	const absS = Math.abs( Math.sin( rad ) );
+	const bbox = getRotatedBBox( imageAspectRatio, 1, rotation );
 	return {
-		visualW: absC * imageAspectRatio + absS,
-		visualH: absS * imageAspectRatio + absC,
+		visualW: bbox.width,
+		visualH: bbox.height,
 		absC,
 		absS,
 	};
@@ -702,11 +726,11 @@ export function createExportCamera(
 	) {
 		return m;
 	}
-	const rad = degreesToRadians( rotation );
-	const cosR = Math.abs( Math.cos( rad ) );
-	const sinR = Math.abs( Math.sin( rad ) );
-	const rotW = cosR * imageSize.width + sinR * imageSize.height;
-	const rotH = sinR * imageSize.width + cosR * imageSize.height;
+	const { width: rotW, height: rotH } = getRotatedBBox(
+		imageSize.width,
+		imageSize.height,
+		rotation
+	);
 
 	// Scale factor to map the natural crop region to the output canvas size.
 	const naturalCropW = cropRect.width * rotW;
@@ -788,45 +812,50 @@ export function getSourceRegion(
 		};
 	}
 
+	// Use a synthetic 1:1 container so the camera maps normalized coords
+	// to a known pixel space. The container size cancels out.
+	const syntheticContainer: Size = { width: 1000, height: 1000 };
+	const camera = createCamera( state, syntheticContainer, imageSize );
+
+	// Inverse camera maps screen pixels back to normalized [0,1] world coords.
+	const inv = mat2d.create();
+	mat2d.invert( inv, camera );
+
+	// The crop rect center in screen space. We need the base camera
+	// (zoom=1, no pan) to locate the visual bounds, then place the
+	// crop rect within them.
+	const baseCamera = createCamera(
+		{ ...state, crop: { x: 0, y: 0 }, zoom: 1 },
+		syntheticContainer,
+		imageSize
+	);
+	const vb = getVisibleBounds( baseCamera );
+
 	const cr = state.cropRect;
-	const rad = degreesToRadians( state.rotation );
-	const cosR = Math.abs( Math.cos( rad ) );
-	const sinR = Math.abs( Math.sin( rad ) );
-	const rotW = cosR * imageSize.width + sinR * imageSize.height;
-	const rotH = sinR * imageSize.width + cosR * imageSize.height;
+	const cropCenterScreenX = vb.left + ( cr.x + cr.width / 2 ) * vb.width;
+	const cropCenterScreenY = vb.top + ( cr.y + cr.height / 2 ) * vb.height;
 
-	// The crop rect in pixel-proportional visual space.
-	const cropPixelX = cr.x * rotW;
-	const cropPixelY = cr.y * rotH;
-	const cropPixelW = cr.width * rotW;
-	const cropPixelH = cr.height * rotH;
+	// Transform crop center through inverse camera to get source position.
+	const srcCenter = vec2.create();
+	vec2.transformMat2d(
+		srcCenter,
+		[ cropCenterScreenX, cropCenterScreenY ],
+		inv
+	);
 
-	// Account for pan: the pan shifts the visible region.
-	const panPixelX = state.crop.x * rotW;
-	const panPixelY = state.crop.y * rotH;
-
-	// The visible center of the crop in visual-pixel space, relative
-	// to the visual center.
-	const visCenterX = cropPixelX + cropPixelW / 2 - rotW / 2 - panPixelX;
-	const visCenterY = cropPixelY + cropPixelH / 2 - rotH / 2 - panPixelY;
-
-	// The visible region size in source pixels (accounting for zoom).
-	const sourceW = cropPixelW / state.zoom;
-	const sourceH = cropPixelH / state.zoom;
-
-	// The visible center in source pixels (rotate back to source frame).
-	const cos = Math.cos( rad );
-	const sin = Math.sin( rad );
-	const srcCenterX =
-		( visCenterX * cos + visCenterY * sin ) / state.zoom +
-		imageSize.width / 2;
-	const srcCenterY =
-		( -visCenterX * sin + visCenterY * cos ) / state.zoom +
-		imageSize.height / 2;
+	// Crop rect size in the rotated visual space, divided by zoom
+	// for source-pixel dimensions.
+	const { width: rotW, height: rotH } = getRotatedBBox(
+		imageSize.width,
+		imageSize.height,
+		state.rotation
+	);
+	const sourceW = ( cr.width * rotW ) / state.zoom;
+	const sourceH = ( cr.height * rotH ) / state.zoom;
 
 	return {
-		x: srcCenterX - sourceW / 2,
-		y: srcCenterY - sourceH / 2,
+		x: srcCenter[ 0 ] * imageSize.width - sourceW / 2,
+		y: srcCenter[ 1 ] * imageSize.height - sourceH / 2,
 		width: sourceW,
 		height: sourceH,
 		rotation: state.rotation,

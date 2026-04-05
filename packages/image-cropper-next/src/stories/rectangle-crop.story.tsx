@@ -26,6 +26,7 @@ import {
 	renderToCanvas,
 	canvasToDataURL,
 } from '../core/export/canvas-renderer';
+import { getRotatedBBox } from '../core/camera';
 import './style.css';
 
 const SAMPLE_IMAGE = '1-100-grid.webp';
@@ -130,16 +131,13 @@ const WithControlsComponent = () => {
 			// mode, we adjust the crop rect here to fit the new ratio.
 			const ratio = parseFloat( value );
 			if ( freeformCrop && ratio > 0 && state.image ) {
-				const rad = ( state.rotation * Math.PI ) / 180;
-				const cosR = Math.abs( Math.cos( rad ) );
-				const sinR = Math.abs( Math.sin( rad ) );
 				const natW = state.image.naturalWidth;
 				const natH = state.image.naturalHeight;
-				const visualW = cosR * natW + sinR * natH;
-				const visualH = sinR * natW + cosR * natH;
+				const visualBBox = getRotatedBBox( natW, natH, state.rotation );
 				// normalizedRatio = w/h in normalized space that produces
 				// the desired pixel aspect ratio.
-				const normalizedRatio = ( ratio * visualH ) / visualW;
+				const normalizedRatio =
+					( ratio * visualBBox.height ) / visualBBox.width;
 
 				let w = state.cropRect.width;
 				let h = w / normalizedRatio;
