@@ -76,6 +76,24 @@ export interface CropperProps {
 }
 
 /**
+ * Build an announcement string for screen readers from cropper state.
+ *
+ * @param state The current cropper state.
+ * @return A human-readable description of the current state.
+ */
+function buildAnnouncement( state: CropperState ): string {
+	const parts: string[] = [];
+	parts.push( `Zoom ${ Math.round( state.zoom * 100 ) }%` );
+	if ( state.rotation !== 0 ) {
+		parts.push( `Rotation ${ Math.round( state.rotation ) } degrees` );
+	}
+	const cropW = Math.round( state.cropRect.width * 100 );
+	const cropH = Math.round( state.cropRect.height * 100 );
+	parts.push( `Crop ${ cropW }% by ${ cropH }%` );
+	return parts.join( ', ' );
+}
+
+/**
  * The main image cropper component.
  *
  * Renders an image within a container with interactive crop overlays.
@@ -142,6 +160,33 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		useEffect( () => {
 			onStateChange?.( state );
 		}, [ state, onStateChange ] );
+
+		// ARIA live region: announce significant state changes for screen readers.
+		const [ ariaMessage, setAriaMessage ] = useState( '' );
+		const ariaTimerRef = useRef< ReturnType< typeof setTimeout > >();
+		const prevAnnouncementRef = useRef( '' );
+
+		useEffect( () => {
+			// Debounce announcements to avoid flooding during drag/mousemove.
+			clearTimeout( ariaTimerRef.current );
+			ariaTimerRef.current = setTimeout( () => {
+				const msg = buildAnnouncement( state );
+				if ( msg !== prevAnnouncementRef.current ) {
+					prevAnnouncementRef.current = msg;
+					setAriaMessage( msg );
+				}
+			}, 300 );
+
+			return () => {
+				clearTimeout( ariaTimerRef.current );
+			};
+		}, [
+			state.zoom,
+			state.rotation,
+			state.cropRect.width,
+			state.cropRect.height,
+			state,
+		] );
 
 		// Compute fitted image dimensions and visual bounds from camera math.
 		const { elementSize, visualSize } = useMemo(
@@ -378,6 +423,26 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 						imageSize={ visualSize }
 					/>
 				) }
+
+				{ /* ARIA live region for screen reader announcements */ }
+				<div
+					aria-live="polite"
+					aria-atomic="true"
+					className="wp-image-cropper-next__aria-live"
+					style={ {
+						position: 'absolute',
+						width: 1,
+						height: 1,
+						padding: 0,
+						margin: -1,
+						overflow: 'hidden',
+						clip: 'rect(0, 0, 0, 0)',
+						whiteSpace: 'nowrap',
+						border: 0,
+					} }
+				>
+					{ ariaMessage }
+				</div>
 			</div>
 		);
 	}
