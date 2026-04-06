@@ -1,7 +1,7 @@
 /**
  * WordPress dependencies
  */
-import { useCallback, useRef } from '@wordpress/element';
+import { useCallback, useRef, useState } from '@wordpress/element';
 
 /**
  * Internal dependencies
@@ -21,6 +21,8 @@ export interface UseInteractionReturn {
 		onTouchStart: ( e: React.TouchEvent ) => void;
 		onKeyDown: ( e: React.KeyboardEvent ) => void;
 	};
+	/** Whether a drag (pan) interaction is in progress. */
+	isDragging: boolean;
 }
 
 /**
@@ -87,6 +89,7 @@ export function useInteraction(
 		startCropY: number;
 	} | null >( null );
 
+	const [ isDragging, setIsDragging ] = useState( false );
 	const rafRef = useRef< number >( 0 );
 
 	const touchRef = useRef< {
@@ -110,6 +113,7 @@ export function useInteraction(
 				ownerDoc.activeElement.blur();
 			}
 
+			setIsDragging( true );
 			const currentState = stateRef.current;
 			dragRef.current = {
 				startX: e.clientX,
@@ -167,6 +171,7 @@ export function useInteraction(
 			};
 
 			const onMouseUp = () => {
+				setIsDragging( false );
 				dragRef.current = null;
 				cancelAnimationFrame( rafRef.current );
 				document.removeEventListener( 'mousemove', onMouseMove );
@@ -568,5 +573,6 @@ export function useInteraction(
 			onTouchStart,
 			onKeyDown,
 		},
+		isDragging,
 	};
 }
