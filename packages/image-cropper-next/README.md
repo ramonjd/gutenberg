@@ -50,6 +50,75 @@ function MyEditor() {
 }
 ```
 
+### Sharing state across components
+
+If the cropper and other UI (toolbar, sidebar) live in the same component, just use the hook directly:
+
+```jsx
+import { Cropper, useCropperState } from '@wordpress/image-cropper-next';
+
+function ImageEditor() {
+	const { state, dispatch, setZoom, setRotation, snapRotate90, reset } =
+		useCropperState();
+	return (
+		<div>
+			<div className="toolbar">
+				<button onClick={ () => setZoom( state.zoom + 0.5 ) }>Zoom In</button>
+				<button onClick={ () => snapRotate90( 1 ) }>Rotate 90</button>
+				<button onClick={ () => reset() }>Reset</button>
+				<span>Zoom: { Math.round( state.zoom * 100 ) }%</span>
+			</div>
+			<Cropper src="image.jpg" state={ state } dispatch={ dispatch } freeformCrop />
+		</div>
+	);
+}
+```
+
+### Provider pattern for deep component trees
+
+When the cropper and controls are in different branches of the tree, use `CropperProvider` to avoid prop-drilling:
+
+```jsx
+import { Cropper, CropperProvider, useCropper } from '@wordpress/image-cropper-next';
+
+function ImageEditor() {
+	return (
+		<CropperProvider>
+			<Toolbar />
+			<CropperPanel />
+			<Sidebar />
+		</CropperProvider>
+	);
+}
+
+// Any child can access state without props:
+function Toolbar() {
+	const { state, setZoom, snapRotate90, reset } = useCropper();
+	return (
+		<div>
+			<button onClick={ () => setZoom( state.zoom + 0.5 ) }>Zoom In</button>
+			<button onClick={ () => snapRotate90( 1 ) }>Rotate 90</button>
+			<button onClick={ () => reset() }>Reset</button>
+		</div>
+	);
+}
+
+function CropperPanel() {
+	const { state, dispatch } = useCropper();
+	return <Cropper src="image.jpg" state={ state } dispatch={ dispatch } freeformCrop />;
+}
+
+function Sidebar() {
+	const { state } = useCropper();
+	return (
+		<div>
+			<p>Zoom: { Math.round( state.zoom * 100 ) }%</p>
+			<p>Rotation: { state.rotation }°</p>
+		</div>
+	);
+}
+```
+
 ### Freeform crop with aspect ratio
 
 ```jsx
