@@ -30,6 +30,7 @@ import {
 	loadImage,
 	renderToCanvas,
 	canvasToDataURL,
+	downloadCroppedImage,
 } from '../core/export/canvas-renderer';
 import { getRotatedBBox } from '../core/camera';
 import './style.css';
@@ -252,6 +253,19 @@ const WithControlsComponent = () => {
 
 				<div className="image-cropper-next-story__row">
 					<button onClick={ handleReset }>Reset</button>
+					<button
+						onClick={ () =>
+							downloadCroppedImage(
+								SAMPLE_IMAGE,
+								state,
+								'cropped',
+								'image/jpeg',
+								0.9
+							)
+						}
+					>
+						Download
+					</button>
 				</div>
 			</div>
 
