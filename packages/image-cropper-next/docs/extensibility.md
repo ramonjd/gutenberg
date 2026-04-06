@@ -254,18 +254,28 @@ The `onStateChange` callback on the Cropper component fires on every state chang
 The component uses BEM-style CSS classes that themes can override:
 
 ```
-.wp-image-cropper-next              -- Container
-.wp-image-cropper-next__image       -- The image element
-.wp-image-cropper-next__stencil     -- Crop area container
-.wp-image-cropper-next__stencil-rect -- Crop border rectangle
-.wp-image-cropper-next__handle      -- Resize handle (all)
-.wp-image-cropper-next__handle--n   -- North handle (etc. for s, e, w, nw, ne, sw, se)
-.wp-image-cropper-next__dimming     -- Dimming overlay
-.wp-image-cropper-next__grid        -- Grid overlay
-.wp-image-cropper-next__grid-line   -- Individual grid line
+.wp-image-cropper-next                -- Container (cursor: grab)
+.wp-image-cropper-next--dragging      -- Applied during image pan drag (cursor: grabbing)
+.wp-image-cropper-next__image         -- The image element
+.wp-image-cropper-next__stencil       -- Crop area container (pointer-events: none)
+.wp-image-cropper-next__stencil-rect  -- Crop border rectangle
+.wp-image-cropper-next__handle        -- Resize handle (all, pointer-events: auto)
+.wp-image-cropper-next__handle--n     -- North handle (cursor: ns-resize)
+.wp-image-cropper-next__handle--s     -- South handle (cursor: ns-resize)
+.wp-image-cropper-next__handle--e     -- East handle (cursor: ew-resize)
+.wp-image-cropper-next__handle--w     -- West handle (cursor: ew-resize)
+.wp-image-cropper-next__handle--nw    -- North-west handle (cursor: nwse-resize)
+.wp-image-cropper-next__handle--ne    -- North-east handle (cursor: nesw-resize)
+.wp-image-cropper-next__handle--sw    -- South-west handle (cursor: nesw-resize)
+.wp-image-cropper-next__handle--se    -- South-east handle (cursor: nwse-resize)
+.wp-image-cropper-next__dimming       -- Dimming overlay outside crop area
+.wp-image-cropper-next__grid          -- Grid overlay container
+.wp-image-cropper-next__grid-line     -- Individual grid line
 ```
 
-Override in your theme:
+All styles are in CSS classes with no inline style overrides, so consumers can override anything with equal or higher specificity.
+
+**Override handles and dimming:**
 
 ```css
 .wp-image-cropper-next__handle {
@@ -274,6 +284,34 @@ Override in your theme:
 }
 .wp-image-cropper-next__dimming {
   background: rgba(0, 0, 0, 0.6);
+}
+```
+
+**Override cursors:**
+
+```css
+/* Use crosshair instead of grab */
+.wp-image-cropper-next {
+  cursor: crosshair;
+}
+.wp-image-cropper-next--dragging {
+  cursor: move;
+}
+/* Custom handle cursor */
+.wp-image-cropper-next__handle {
+  cursor: pointer;
+}
+```
+
+**Override handle appearance per position:**
+
+```css
+/* Only show corner handles, hide edge handles */
+.wp-image-cropper-next__handle--n,
+.wp-image-cropper-next__handle--s,
+.wp-image-cropper-next__handle--e,
+.wp-image-cropper-next__handle--w {
+  display: none;
 }
 ```
 
