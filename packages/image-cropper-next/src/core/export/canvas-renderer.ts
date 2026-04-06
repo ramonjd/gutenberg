@@ -195,3 +195,38 @@ export function applyToCanvas(
 	ctx.drawImage( source, 0, 0 );
 	return canvas;
 }
+
+/**
+ * Download the cropped image as a file.
+ *
+ * Loads the source image, applies all transforms, and triggers a
+ * browser download. This is a convenience wrapper around
+ * exportCroppedImage() + object URL + anchor click.
+ *
+ * @param src      - The image URL to load.
+ * @param state    - The cropper state with all transform settings.
+ * @param filename - The download filename. Defaults to 'cropped-image'.
+ * @param mimeType - The output MIME type. Defaults to 'image/png'.
+ * @param quality  - The quality parameter for lossy formats (0-1). Defaults to 0.92.
+ * @return A promise that resolves to true if the download was triggered, false on error.
+ */
+export async function downloadCroppedImage(
+	src: string,
+	state: CropperState,
+	filename: string = 'cropped-image',
+	mimeType: string = 'image/png',
+	quality: number = 0.92
+): Promise< boolean > {
+	const blob = await exportCroppedImage( src, state, mimeType, quality );
+	if ( ! blob ) {
+		return false;
+	}
+	const ext = mimeType.split( '/' )[ 1 ] ?? 'png';
+	const url = URL.createObjectURL( blob );
+	const a = document.createElement( 'a' );
+	a.href = url;
+	a.download = `${ filename }.${ ext }`;
+	a.click();
+	URL.revokeObjectURL( url );
+	return true;
+}
