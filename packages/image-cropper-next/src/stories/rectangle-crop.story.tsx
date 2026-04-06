@@ -32,7 +32,7 @@ import {
 	canvasToDataURL,
 	downloadCroppedImage,
 } from '../core/export/canvas-renderer';
-import { getRotatedBBox } from '../core/camera';
+import { getRotatedBBox, getSourceRegion } from '../core/camera';
 import './style.css';
 
 const SAMPLE_IMAGE = '1-100-grid.webp';
@@ -86,6 +86,15 @@ const WithControlsComponent = () => {
 
 	const [ aspectRatioValue, setAspectRatioValue ] = useState( '0' );
 	const [ freeformCrop, setFreeformCrop ] = useState( false );
+	const [ exportFormat, setExportFormat ] = useState( 'image/jpeg' );
+
+	// Compute the crop dimensions in source pixels.
+	const cropDimensions = state.image
+		? getSourceRegion( state, {
+				width: state.image.naturalWidth,
+				height: state.image.naturalHeight,
+		  } )
+		: null;
 
 	// The base cardinal angle (nearest 90° step) and the fine offset.
 	const baseAngle = Math.round( state.rotation / 90 ) * 90;
@@ -253,19 +262,33 @@ const WithControlsComponent = () => {
 
 				<div className="image-cropper-next-story__row">
 					<button onClick={ handleReset }>Reset</button>
+					<select
+						value={ exportFormat }
+						onChange={ ( e ) => setExportFormat( e.target.value ) }
+					>
+						<option value="image/jpeg">JPEG</option>
+						<option value="image/png">PNG</option>
+						<option value="image/webp">WebP</option>
+					</select>
 					<button
 						onClick={ () =>
 							downloadCroppedImage(
 								SAMPLE_IMAGE,
 								state,
 								'cropped',
-								'image/jpeg',
+								exportFormat,
 								0.9
 							)
 						}
 					>
 						Download
 					</button>
+					{ cropDimensions && (
+						<span style={ { fontSize: 12, color: '#666' } }>
+							{ Math.round( cropDimensions.width ) } &times;{ ' ' }
+							{ Math.round( cropDimensions.height ) } px
+						</span>
+					) }
 				</div>
 			</div>
 
