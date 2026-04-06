@@ -798,4 +798,70 @@ describe( 'useCropperState', () => {
 			expect( result.current.state.image ).toEqual( imageData );
 		} );
 	} );
+
+	describe( 'isStateDirty coverage guard', () => {
+		// This test ensures that isStateDirty checks ALL fields in CropperState.
+		// If you add a field to CropperState/DEFAULT_STATE and this test fails,
+		// you MUST also update isStateDirty() in use-cropper-state.ts.
+		it( 'should track all CropperState fields', () => {
+			// Flatten DEFAULT_STATE keys into dot-notation paths.
+			// e.g., { crop: { x: 0, y: 0 } } → ['crop.x', 'crop.y']
+			function flattenKeys(
+				obj: Record< string, unknown >,
+				prefix = ''
+			): string[] {
+				const keys: string[] = [];
+				for ( const key of Object.keys( obj ) ) {
+					const fullKey = prefix ? `${ prefix }.${ key }` : key;
+					const value = obj[ key ];
+					if (
+						value !== null &&
+						typeof value === 'object' &&
+						! Array.isArray( value )
+					) {
+						keys.push(
+							...flattenKeys(
+								value as Record< string, unknown >,
+								fullKey
+							)
+						);
+					} else {
+						keys.push( fullKey );
+					}
+				}
+				return keys.sort();
+			}
+
+			// The fields that isStateDirty currently checks.
+			// Keep this in sync — if you add a field to CropperState,
+			// add it here AND in isStateDirty().
+			const dirtyCheckedFields = [
+				'crop.x',
+				'crop.y',
+				'cropRect.height',
+				'cropRect.width',
+				'cropRect.x',
+				'cropRect.y',
+				'flip.horizontal',
+				'flip.vertical',
+				'rotation',
+				'zoom',
+			].sort();
+
+			// 'image' is intentionally excluded — it's set once on load
+			// and doesn't represent a user edit.
+			const excludedFields = [ 'image' ];
+
+			const stateKeys = flattenKeys(
+				DEFAULT_STATE as unknown as Record< string, unknown >
+			).filter(
+				( key ) =>
+					! excludedFields.some(
+						( ex ) => key === ex || key.startsWith( ex + '.' )
+					)
+			);
+
+			expect( stateKeys ).toEqual( dirtyCheckedFields );
+		} );
+	} );
 } );
