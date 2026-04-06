@@ -353,11 +353,13 @@ const ProgrammaticAPIComponent = () => {
 
 	const defaultOps = JSON.stringify(
 		[
-			{ type: 'rotate', degrees: 90 },
+			{ type: 'zoom', factor: 1.5 },
 			{
 				type: 'crop',
-				rect: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 },
+				rect: { x: 0.15, y: 0.1, width: 0.6, height: 0.7 },
 			},
+			{ type: 'rotate', degrees: 15 },
+			{ type: 'flip', direction: 'horizontal' },
 		],
 		null,
 		2
