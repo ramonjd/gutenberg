@@ -272,7 +272,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		] );
 
 		// Use the interaction hook for mouse, touch, and keyboard events.
-		const { handlers } = useInteraction(
+		const { handlers, isDragging } = useInteraction(
 			state,
 			dispatch,
 			containerSize,
@@ -389,7 +389,11 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		return (
 			<div
 				ref={ setContainerRef }
-				className={ clsx( 'wp-image-cropper-next', className ) }
+				className={ clsx(
+					'wp-image-cropper-next',
+					isDragging && 'wp-image-cropper-next--dragging',
+					className
+				) }
 				tabIndex={ 0 }
 				role="application"
 				aria-label="Image cropper"
