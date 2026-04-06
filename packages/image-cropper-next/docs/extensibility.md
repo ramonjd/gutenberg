@@ -136,21 +136,78 @@ ctx.drawImage( image, 0, 0 );
 // - Extract region for AI editing
 ```
 
-### 4. State observation and external control
+### 4. State management patterns
 
-The state is a plain object, and dispatch is a standard React reducer dispatch. External code can observe state changes and dispatch actions.
+The state is a plain object, and dispatch is a standard React reducer dispatch. There are two ways to use it depending on your component structure.
+
+**Direct hook (simple case):**
+
+When the cropper and controls are in the same component:
+
+```tsx
+import { Cropper, useCropperState } from '@wordpress/image-cropper-next';
+
+function ImageEditor() {
+  const { state, dispatch, setZoom, snapRotate90, reset } = useCropperState();
+  return (
+    <div>
+      <button onClick={ () => setZoom( state.zoom + 0.5 ) }>Zoom In</button>
+      <button onClick={ () => snapRotate90( 1 ) }>Rotate 90</button>
+      <button onClick={ () => reset() }>Reset</button>
+      <Cropper src="image.jpg" state={ state } dispatch={ dispatch } />
+    </div>
+  );
+}
+```
+
+**Provider pattern (deep component trees):**
+
+When controls and the cropper are in different parts of the tree, use `CropperProvider` to avoid prop-drilling. Any descendant can call `useCropper()` to access the state:
+
+```tsx
+import { Cropper, CropperProvider, useCropper } from '@wordpress/image-cropper-next';
+
+function ImageEditor() {
+  return (
+    <CropperProvider>
+      <Toolbar />
+      <CropperPanel />
+      <Sidebar />
+    </CropperProvider>
+  );
+}
+
+function Toolbar() {
+  const { state, setZoom, snapRotate90 } = useCropper();
+  return (
+    <div>
+      <button onClick={ () => setZoom( state.zoom + 0.5 ) }>Zoom In</button>
+      <button onClick={ () => snapRotate90( 1 ) }>Rotate 90</button>
+    </div>
+  );
+}
+
+function CropperPanel() {
+  const { state, dispatch } = useCropper();
+  return <Cropper src="image.jpg" state={ state } dispatch={ dispatch } freeformCrop />;
+}
+
+function Sidebar() {
+  const { state } = useCropper();
+  return <p>Zoom: { Math.round( state.zoom * 100 ) }%</p>;
+}
+```
+
+**External control via dispatch:**
 
 ```typescript
-const { state, dispatch } = useCropperState();
-
-// Observe:
+// Observe state:
 useEffect( () => {
   console.log( 'Crop changed:', state.cropRect );
-  console.log( 'Rotation:', state.rotation );
   // Send to analytics, sync with server, update AI context, etc.
 }, [ state ] );
 
-// Control externally:
+// Control programmatically:
 dispatch( { type: 'SET_ZOOM', payload: 2.0 } );
 dispatch( { type: 'SET_ROTATION', payload: 45 } );
 dispatch( { type: 'SNAP_ROTATE_90', payload: { direction: 1 } } );
