@@ -143,6 +143,50 @@ export function deserializePipeline( json: string ): TransformOperation[] {
 				`Invalid pipeline JSON: operation at index ${ i } has an invalid or missing "type" field.`
 			);
 		}
+
+		// Validate required payload fields for each operation type.
+		switch ( item.type ) {
+			case 'crop': {
+				const r = item.rect;
+				if (
+					typeof r !== 'object' ||
+					r === null ||
+					typeof r.x !== 'number' ||
+					typeof r.y !== 'number' ||
+					typeof r.width !== 'number' ||
+					typeof r.height !== 'number'
+				) {
+					throw new Error(
+						`Invalid pipeline JSON: crop operation at index ${ i } requires a "rect" with numeric x, y, width, height.`
+					);
+				}
+				break;
+			}
+			case 'rotate':
+				if ( typeof item.degrees !== 'number' ) {
+					throw new Error(
+						`Invalid pipeline JSON: rotate operation at index ${ i } requires a numeric "degrees" field.`
+					);
+				}
+				break;
+			case 'flip':
+				if (
+					item.direction !== 'horizontal' &&
+					item.direction !== 'vertical'
+				) {
+					throw new Error(
+						`Invalid pipeline JSON: flip operation at index ${ i } requires "direction" to be "horizontal" or "vertical".`
+					);
+				}
+				break;
+			case 'zoom':
+				if ( typeof item.factor !== 'number' ) {
+					throw new Error(
+						`Invalid pipeline JSON: zoom operation at index ${ i } requires a numeric "factor" field.`
+					);
+				}
+				break;
+		}
 	}
 
 	return parsed as TransformOperation[];

@@ -289,4 +289,22 @@ describe( 'deserializePipeline validation', () => {
 
 		expect( () => deserializePipeline( json ) ).toThrow( 'index 1' );
 	} );
+
+	it( 'should reject crop operation missing rect', () => {
+		expect( () => deserializePipeline( '[{"type": "crop"}]' ) ).toThrow(
+			'requires a "rect"'
+		);
+	} );
+
+	it( 'should reject zoom operation missing factor', () => {
+		expect( () => deserializePipeline( '[{"type": "zoom"}]' ) ).toThrow(
+			'requires a numeric "factor"'
+		);
+	} );
+
+	it( 'should reject flip operation with invalid direction', () => {
+		expect( () =>
+			deserializePipeline( '[{"type": "flip", "direction": "diagonal"}]' )
+		).toThrow( 'requires "direction"' );
+	} );
 } );
