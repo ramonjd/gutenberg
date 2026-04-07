@@ -699,6 +699,43 @@ const lastRatio = wp.data.select( 'core/preferences' ).get(
 
 Cover blocks remember 16:9, avatar blocks remember 1:1, and the user never has to re-select.
 
+## Lazy loading
+
+The package is tree-shakeable and can be lazy-loaded via standard React patterns. This is recommended for WordPress integrations where the cropper is not always visible (e.g., only shown when the user clicks "Edit image"):
+
+```tsx
+import { lazy, Suspense } from 'react';
+
+// The entire cropper bundle (including gl-matrix) is only loaded
+// when the user opens the image editor.
+const ImageEditor = lazy( () => import( './ImageEditor' ) );
+
+function MediaPanel( { showEditor } ) {
+  if ( ! showEditor ) {
+    return <button>Edit image</button>;
+  }
+  return (
+    <Suspense fallback={ <Spinner /> }>
+      <ImageEditor src={ imageUrl } />
+    </Suspense>
+  );
+}
+```
+
+In the lazy-loaded module:
+
+```tsx
+// ImageEditor.tsx — only loaded on demand
+import { Cropper, useCropperState } from '@wordpress/image-cropper-next';
+
+export default function ImageEditor( { src } ) {
+  const { state, dispatch } = useCropperState();
+  return <Cropper src={ src } state={ state } dispatch={ dispatch } />;
+}
+```
+
+This is a consumer-side pattern — no changes needed in the package. The package is ~8KB gzipped (mostly gl-matrix) and all exports are tree-shakeable. If you only import `stateFromPipeline` for headless processing, the React components and gl-matrix won't be bundled.
+
 ## Future extension areas
 
 These features are not built yet but the architecture supports them:
