@@ -102,7 +102,7 @@ The package includes JSON Schema files that agents can read to discover the API 
 - `schemas/transform-operation.json` — describes all operation types and their parameters
 - `schemas/cropper-state.json` — describes the full state shape
 
-These are standard JSON Schema 2020-12 and can be consumed by any tool that understands JSON Schema (OpenAPI, LLM function calling, etc.).
+These are local schema files within the package directory, not published to schemas.wp.org. They follow standard JSON Schema 2020-12 and can be consumed by any tool that understands JSON Schema (OpenAPI, LLM function calling, etc.).
 
 **Adding new operation types:**
 

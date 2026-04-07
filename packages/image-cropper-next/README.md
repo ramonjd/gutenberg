@@ -4,11 +4,7 @@ An experimental, modular image cropper for WordPress. Designed for extensibility
 
 ## Installation
 
-This is a private package. Install it within the Gutenberg monorepo:
-
-```bash
-npm install @wordpress/image-cropper-next
-```
+This is a private package within the Gutenberg monorepo. It is available as a workspace dependency.
 
 ## Features
 

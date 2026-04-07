@@ -258,6 +258,8 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 				visualSize,
 				containerSize
 			);
+			// Note: deps intentionally list transform fields, not state/cropRect,
+			// to avoid circular updates during drag.
 		}, [
 			state.image,
 			state.crop.x,
