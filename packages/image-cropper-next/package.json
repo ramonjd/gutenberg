@@ -2,7 +2,7 @@
 	"name": "@wordpress/image-cropper-next",
 	"version": "0.1.0",
 	"private": true,
-	"description": "An experimental, modular image cropper with rectangle and freeform polygon support.",
+	"description": "An experimental, modular image cropper for WordPress with crop, rotate, flip, and zoom support.",
 	"author": "The WordPress Contributors",
 	"license": "GPL-2.0-or-later",
 	"keywords": [
