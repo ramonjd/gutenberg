@@ -103,6 +103,8 @@ export function useInteraction(
 		containerRect?: DOMRect;
 	} | null >( null );
 
+	const touchCleanupRef = useRef< ( () => void ) | null >( null );
+
 	const onMouseDown = useCallback(
 		( e: React.MouseEvent ) => {
 			e.preventDefault();
@@ -428,15 +430,23 @@ export function useInteraction(
 
 			const onTouchEnd = () => {
 				touchRef.current = null;
+				touchCleanupRef.current = null;
 				cancelAnimationFrame( rafRef.current );
 				document.removeEventListener( 'touchmove', onTouchMove );
 				document.removeEventListener( 'touchend', onTouchEnd );
+				document.removeEventListener( 'touchcancel', onTouchEnd );
 			};
+
+			// Clean up any previous touch listeners before registering new ones.
+			touchCleanupRef.current?.();
 
 			document.addEventListener( 'touchmove', onTouchMove, {
 				passive: false,
 			} );
 			document.addEventListener( 'touchend', onTouchEnd );
+			document.addEventListener( 'touchcancel', onTouchEnd );
+
+			touchCleanupRef.current = onTouchEnd;
 		},
 		[ containerSize, imageSize, dispatch, minZoom, maxZoom ]
 	);
