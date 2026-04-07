@@ -39,6 +39,20 @@ const ALL_POSITIONS: HandlePosition[] = [
 ];
 
 /**
+ * Descriptive labels for resize handles, used as aria-label values.
+ */
+const HANDLE_LABELS: Record< HandlePosition, string > = {
+	n: 'Resize top edge',
+	s: 'Resize bottom edge',
+	e: 'Resize right edge',
+	w: 'Resize left edge',
+	nw: 'Resize top-left corner',
+	ne: 'Resize top-right corner',
+	sw: 'Resize bottom-left corner',
+	se: 'Resize bottom-right corner',
+};
+
+/**
  * Step size for keyboard-driven handle resize, in normalized coordinates.
  */
 const KEYBOARD_STEP = 0.02;
@@ -473,7 +487,7 @@ export function RectangleStencil( {
 								? 'horizontal'
 								: 'vertical'
 						}
-						aria-label={ `Resize ${ pos }` }
+						aria-label={ HANDLE_LABELS[ pos ] }
 						tabIndex={ 0 }
 					/>
 				) ) }
