@@ -144,6 +144,10 @@ applyOperation( { type: 'rotate', degrees: 5 } );
 applyOperation( { type: 'zoom', factor: 1.2 } );
 ```
 
+## Migrating from @wordpress/image-cropper
+
+See [docs/migration.md](docs/migration.md) for the complete migration guide, API comparison, coordinate conversion helpers, and deprecation timeline.
+
 ## Extending
 
 See [docs/extensibility.md](docs/extensibility.md) for the full developer guide covering:
