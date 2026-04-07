@@ -248,8 +248,10 @@ export function useInteraction(
 					imgSize,
 					s.cropRect
 				);
-				dispatch( { type: 'SET_CROP', payload: clampedCrop } );
-				dispatch( { type: 'SET_ZOOM', payload: newZoom } );
+				dispatch( {
+					type: 'SET_ZOOM_AT_POINT',
+					payload: { zoom: newZoom, crop: clampedCrop },
+				} );
 			} else {
 				// Fallback: uniform zoom (no focal point available).
 				dispatch( { type: 'SET_ZOOM', payload: newZoom } );
