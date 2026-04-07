@@ -94,6 +94,10 @@ export type CropperAction =
 	| { type: 'SET_IMAGE'; payload: CropperState[ 'image' ] }
 	| { type: 'SET_CROP'; payload: NormalizedPoint }
 	| { type: 'SET_ZOOM'; payload: number }
+	| {
+			type: 'SET_ZOOM_AT_POINT';
+			payload: { zoom: number; crop: { x: number; y: number } };
+	  }
 	| { type: 'SET_ROTATION'; payload: number }
 	| { type: 'SNAP_ROTATE_90'; payload: { direction: 1 | -1 } }
 	| { type: 'SET_FLIP'; payload: Flip }

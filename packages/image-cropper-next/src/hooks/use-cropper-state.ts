@@ -146,6 +146,13 @@ function cropperReducer(
 				zoom: Math.min( MAX_ZOOM, Math.max( 1, action.payload ) ),
 			} );
 
+		case 'SET_ZOOM_AT_POINT':
+			return enforceContainment( {
+				...state,
+				zoom: Math.min( MAX_ZOOM, Math.max( 1, action.payload.zoom ) ),
+				crop: action.payload.crop,
+			} );
+
 		case 'SET_ROTATION':
 			// Rotation: crop stays where it is, pan resets to 0 so the
 			// rotation visually happens around the crop center (which
