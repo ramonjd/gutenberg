@@ -1,7 +1,13 @@
 /**
  * WordPress dependencies
  */
-import { useState, useCallback, useEffect, useMemo } from '@wordpress/element';
+import {
+	useState,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+} from '@wordpress/element';
 
 /**
  * Internal dependencies
@@ -90,6 +96,7 @@ export function RectangleStencil( {
 	const boundsMinY = cropBounds?.minY ?? 0;
 	const boundsMaxX = cropBounds?.maxX ?? 1;
 	const boundsMaxY = cropBounds?.maxY ?? 1;
+	const keyboardSettleTimerRef = useRef< ReturnType< typeof setTimeout > >();
 	const [ dragState, setDragState ] = useState< DragState | null >( null );
 	const hasLockedRatio = !! ( aspectRatio && aspectRatio > 0 );
 
@@ -352,6 +359,10 @@ export function RectangleStencil( {
 				onCropChange(
 					computeLockedRect( syntheticDrag, clientX, clientY )
 				);
+				clearTimeout( keyboardSettleTimerRef.current );
+				keyboardSettleTimerRef.current = setTimeout( () => {
+					onResizeEnd?.();
+				}, 500 );
 			} else {
 				// For freeform resize, synthesize a drag via computeFreeRect.
 				const syntheticDrag: DragState = {
@@ -365,6 +376,10 @@ export function RectangleStencil( {
 				onCropChange(
 					computeFreeRect( syntheticDrag, clientX, clientY )
 				);
+				clearTimeout( keyboardSettleTimerRef.current );
+				keyboardSettleTimerRef.current = setTimeout( () => {
+					onResizeEnd?.();
+				}, 500 );
 			}
 		},
 		[
@@ -375,6 +390,7 @@ export function RectangleStencil( {
 			computeLockedRect,
 			computeFreeRect,
 			onCropChange,
+			onResizeEnd,
 		]
 	);
 
