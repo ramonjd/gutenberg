@@ -195,10 +195,11 @@ const WithControlsComponent = () => {
 					<button onClick={ handleRotateLeft }>-90</button>
 					<button onClick={ handleRotateRight }>+90</button>
 					<input
+						className="image-cropper-next-story__slider"
 						type="range"
 						min={ -MAX_ROTATION_OFFSET }
 						max={ MAX_ROTATION_OFFSET }
-						step="1"
+						step="0.5"
 						value={ fineOffset }
 						onChange={ handleRotationSlider }
 					/>
@@ -543,10 +544,11 @@ const WithPreviewComponent = () => {
 					<button onClick={ handleRotateLeft }>-90</button>
 					<button onClick={ handleRotateRight }>+90</button>
 					<input
+						className="image-cropper-next-story__slider"
 						type="range"
 						min={ -MAX_ROTATION_OFFSET }
 						max={ MAX_ROTATION_OFFSET }
-						step="1"
+						step="0.5"
 						value={ fineOffset }
 						onChange={ handleRotationSlider }
 					/>
