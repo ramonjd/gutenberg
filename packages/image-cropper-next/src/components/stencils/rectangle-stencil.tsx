@@ -135,7 +135,7 @@ export function RectangleStencil( {
 	const height = cropRect.height * imageSize.height;
 
 	/**
-	 * Start a resize drag on a handle.
+	 * Start a resize drag on a handle (mouse).
 	 */
 	const handleMouseDown = useCallback(
 		( handle: HandlePosition, event: React.MouseEvent ) => {
@@ -150,6 +150,29 @@ export function RectangleStencil( {
 				handle,
 				startX: event.clientX,
 				startY: event.clientY,
+				startRect: { ...cropRect },
+			} );
+		},
+		[ cropRect ]
+	);
+
+	/**
+	 * Start a resize drag on a handle (touch).
+	 */
+	const handleTouchStart = useCallback(
+		( handle: HandlePosition, event: React.TouchEvent ) => {
+			event.preventDefault();
+			event.stopPropagation();
+			const touch = event.touches[ 0 ];
+			// Blur any previously focused handle.
+			const ownerDoc = event.currentTarget.ownerDocument;
+			if ( ownerDoc.activeElement instanceof HTMLElement ) {
+				ownerDoc.activeElement.blur();
+			}
+			setDragState( {
+				handle,
+				startX: touch.clientX,
+				startY: touch.clientY,
 				startRect: { ...cropRect },
 			} );
 		},
@@ -421,6 +444,18 @@ export function RectangleStencil( {
 			onCropChange( newRect );
 		};
 
+		const handleTouchMove = ( event: TouchEvent ) => {
+			event.preventDefault();
+			if ( event.touches.length === 0 ) {
+				return;
+			}
+			const touch = event.touches[ 0 ];
+			const newRect = hasLockedRatio
+				? computeLockedRect( dragState, touch.clientX, touch.clientY )
+				: computeFreeRect( dragState, touch.clientX, touch.clientY );
+			onCropChange( newRect );
+		};
+
 		const handleMouseUp = () => {
 			setDragState( null );
 			onResizeEnd?.();
@@ -428,10 +463,16 @@ export function RectangleStencil( {
 
 		document.addEventListener( 'mousemove', handleMouseMove );
 		document.addEventListener( 'mouseup', handleMouseUp );
+		document.addEventListener( 'touchmove', handleTouchMove, {
+			passive: false,
+		} );
+		document.addEventListener( 'touchend', handleMouseUp );
 
 		return () => {
 			document.removeEventListener( 'mousemove', handleMouseMove );
 			document.removeEventListener( 'mouseup', handleMouseUp );
+			document.removeEventListener( 'touchmove', handleTouchMove );
+			document.removeEventListener( 'touchend', handleMouseUp );
 		};
 	}, [
 		dragState,
@@ -479,6 +520,9 @@ export function RectangleStencil( {
 						className={ `wp-image-cropper-next__handle wp-image-cropper-next__handle--${ pos }` }
 						onMouseDown={ ( event ) =>
 							handleMouseDown( pos, event )
+						}
+						onTouchStart={ ( event ) =>
+							handleTouchStart( pos, event )
 						}
 						onKeyDown={ ( event ) => handleKeyDown( pos, event ) }
 						role="separator"
