@@ -4,6 +4,9 @@
 import type { CropperState } from '../types';
 import { createExportCamera, getRotatedBBox } from '../camera';
 
+/** Default export quality for lossy formats (JPEG, WebP). */
+const DEFAULT_QUALITY = 0.92;
+
 /**
  * Load an image from a URL with CORS support.
  *
@@ -71,13 +74,13 @@ export function renderToCanvas(
  *
  * @param canvas   - The canvas to export.
  * @param mimeType - The output MIME type. Defaults to 'image/png'.
- * @param quality  - The quality parameter for lossy formats (0-1). Defaults to 0.92.
+ * @param quality  - The quality parameter for lossy formats (0-1). Defaults to DEFAULT_QUALITY.
  * @return A promise that resolves to the canvas content as a Blob.
  */
 export function canvasToBlob(
 	canvas: HTMLCanvasElement,
 	mimeType: string = 'image/png',
-	quality: number = 0.92
+	quality: number = DEFAULT_QUALITY
 ): Promise< Blob > {
 	return new Promise( ( resolve, reject ) => {
 		canvas.toBlob(
@@ -99,31 +102,31 @@ export function canvasToBlob(
  *
  * @param canvas   - The canvas to export.
  * @param mimeType - The output MIME type. Defaults to 'image/png'.
- * @param quality  - The quality parameter for lossy formats (0-1). Defaults to 0.92.
+ * @param quality  - The quality parameter for lossy formats (0-1). Defaults to DEFAULT_QUALITY.
  * @return The canvas content as a data URL string.
  */
 export function canvasToDataURL(
 	canvas: HTMLCanvasElement,
 	mimeType: string = 'image/png',
-	quality: number = 0.92
+	quality: number = DEFAULT_QUALITY
 ): string {
 	return canvas.toDataURL( mimeType, quality );
 }
 
 /**
- * High-level convenience: load an image, render with transforms, and export as a Blob.
+ * Load an image, render with transforms, and export as a Blob.
  *
  * @param src      - The image URL to load.
  * @param state    - The cropper state with all transform settings.
  * @param mimeType - The output MIME type. Defaults to 'image/png'.
- * @param quality  - The quality parameter for lossy formats (0-1). Defaults to 0.92.
+ * @param quality  - The quality parameter for lossy formats (0-1). Defaults to DEFAULT_QUALITY.
  * @return A promise that resolves to a Blob, or null if an error occurs.
  */
 export async function exportCroppedImage(
 	src: string,
 	state: CropperState,
 	mimeType: string = 'image/png',
-	quality: number = 0.92
+	quality: number = DEFAULT_QUALITY
 ): Promise< Blob | null > {
 	try {
 		const image = await loadImage( src );
@@ -200,14 +203,13 @@ export function applyToCanvas(
  * Download the cropped image as a file.
  *
  * Loads the source image, applies all transforms, and triggers a
- * browser download. This is a convenience wrapper around
- * exportCroppedImage() + object URL + anchor click.
+ * browser download via exportCroppedImage() + object URL + anchor click.
  *
  * @param src      - The image URL to load.
  * @param state    - The cropper state with all transform settings.
  * @param filename - The download filename. Defaults to 'cropped-image'.
  * @param mimeType - The output MIME type. Defaults to 'image/png'.
- * @param quality  - The quality parameter for lossy formats (0-1). Defaults to 0.92.
+ * @param quality  - The quality parameter for lossy formats (0-1). Defaults to DEFAULT_QUALITY.
  * @return A promise that resolves to true if the download was triggered, false on error.
  */
 export async function downloadCroppedImage(
@@ -215,7 +217,7 @@ export async function downloadCroppedImage(
 	state: CropperState,
 	filename: string = 'cropped-image',
 	mimeType: string = 'image/png',
-	quality: number = 0.92
+	quality: number = DEFAULT_QUALITY
 ): Promise< boolean > {
 	const blob = await exportCroppedImage( src, state, mimeType, quality );
 	if ( ! blob ) {

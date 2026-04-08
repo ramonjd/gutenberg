@@ -34,6 +34,11 @@ import { DimmingOverlay } from './overlays/dimming-overlay';
 import { GridOverlay } from './overlays/grid-overlay';
 import './cropper.scss';
 
+/** Threshold for comparing normalized crop rect values. */
+const CROP_RECT_EPSILON = 1e-6;
+/** Debounce delay for ARIA live announcements (ms). */
+const ARIA_DEBOUNCE_MS = 300;
+
 /**
  * Props for the Cropper component.
  */
@@ -58,8 +63,7 @@ export interface CropperProps {
 	aspectRatio?: number;
 	/**
 	 * Enable freeform crop mode with resizable handles.
-	 * When false (default), the crop area is fixed to the center and the user
-	 * drags the image behind it (react-easy-crop style).
+	 * When false (default), the crop area is fixed and centered.
 	 * When true, the crop area has resize handles and can be freely repositioned.
 	 */
 	freeformCrop?: boolean;
@@ -175,7 +179,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 					prevAnnouncementRef.current = msg;
 					setAriaMessage( msg );
 				}
-			}, 300 );
+			}, ARIA_DEBOUNCE_MS );
 
 			return () => {
 				clearTimeout( ariaTimerRef.current );
@@ -226,10 +230,10 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			const y = ( 1 - h ) / 2;
 			const current = state.cropRect;
 			if (
-				Math.abs( current.x - x ) < 1e-6 &&
-				Math.abs( current.y - y ) < 1e-6 &&
-				Math.abs( current.width - w ) < 1e-6 &&
-				Math.abs( current.height - h ) < 1e-6
+				Math.abs( current.x - x ) < CROP_RECT_EPSILON &&
+				Math.abs( current.y - y ) < CROP_RECT_EPSILON &&
+				Math.abs( current.width - w ) < CROP_RECT_EPSILON &&
+				Math.abs( current.height - h ) < CROP_RECT_EPSILON
 			) {
 				return;
 			}

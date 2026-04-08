@@ -27,6 +27,7 @@
 	&__dimming {
 		position: absolute;
 		pointer-events: none;
+		/* Large shadow spread dims everything outside the crop area */
 		box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
 	}
 
@@ -80,6 +81,7 @@
 			transform: translate(-50%, -50%);
 		}
 
+		/* Offset by half the handle width (12px / 2 = 6px) to center on crop edge */
 		&--n {
 			top: -6px;
 			left: 50%;

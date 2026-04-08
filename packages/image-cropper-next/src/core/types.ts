@@ -56,8 +56,7 @@ export interface Flip {
 }
 
 /**
- * A JSON-serializable transform operation.
- * Designed for programmatic use by AI agents, undo stacks, and serialization.
+ * A JSON-serializable transform operation for the non-destructive pipeline.
  */
 export type TransformOperation =
 	| { type: 'crop'; rect: NormalizedRect }
