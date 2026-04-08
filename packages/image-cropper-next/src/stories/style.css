@@ -32,11 +32,8 @@
 }
 
 .image-cropper-next-story__slider {
-	flex: 1;
-	min-width: 120px;
 	/* Override parent touch-action: none so the browser handles
-	   slider dragging natively — prevents the cropper's touch
-	   handlers from fighting with the slider. */
+	   slider dragging natively. */
 	touch-action: auto;
 }
 
