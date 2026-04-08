@@ -235,46 +235,84 @@ export default function ImageEditingPanel( {
 		setAdjust( DEFAULT_ADJUST );
 	}, [ pushHistory, reset ] );
 
-	// Mock AI operations
-	const handleMockAI = useCallback(
-		( label: string, ops: any[] ) => {
+	// AI operations via REST API.
+	// @ts-ignore -- wp.apiFetch is available globally in WP admin
+	const apiFetch = ( window as any ).wp?.apiFetch;
+
+	const [ aiResult, setAiResult ] = useState< string >( '' );
+
+	const handleAICall = useCallback(
+		async ( task: string, label: string ) => {
+			if ( ! apiFetch ) {
+				setAiResult( 'wp.apiFetch not available.' );
+				return;
+			}
 			setAiLoading( true );
-			aiTimerRef.current = setTimeout( () => {
-				pushHistory( label );
-				for ( const op of ops ) {
-					applyOperation( op );
+			setAiResult( '' );
+			try {
+				const response = await apiFetch( {
+					path: '/wp/v2/media-editor/ai-analyze',
+					method: 'POST',
+					data: { image_url: src, task },
+				} );
+				const result = response?.result || '';
+
+				if ( task === 'alt_text' ) {
+					// Display the generated alt text.
+					setAiResult( result );
+				} else if ( task === 'smart_crop' ) {
+					// Parse crop coordinates and apply.
+					try {
+						const parsed = JSON.parse( result );
+						if ( parsed.x !== undefined ) {
+							pushHistory( label );
+							applyOperation( {
+								type: 'crop',
+								rect: parsed,
+							} );
+							setAiResult(
+								`Crop applied: ${ JSON.stringify( parsed ) }`
+							);
+						}
+					} catch {
+						setAiResult( `AI response: ${ result }` );
+					}
+				} else if ( task === 'auto_straighten' ) {
+					try {
+						const parsed = JSON.parse( result );
+						if ( parsed.degrees !== undefined ) {
+							pushHistory( label );
+							applyOperation( {
+								type: 'rotate',
+								degrees: parsed.degrees,
+							} );
+							setAiResult(
+								`Straightened by ${ parsed.degrees }°`
+							);
+						}
+					} catch {
+						setAiResult( `AI response: ${ result }` );
+					}
 				}
-				setAiLoading( false );
-			}, 1500 );
+			} catch ( error: any ) {
+				setAiResult( error?.message || 'AI request failed.' );
+			}
+			setAiLoading( false );
 		},
-		[ pushHistory, applyOperation ]
+		[ apiFetch, src, pushHistory, applyOperation ]
 	);
+
+	const handleGenerateAltText = useCallback( () => {
+		handleAICall( 'alt_text', 'Generate Alt Text' );
+	}, [ handleAICall ] );
+
+	const handleSmartCrop = useCallback( () => {
+		handleAICall( 'smart_crop', 'AI Smart Crop' );
+	}, [ handleAICall ] );
 
 	const handleAutoStraighten = useCallback( () => {
-		handleMockAI( 'Auto Straighten', [ { type: 'rotate', degrees: 2 } ] );
-	}, [ handleMockAI ] );
-
-	const handleCenterSubject = useCallback( () => {
-		handleMockAI( 'Center Subject', [
-			{
-				type: 'crop',
-				rect: { x: 0.15, y: 0.1, width: 0.7, height: 0.8 },
-			},
-		] );
-	}, [ handleMockAI ] );
-
-	const handleSmartCrop = useCallback(
-		( providerName: string ) => {
-			handleMockAI( `Smart Crop with ${ providerName }`, [
-				{
-					type: 'crop',
-					rect: { x: 0.1, y: 0.05, width: 0.8, height: 0.9 },
-				},
-				{ type: 'rotate', degrees: 1 },
-			] );
-		},
-		[ handleMockAI ]
-	);
+		handleAICall( 'auto_straighten', 'AI Auto Straighten' );
+	}, [ handleAICall ] );
 
 	// Compute source region for display
 	const sourceRegion = state.image
@@ -312,9 +350,13 @@ export default function ImageEditingPanel( {
 				/>
 			</div>
 
-			{ /* Tab buttons */ }
+			{ /* Tab buttons — AI tab only visible when providers are configured */ }
 			<div className="media-editor-image-editing-panel__tabs">
-				{ ( [ 'crop', 'adjust', 'ai' ] as TabId[] ).map( ( tab ) => (
+				{ (
+					( aiProviders.length > 0
+						? [ 'crop', 'adjust', 'ai' ]
+						: [ 'crop', 'adjust' ] ) as TabId[]
+				 ).map( ( tab ) => (
 					<Button
 						key={ tab }
 						variant={ activeTab === tab ? 'primary' : 'secondary' }
@@ -361,9 +403,10 @@ export default function ImageEditingPanel( {
 					<AIPanel
 						connectors={ connectors }
 						aiLoading={ aiLoading }
+						aiResult={ aiResult }
+						onGenerateAltText={ handleGenerateAltText }
 						onSmartCrop={ handleSmartCrop }
 						onAutoStraighten={ handleAutoStraighten }
-						onCenterSubject={ handleCenterSubject }
 					/>
 				) }
 			</div>
@@ -604,27 +647,55 @@ function AdjustPanel( {
 function AIPanel( {
 	connectors,
 	aiLoading,
+	aiResult,
+	onGenerateAltText,
 	onSmartCrop,
 	onAutoStraighten,
-	onCenterSubject,
 }: {
 	connectors: any[];
 	aiLoading: boolean;
-	onSmartCrop: ( name: string ) => void;
+	aiResult: string;
+	onGenerateAltText: () => void;
+	onSmartCrop: () => void;
 	onAutoStraighten: () => void;
-	onCenterSubject: () => void;
 } ) {
 	return (
 		<div className="media-editor-image-editing-panel__ai-panel">
 			{ aiLoading && (
 				<div className="media-editor-image-editing-panel__ai-loading">
 					<Spinner />
-					<span>{ __( 'Processing\u2026' ) }</span>
+					<span>{ __( 'Analyzing image\u2026' ) }</span>
 				</div>
 			) }
 
 			<div className="media-editor-image-editing-panel__ai-section">
-				<h4>{ __( 'Quick actions' ) }</h4>
+				<h4>
+					{ __( 'Providers:' ) }{ ' ' }
+					{ connectors.length > 0
+						? connectors.map( ( c: any ) => c.name ).join( ', ' )
+						: __( 'None' ) }
+				</h4>
+			</div>
+
+			<div className="media-editor-image-editing-panel__ai-section">
+				<Button
+					variant="secondary"
+					onClick={ onGenerateAltText }
+					accessibleWhenDisabled
+					disabled={ aiLoading }
+					size="compact"
+				>
+					{ __( 'Generate Alt Text' ) }
+				</Button>
+				<Button
+					variant="secondary"
+					onClick={ onSmartCrop }
+					accessibleWhenDisabled
+					disabled={ aiLoading }
+					size="compact"
+				>
+					{ __( 'Smart Crop' ) }
+				</Button>
 				<Button
 					variant="secondary"
 					onClick={ onAutoStraighten }
@@ -634,44 +705,14 @@ function AIPanel( {
 				>
 					{ __( 'Auto Straighten' ) }
 				</Button>
-				<Button
-					variant="secondary"
-					onClick={ onCenterSubject }
-					accessibleWhenDisabled
-					disabled={ aiLoading }
-					size="compact"
-				>
-					{ __( 'Center Subject' ) }
-				</Button>
 			</div>
 
-			<div className="media-editor-image-editing-panel__ai-section">
-				<h4>{ __( 'AI Providers' ) }</h4>
-				{ connectors.length > 0 ? (
-					connectors.map( ( connector: any ) => (
-						<Button
-							key={ connector.id || connector.name }
-							variant="secondary"
-							onClick={ () =>
-								onSmartCrop( connector.name || connector.id )
-							}
-							accessibleWhenDisabled
-							disabled={ aiLoading }
-							size="compact"
-						>
-							{ `${ __( 'Smart Crop with' ) } ${
-								connector.name || connector.id
-							}` }
-						</Button>
-					) )
-				) : (
-					<p className="media-editor-image-editing-panel__ai-hint">
-						{ __(
-							'Configure AI providers in Settings \u2192 Connectors to enable AI features.'
-						) }
-					</p>
-				) }
-			</div>
+			{ aiResult && (
+				<div className="media-editor-image-editing-panel__ai-result">
+					<h4>{ __( 'Result' ) }</h4>
+					<p>{ aiResult }</p>
+				</div>
+			) }
 		</div>
 	);
 }

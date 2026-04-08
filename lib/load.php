@@ -131,6 +131,7 @@ require __DIR__ . '/experimental/extensible-site-editor.php';
 require __DIR__ . '/experimental/fonts/load.php';
 if ( class_exists( '\WordPress\AiClient\AiClient' ) ) {
 	require __DIR__ . '/experimental/connectors/load.php';
+	require __DIR__ . '/experimental/media-editor/ai-endpoint.php';
 }
 
 if ( gutenberg_is_experiment_enabled( 'gutenberg-workflow-palette' ) ) {
