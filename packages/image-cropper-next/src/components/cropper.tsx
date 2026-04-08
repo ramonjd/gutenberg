@@ -274,7 +274,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		] );
 
 		// Use the interaction hook for mouse, touch, and keyboard events.
-		const { handlers, isDragging } = useInteraction(
+		const { handlers, isDragging, isZooming } = useInteraction(
 			state,
 			dispatch,
 			containerSize,
@@ -345,9 +345,8 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			}, 200 );
 		}, [ dispatch ] );
 
-		const settleTransition = settling
-			? 'transform 150ms linear'
-			: undefined;
+		const imageTransition =
+			settling || isZooming ? 'transform 150ms linear' : undefined;
 		const settleStencilTransition = settling
 			? 'left 150ms linear, top 150ms linear, width 150ms linear, height 150ms linear'
 			: undefined;
@@ -367,9 +366,9 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 				left: centerX,
 				top: centerY,
 				transform: transformString,
-				transition: settleTransition,
+				transition: imageTransition,
 			};
-		}, [ containerSize, elementSize, transformString, settleTransition ] );
+		}, [ containerSize, elementSize, transformString, imageTransition ] );
 
 		// Merge the forwarded ref with the internal container ref.
 		const setContainerRef = useCallback(
