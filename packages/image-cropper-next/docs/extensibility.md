@@ -397,6 +397,38 @@ applyOperation( { type: 'rotate', degrees: agentInstructions.rotation } );
 applyOperation( { type: 'zoom', factor: agentInstructions.zoom } );
 ```
 
+### Headless editing (no React, no DOM)
+
+The core layer is pure functions — no React or browser required for steps 1-2:
+
+```typescript
+import {
+  stateFromPipeline,
+  getSourceRegion,
+  exportCroppedImage,
+} from '@wordpress/image-cropper-next';
+
+// 1. Build state from operations (pure — runs in Node, workers, anywhere)
+const state = stateFromPipeline( [
+  { type: 'crop', rect: { x: 0.1, y: 0.1, width: 0.8, height: 0.8 } },
+  { type: 'rotate', degrees: 5 },
+  { type: 'zoom', factor: 1.2 },
+  { type: 'flip', direction: 'horizontal' },
+] );
+
+// 2. Get source-pixel region (pure — for server-side FFmpeg/ImageMagick)
+const region = getSourceRegion( state, { width: 4000, height: 3000 } );
+// → { x: 400, y: 300, width: 3200, height: 2400, rotation: 5, flip: {...}, zoom: 1.2 }
+
+// Pass to server:
+// ffmpeg -i input.jpg -vf "crop=3200:2400:400:300,rotate=0.087" output.jpg
+
+// 3. Or export to Blob (needs canvas — browser or node-canvas)
+const blob = await exportCroppedImage( imageUrl, state, 'image/jpeg', 0.9 );
+```
+
+Steps 1 and 2 are pure functions with zero DOM dependencies. Step 3 needs `canvas` and `Image` (browser, jsdom, or node-canvas).
+
 ### Region selection for AI editing
 
 Use the camera to convert between screen clicks and image coordinates:
