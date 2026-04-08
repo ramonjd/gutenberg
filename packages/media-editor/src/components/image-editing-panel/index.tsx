@@ -151,9 +151,35 @@ export default function ImageEditingPanel( {
 		return () => window.removeEventListener( 'keydown', handleKeyDown );
 	}, [ handleUndo, handleRedo ] );
 
-	// AI connectors — mocked for now. When the connectors API is
-	// available as a WordPress script, this can read from the store.
-	const connectors: any[] = [];
+	// Check if AI providers are configured by reading settings via REST API.
+	const [ aiProviders, setAiProviders ] = useState< string[] >( [] );
+	useEffect( () => {
+		// @ts-ignore -- wp.apiFetch is available globally in WP admin
+		const apiFetch = window.wp?.apiFetch;
+		if ( ! apiFetch ) {
+			return;
+		}
+		apiFetch( { path: '/wp/v2/settings' } )
+			.then( ( settings: any ) => {
+				const providers: string[] = [];
+				if ( settings?.connectors_ai_anthropic_api_key ) {
+					providers.push( 'Anthropic (Claude)' );
+				}
+				if ( settings?.connectors_ai_openai_api_key ) {
+					providers.push( 'OpenAI (GPT)' );
+				}
+				if ( settings?.connectors_ai_google_api_key ) {
+					providers.push( 'Google (Gemini)' );
+				}
+				setAiProviders( providers );
+			} )
+			.catch( () => {
+				// Settings not accessible — no AI providers shown.
+			} );
+	}, [] );
+
+	// Map to the connectors shape expected by the AI tab.
+	const connectors = aiProviders.map( ( name ) => ( { name } ) );
 
 	// Handle aspect ratio change
 	const handleAspectRatioChange = useCallback( ( value: string ) => {
