@@ -32,6 +32,7 @@
 }
 
 .image-cropper-next-story__slider {
+	width: 100%;
 	/* Override parent touch-action: none so the browser handles
 	   slider dragging natively. */
 	touch-action: auto;
