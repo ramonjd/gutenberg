@@ -31,6 +31,15 @@
 	align-items: center;
 }
 
+.image-cropper-next-story__slider {
+	flex: 1;
+	min-width: 120px;
+	/* Override parent touch-action: none so the browser handles
+	   slider dragging natively — prevents the cropper's touch
+	   handlers from fighting with the slider. */
+	touch-action: auto;
+}
+
 .image-cropper-next-story__json {
 	width: 100%;
 	min-height: 80px;
