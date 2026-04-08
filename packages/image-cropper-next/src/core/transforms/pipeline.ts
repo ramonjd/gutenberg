@@ -40,7 +40,6 @@ export function addOperation(
 
 /**
  * Apply a single transform operation to a cropper state, returning a new state.
- * This is the core state transition function for the non-destructive pipeline.
  *
  * @param state - The current cropper state.
  * @param op    - The operation to apply.

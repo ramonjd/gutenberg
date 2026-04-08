@@ -57,6 +57,12 @@ const HANDLE_LABELS: Record< HandlePosition, string > = {
  */
 const KEYBOARD_STEP = 0.02;
 
+/** Minimum crop rect dimension in normalized space (5% of visual area). */
+const MIN_CROP_SIZE = 0.05;
+
+/** Delay before keyboard resize triggers settle (ms). */
+const KEYBOARD_SETTLE_DELAY = 500;
+
 /**
  * Internal drag state for tracking a resize interaction.
  */
@@ -199,7 +205,6 @@ export function RectangleStencil( {
 
 			const s = drag.startRect;
 			const handle = drag.handle;
-			const minSize = 0.05;
 
 			let edgeTop = s.y;
 			let edgeBottom = s.y + s.height;
@@ -209,24 +214,24 @@ export function RectangleStencil( {
 			if ( handle === 'n' || handle === 'nw' || handle === 'ne' ) {
 				edgeTop = Math.max(
 					boundsMinY,
-					Math.min( s.y + dy, edgeBottom - minSize )
+					Math.min( s.y + dy, edgeBottom - MIN_CROP_SIZE )
 				);
 			}
 			if ( handle === 's' || handle === 'sw' || handle === 'se' ) {
 				edgeBottom = Math.max(
-					edgeTop + minSize,
+					edgeTop + MIN_CROP_SIZE,
 					Math.min( s.y + s.height + dy, boundsMaxY )
 				);
 			}
 			if ( handle === 'w' || handle === 'nw' || handle === 'sw' ) {
 				edgeLeft = Math.max(
 					boundsMinX,
-					Math.min( s.x + dx, edgeRight - minSize )
+					Math.min( s.x + dx, edgeRight - MIN_CROP_SIZE )
 				);
 			}
 			if ( handle === 'e' || handle === 'ne' || handle === 'se' ) {
 				edgeRight = Math.max(
-					edgeLeft + minSize,
+					edgeLeft + MIN_CROP_SIZE,
 					Math.min( s.x + s.width + dx, boundsMaxX )
 				);
 			}
@@ -272,7 +277,6 @@ export function RectangleStencil( {
 
 			const s = drag.startRect;
 			const handle = drag.handle;
-			const minSize = 0.05;
 
 			// Determine the anchor corner (opposite to the dragged corner).
 			const anchorX =
@@ -297,8 +301,8 @@ export function RectangleStencil( {
 			let distH = ( draggedY - anchorY ) * dirY;
 
 			// Enforce minimum size.
-			distW = Math.max( distW, minSize );
-			distH = Math.max( distH, minSize );
+			distW = Math.max( distW, MIN_CROP_SIZE );
+			distH = Math.max( distH, MIN_CROP_SIZE );
 
 			// Determine which axis "drives" — whichever the user moved more
 			// (in pixel space) determines the size, the other follows.
@@ -327,8 +331,8 @@ export function RectangleStencil( {
 			}
 
 			// Enforce minimum after clamping.
-			distW = Math.max( distW, minSize );
-			distH = Math.max( distH, minSize );
+			distW = Math.max( distW, MIN_CROP_SIZE );
+			distH = Math.max( distH, MIN_CROP_SIZE );
 
 			// Compute the final rect position from the anchor.
 			const newX = dirX > 0 ? anchorX : anchorX - distW;
@@ -399,7 +403,7 @@ export function RectangleStencil( {
 				clearTimeout( keyboardSettleTimerRef.current );
 				keyboardSettleTimerRef.current = setTimeout( () => {
 					onResizeEnd?.();
-				}, 500 );
+				}, KEYBOARD_SETTLE_DELAY );
 			} else {
 				// For freeform resize, synthesize a drag via computeFreeRect.
 				const syntheticDrag: DragState = {
@@ -416,7 +420,7 @@ export function RectangleStencil( {
 				clearTimeout( keyboardSettleTimerRef.current );
 				keyboardSettleTimerRef.current = setTimeout( () => {
 					onResizeEnd?.();
-				}, 500 );
+				}, KEYBOARD_SETTLE_DELAY );
 			}
 		},
 		[

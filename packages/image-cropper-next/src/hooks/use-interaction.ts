@@ -10,6 +10,28 @@ import type { CropperAction, CropperState, Size } from '../core/types';
 import { MIN_ZOOM, MAX_ZOOM } from '../core/constants';
 import { restrictPanZoom } from '../core/camera';
 
+/** Time window for detecting a double-tap gesture (ms). */
+const DOUBLE_TAP_TIME = 300;
+/** Max distance between taps to count as a double-tap (px). */
+const DOUBLE_TAP_DISTANCE = 30;
+/** Duration of the zoom animation state (ms). */
+const ZOOM_ANIMATION_DURATION = 200;
+
+/**
+ * Get the natural image dimensions from cropper state, falling back to 1x1.
+ *
+ * @param state The current cropper state.
+ * @return The image dimensions.
+ */
+function getImageSize( state: CropperState ): {
+	width: number;
+	height: number;
+} {
+	return state.image
+		? { width: state.image.naturalWidth, height: state.image.naturalHeight }
+		: { width: 1, height: 1 };
+}
+
 /**
  * The return type of the useInteraction hook.
  */
@@ -159,12 +181,6 @@ export function useInteraction(
 							  panSize.height
 							: 0;
 
-					const imgSize = s.image
-						? {
-								width: s.image.naturalWidth,
-								height: s.image.naturalHeight,
-						  }
-						: { width: 1, height: 1 };
 					const { crop: newCrop } = restrictPanZoom(
 						{
 							...s,
@@ -173,7 +189,7 @@ export function useInteraction(
 								y: drag.startCropY + deltaY,
 							},
 						},
-						imgSize,
+						getImageSize( s ),
 						s.cropRect
 					);
 
@@ -251,15 +267,9 @@ export function useInteraction(
 					s.crop.y + ( focalNormY - s.crop.y ) * zoomRatio;
 
 				// Step 5: clamp pan so the image covers the crop.
-				const imgSize = s.image
-					? {
-							width: s.image.naturalWidth,
-							height: s.image.naturalHeight,
-					  }
-					: { width: 1, height: 1 };
 				const { crop: clampedCrop } = restrictPanZoom(
 					{ ...s, zoom: newZoom, crop: { x: newCropX, y: newCropY } },
-					imgSize,
+					getImageSize( s ),
 					s.cropRect
 				);
 				dispatch( {
@@ -307,7 +317,10 @@ export function useInteraction(
 						( tapX - lastTap.x ) ** 2 + ( tapY - lastTap.y ) ** 2
 					);
 
-					if ( timeDelta < 300 && distDelta < 30 ) {
+					if (
+						timeDelta < DOUBLE_TAP_TIME &&
+						distDelta < DOUBLE_TAP_DISTANCE
+					) {
 						// It's a double-tap — suppress browser zoom.
 						e.preventDefault();
 						lastTapRef.current = null;
@@ -325,7 +338,7 @@ export function useInteraction(
 						clearTimeout( zoomTimerRef.current );
 						zoomTimerRef.current = setTimeout( () => {
 							setIsZooming( false );
-						}, 200 );
+						}, ZOOM_ANIMATION_DURATION );
 
 						if ( visSize.width > 0 && visSize.height > 0 ) {
 							const fx =
@@ -346,13 +359,6 @@ export function useInteraction(
 								( focalNormY - currentState.crop.y ) *
 									zoomRatio;
 
-							const imgSize = currentState.image
-								? {
-										width: currentState.image.naturalWidth,
-										height: currentState.image
-											.naturalHeight,
-								  }
-								: { width: 1, height: 1 };
 							const { crop: clampedCrop } = restrictPanZoom(
 								{
 									...currentState,
@@ -362,7 +368,7 @@ export function useInteraction(
 										y: newCropY,
 									},
 								},
-								imgSize,
+								getImageSize( currentState ),
 								currentState.cropRect
 							);
 							dispatch( {
@@ -458,12 +464,6 @@ export function useInteraction(
 								( focalNormY - s.crop.y ) * zoomRatio;
 
 							// Clamp so image covers the crop.
-							const imgSize = s.image
-								? {
-										width: s.image.naturalWidth,
-										height: s.image.naturalHeight,
-								  }
-								: { width: 1, height: 1 };
 							const { crop: clampedCrop } = restrictPanZoom(
 								{
 									...s,
@@ -473,7 +473,7 @@ export function useInteraction(
 										y: newCropY,
 									},
 								},
-								imgSize,
+								getImageSize( s ),
 								s.cropRect
 							);
 							dispatch( {
@@ -504,12 +504,6 @@ export function useInteraction(
 								  panSize.height
 								: 0;
 
-						const imgSize = s.image
-							? {
-									width: s.image.naturalWidth,
-									height: s.image.naturalHeight,
-							  }
-							: { width: 1, height: 1 };
 						const { crop: newCrop } = restrictPanZoom(
 							{
 								...s,
@@ -518,7 +512,7 @@ export function useInteraction(
 									y: touch.startCropY + deltaY,
 								},
 							},
-							imgSize,
+							getImageSize( s ),
 							s.cropRect
 						);
 
@@ -560,12 +554,6 @@ export function useInteraction(
 			switch ( e.key ) {
 				case 'ArrowUp': {
 					e.preventDefault();
-					const imgSize = currentState.image
-						? {
-								width: currentState.image.naturalWidth,
-								height: currentState.image.naturalHeight,
-						  }
-						: { width: 1, height: 1 };
 					const { crop: newCrop } = restrictPanZoom(
 						{
 							...currentState,
@@ -574,7 +562,7 @@ export function useInteraction(
 								y: currentState.crop.y - keyboardStep,
 							},
 						},
-						imgSize,
+						getImageSize( currentState ),
 						currentState.cropRect
 					);
 					dispatch( { type: 'SET_CROP', payload: newCrop } );
@@ -582,12 +570,6 @@ export function useInteraction(
 				}
 				case 'ArrowDown': {
 					e.preventDefault();
-					const imgSize = currentState.image
-						? {
-								width: currentState.image.naturalWidth,
-								height: currentState.image.naturalHeight,
-						  }
-						: { width: 1, height: 1 };
 					const { crop: newCrop } = restrictPanZoom(
 						{
 							...currentState,
@@ -596,7 +578,7 @@ export function useInteraction(
 								y: currentState.crop.y + keyboardStep,
 							},
 						},
-						imgSize,
+						getImageSize( currentState ),
 						currentState.cropRect
 					);
 					dispatch( { type: 'SET_CROP', payload: newCrop } );
@@ -604,12 +586,6 @@ export function useInteraction(
 				}
 				case 'ArrowLeft': {
 					e.preventDefault();
-					const imgSize = currentState.image
-						? {
-								width: currentState.image.naturalWidth,
-								height: currentState.image.naturalHeight,
-						  }
-						: { width: 1, height: 1 };
 					const { crop: newCrop } = restrictPanZoom(
 						{
 							...currentState,
@@ -618,7 +594,7 @@ export function useInteraction(
 								y: currentState.crop.y,
 							},
 						},
-						imgSize,
+						getImageSize( currentState ),
 						currentState.cropRect
 					);
 					dispatch( { type: 'SET_CROP', payload: newCrop } );
@@ -626,12 +602,6 @@ export function useInteraction(
 				}
 				case 'ArrowRight': {
 					e.preventDefault();
-					const imgSize = currentState.image
-						? {
-								width: currentState.image.naturalWidth,
-								height: currentState.image.naturalHeight,
-						  }
-						: { width: 1, height: 1 };
 					const { crop: newCrop } = restrictPanZoom(
 						{
 							...currentState,
@@ -640,7 +610,7 @@ export function useInteraction(
 								y: currentState.crop.y,
 							},
 						},
-						imgSize,
+						getImageSize( currentState ),
 						currentState.cropRect
 					);
 					dispatch( { type: 'SET_CROP', payload: newCrop } );

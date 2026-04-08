@@ -7,6 +7,7 @@ import { useMemo } from '@wordpress/element';
  * Internal dependencies
  */
 import type { CropperState, Size } from '../core/types';
+import { degreesToRadians } from '../core/math/rotation';
 
 /**
  * Computes a CSS matrix() transform string from the cropper state.
@@ -27,7 +28,7 @@ export function useTransformStyle(
 	return useMemo( () => {
 		const translateX = state.crop.x * imageSize.width;
 		const translateY = state.crop.y * imageSize.height;
-		const rad = ( state.rotation * Math.PI ) / 180;
+		const rad = degreesToRadians( state.rotation );
 		const cos = Math.cos( rad );
 		const sin = Math.sin( rad );
 		const sx = state.flip.horizontal ? -1 : 1;

@@ -15,6 +15,9 @@ import type {
 } from './types';
 import { degreesToRadians } from './math/rotation';
 
+/** Floating-point epsilon for "close enough to equal" comparisons. */
+const EPSILON = 1e-9;
+
 // Pre-allocated scratch buffers for hot-path functions (restrictPanZoom,
 // screenToWorld, etc.) to avoid Float32Array allocation on every call.
 // These are module-level singletons — safe because all usage is synchronous.
@@ -510,7 +513,7 @@ export function restrictCropRect(
 	if ( spanBeta > 0 ) {
 		t = Math.min( t, limitBeta / spanBeta );
 	}
-	if ( t >= 1 - 1e-9 ) {
+	if ( t >= 1 - EPSILON ) {
 		// Crop fits at the current zoom — no size change needed.
 		// Position is handled by restrictPanZoom, not here.
 		return cropRect;
@@ -645,10 +648,10 @@ export function restrictPanZoom(
 
 	// If all world points are in [0,1], no correction needed.
 	if (
-		minWx >= -1e-9 &&
-		maxWx <= 1 + 1e-9 &&
-		minWy >= -1e-9 &&
-		maxWy <= 1 + 1e-9
+		minWx >= -EPSILON &&
+		maxWx <= 1 + EPSILON &&
+		minWy >= -EPSILON &&
+		maxWy <= 1 + EPSILON
 	) {
 		if ( zoom === state.zoom ) {
 			return { crop: state.crop, zoom };
@@ -664,18 +667,18 @@ export function restrictPanZoom(
 	let dwx = 0;
 	let dwy = 0;
 
-	if ( minWx < 0 && maxWx <= 1 + 1e-9 ) {
+	if ( minWx < 0 && maxWx <= 1 + EPSILON ) {
 		dwx = -minWx;
-	} else if ( maxWx > 1 && minWx >= -1e-9 ) {
+	} else if ( maxWx > 1 && minWx >= -EPSILON ) {
 		dwx = 1 - maxWx;
 	} else if ( minWx < 0 && maxWx > 1 ) {
 		// Over-constrained: center it.
 		dwx = ( 1 - maxWx - minWx ) / 2;
 	}
 
-	if ( minWy < 0 && maxWy <= 1 + 1e-9 ) {
+	if ( minWy < 0 && maxWy <= 1 + EPSILON ) {
 		dwy = -minWy;
-	} else if ( maxWy > 1 && minWy >= -1e-9 ) {
+	} else if ( maxWy > 1 && minWy >= -EPSILON ) {
 		dwy = 1 - maxWy;
 	} else if ( minWy < 0 && maxWy > 1 ) {
 		dwy = ( 1 - maxWy - minWy ) / 2;
