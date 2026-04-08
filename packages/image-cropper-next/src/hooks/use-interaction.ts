@@ -23,6 +23,8 @@ export interface UseInteractionReturn {
 	};
 	/** Whether a drag (pan) interaction is in progress. */
 	isDragging: boolean;
+	/** Whether a double-tap zoom animation is in progress. */
+	isZooming: boolean;
 }
 
 /**
@@ -37,6 +39,8 @@ export interface UseInteractionOptions {
 	zoomSpeed?: number;
 	/** Pan step size in normalized coords for keyboard events. Defaults to 0.05. */
 	keyboardStep?: number;
+	/** Zoom level for double-tap zoom. Defaults to 2. */
+	doubleTapZoom?: number;
 }
 
 /**
@@ -78,6 +82,7 @@ export function useInteraction(
 	const maxZoom = options?.maxZoom ?? MAX_ZOOM;
 	const zoomSpeed = options?.zoomSpeed ?? 0.01;
 	const keyboardStep = options?.keyboardStep ?? 0.05;
+	const doubleTapZoom = options?.doubleTapZoom ?? 2;
 
 	const stateRef = useRef( state );
 	stateRef.current = state;
@@ -90,6 +95,8 @@ export function useInteraction(
 	} | null >( null );
 
 	const [ isDragging, setIsDragging ] = useState( false );
+	const [ isZooming, setIsZooming ] = useState( false );
+	const zoomTimerRef = useRef< ReturnType< typeof setTimeout > >();
 	const rafRef = useRef< number >( 0 );
 
 	const touchRef = useRef< {
@@ -305,14 +312,22 @@ export function useInteraction(
 						e.preventDefault();
 						lastTapRef.current = null;
 
-						// Toggle zoom: if zoomed in (>1.5), go to 1x; else go to 2x.
+						// Toggle: if past halfway to doubleTapZoom, go back to 1x.
 						const targetZoom =
-							currentState.zoom > 1.5 ? minZoom : 2;
+							currentState.zoom > ( minZoom + doubleTapZoom ) / 2
+								? minZoom
+								: doubleTapZoom;
 						const visSize = imageSize ?? containerSize;
 						const rect = e.currentTarget.getBoundingClientRect();
 
+						// Enable zoom animation before dispatching.
+						setIsZooming( true );
+						clearTimeout( zoomTimerRef.current );
+						zoomTimerRef.current = setTimeout( () => {
+							setIsZooming( false );
+						}, 200 );
+
 						if ( visSize.width > 0 && visSize.height > 0 ) {
-							// Focal point: tap position relative to container center.
 							const fx =
 								tapX - rect.left - containerSize.width / 2;
 							const fy =
@@ -673,5 +688,6 @@ export function useInteraction(
 			onKeyDown,
 		},
 		isDragging,
+		isZooming,
 	};
 }
