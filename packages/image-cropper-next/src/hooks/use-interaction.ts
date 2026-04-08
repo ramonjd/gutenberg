@@ -250,7 +250,11 @@ export function useInteraction(
 			//    covers the crop — near edges the focal point can't be
 			//    perfectly honored, which is the correct behavior.
 			const visSize = imageSize ?? containerSize;
-			const rect = e.currentTarget?.getBoundingClientRect?.();
+			const target = e.currentTarget;
+			const rect =
+				target instanceof Element
+					? target.getBoundingClientRect()
+					: undefined;
 			if ( visSize.width > 0 && visSize.height > 0 && rect ) {
 				// Step 1: cursor position relative to container center.
 				const fx = e.clientX - rect.left - containerSize.width / 2;
