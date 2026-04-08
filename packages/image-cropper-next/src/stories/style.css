@@ -1,13 +1,15 @@
 .image-cropper-next-story__container {
-	width: 600px;
-	height: 400px;
+	width: 100%;
+	max-width: 600px;
+	aspect-ratio: 3 / 2;
 	border: 1px solid #ccc;
 	position: relative;
 }
 
 .image-cropper-next-story__resizable {
-	width: 400px;
-	height: 300px;
+	width: 100%;
+	max-width: 400px;
+	aspect-ratio: 4 / 3;
 	border: 1px solid #ccc;
 	resize: both;
 	overflow: auto;
@@ -19,11 +21,12 @@
 	flex-direction: column;
 	gap: 12px;
 	margin-bottom: 16px;
-	max-width: 600px;
+	max-width: 100%;
 }
 
 .image-cropper-next-story__row {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 8px;
 	align-items: center;
 }
@@ -70,7 +73,7 @@
 
 .image-cropper-next-story__export-preview {
 	margin-top: 16px;
-	max-width: 600px;
+	max-width: 100%;
 }
 
 .image-cropper-next-story__export-image {
