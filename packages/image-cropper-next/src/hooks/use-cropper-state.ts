@@ -127,6 +127,8 @@ function cropperReducer(
 	state: CropperState,
 	action: CropperAction
 ): CropperState {
+	// Every action runs through enforceContainment to maintain the invariant:
+	// the image always fully covers the crop area.
 	switch ( action.type ) {
 		case 'SET_IMAGE':
 			return enforceContainment( {
@@ -169,18 +171,18 @@ function cropperReducer(
 			// reset pan so rotation visually happens around crop center.
 			const dir90 = action.payload.direction;
 			const rot90 = normalizeRotation( state.rotation + dir90 * 90 );
-			const cr = state.cropRect;
-			const cx = cr.x + cr.width / 2;
-			const cy = cr.y + cr.height / 2;
+			const rect = state.cropRect;
+			const cx = rect.x + rect.width / 2;
+			const cy = rect.y + rect.height / 2;
 			return enforceContainment( {
 				...state,
 				rotation: rot90,
 				crop: { x: 0, y: 0 },
 				cropRect: {
-					x: cx - cr.height / 2,
-					y: cy - cr.width / 2,
-					width: cr.height,
-					height: cr.width,
+					x: cx - rect.height / 2,
+					y: cy - rect.width / 2,
+					width: rect.height,
+					height: rect.width,
 				},
 			} );
 		}
@@ -202,13 +204,13 @@ function cropperReducer(
 			// available height (maintaining its aspect ratio), center it,
 			// and adjust zoom/pan so the exact same image content that
 			// was visible inside the old crop is visible in the new one.
-			const cr = state.cropRect;
-			if ( cr.width === 0 || cr.height === 0 || ! state.image ) {
+			const rect = state.cropRect;
+			if ( rect.width === 0 || rect.height === 0 || ! state.image ) {
 				return state;
 			}
 
 			// New crop: fill height (or width), maintain aspect ratio, center.
-			const normalizedRatio = cr.width / cr.height;
+			const normalizedRatio = rect.width / rect.height;
 			let newH = 1;
 			let newW = normalizedRatio;
 			if ( newW > 1 ) {
@@ -217,11 +219,11 @@ function cropperReducer(
 			}
 
 			// Scale factor: how much the crop grew.
-			const s = newH / cr.height;
+			const s = newH / rect.height;
 
 			// The old crop center in normalized visual space.
-			const oldCx = cr.x + cr.width / 2;
-			const oldCy = cr.y + cr.height / 2;
+			const oldCx = rect.x + rect.width / 2;
+			const oldCy = rect.y + rect.height / 2;
 
 			// Zoom scales by s so the same image region fills the
 			// larger crop at the same relative size.

@@ -223,22 +223,17 @@ export interface VisualBounds {
 }
 
 /**
- * Returns the axis-aligned bounding box of the full image (normalized [0,1]x[0,1])
- * after applying the camera transform.
+ * Compute the axis-aligned bounding box of a set of corners after
+ * transforming them through a camera matrix.
  *
- * @param camera The camera matrix from createCamera.
- * @return The screen-space bounding box of the full image.
+ * @param camera  The camera matrix from createCamera.
+ * @param corners The corners to transform (each as [x, y]).
+ * @return The screen-space bounding box.
  */
-export function getVisibleBounds( camera: Camera ): VisualBounds {
-	const corners = [
-		[ 0, 0 ],
-		[ 1, 0 ],
-		[ 1, 1 ],
-		[ 0, 1 ],
-	];
+function aabb( camera: Camera, corners: [ number, number ][] ): VisualBounds {
 	const screenCorners = corners.map( ( c ) => {
 		const out = vec2.create();
-		vec2.transformMat2d( out, c as [ number, number ], camera );
+		vec2.transformMat2d( out, c, camera );
 		return out;
 	} );
 	let minX = screenCorners[ 0 ][ 0 ];
@@ -261,6 +256,22 @@ export function getVisibleBounds( camera: Camera ): VisualBounds {
 		}
 	}
 	return { left: minX, top: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/**
+ * Returns the axis-aligned bounding box of the full image (normalized [0,1]x[0,1])
+ * after applying the camera transform.
+ *
+ * @param camera The camera matrix from createCamera.
+ * @return The screen-space bounding box of the full image.
+ */
+export function getVisibleBounds( camera: Camera ): VisualBounds {
+	return aabb( camera, [
+		[ 0, 0 ],
+		[ 1, 0 ],
+		[ 1, 1 ],
+		[ 0, 1 ],
+	] );
 }
 
 /**
@@ -275,51 +286,12 @@ export function cropRectToScreenBounds(
 	cropRect: NormalizedRect
 ): VisualBounds {
 	const { x, y, width, height } = cropRect;
-	const corners = [
+	return aabb( camera, [
 		[ x, y ],
 		[ x + width, y ],
 		[ x + width, y + height ],
 		[ x, y + height ],
-	];
-	const screenCorners = corners.map( ( c ) => {
-		const out = vec2.create();
-		vec2.transformMat2d( out, c as [ number, number ], camera );
-		return out;
-	} );
-	let minX = screenCorners[ 0 ][ 0 ];
-	let maxX = screenCorners[ 0 ][ 0 ];
-	let minY = screenCorners[ 0 ][ 1 ];
-	let maxY = screenCorners[ 0 ][ 1 ];
-	for ( let i = 1; i < screenCorners.length; i++ ) {
-		const s = screenCorners[ i ];
-		if ( s[ 0 ] < minX ) {
-			minX = s[ 0 ];
-		}
-		if ( s[ 0 ] > maxX ) {
-			maxX = s[ 0 ];
-		}
-		if ( s[ 1 ] < minY ) {
-			minY = s[ 1 ];
-		}
-		if ( s[ 1 ] > maxY ) {
-			maxY = s[ 1 ];
-		}
-	}
-	return { left: minX, top: minY, width: maxX - minX, height: maxY - minY };
-}
-
-/**
- * Alias for cropRectToScreenBounds — transforms a normalized rect to screen bounds.
- *
- * @param camera The camera matrix from createCamera.
- * @param rect   The rectangle in normalized coordinates.
- * @return The screen-space bounding box of the rectangle.
- */
-export function worldToScreenRect(
-	camera: Camera,
-	rect: NormalizedRect
-): VisualBounds {
-	return cropRectToScreenBounds( camera, rect );
+	] );
 }
 
 /**
@@ -375,8 +347,11 @@ export function getMinZoomForCover(
 	imageAspectRatio: number,
 	cropRect: NormalizedRect
 ): number {
-	const a = Math.max( imageAspectRatio, Number.EPSILON );
-	const { visualW, visualH, absC, absS } = getVisualDimensions( rotation, a );
+	const aspectRatio = Math.max( imageAspectRatio, Number.EPSILON );
+	const { visualW, visualH, absC, absS } = getVisualDimensions(
+		rotation,
+		aspectRatio
+	);
 
 	// Crop half-extents in pixel-proportional space.
 	const cropHalfW = ( cropRect.width * visualW ) / 2;
@@ -386,9 +361,9 @@ export function getMinZoomForCover(
 	const spanAlpha = cropHalfW * absC + cropHalfH * absS;
 	const spanBeta = cropHalfW * absS + cropHalfH * absC;
 
-	// Image half-extents at zoom z: (a*z/2, z/2).
-	// Coverage requires: a*z/2 >= spanAlpha  AND  z/2 >= spanBeta.
-	const zoomFromAlpha = ( 2 * spanAlpha ) / a;
+	// Image half-extents at zoom z: (aspectRatio*z/2, z/2).
+	// Coverage requires: aspectRatio*z/2 >= spanAlpha  AND  z/2 >= spanBeta.
+	const zoomFromAlpha = ( 2 * spanAlpha ) / aspectRatio;
 	const zoomFromBeta = 2 * spanBeta;
 
 	return Math.max( 1, zoomFromAlpha, zoomFromBeta );
@@ -510,8 +485,11 @@ export function restrictCropRect(
 	rotation: number,
 	imageAspectRatio: number
 ): NormalizedRect {
-	const a = Math.max( imageAspectRatio, Number.EPSILON );
-	const { visualW, visualH, absC, absS } = getVisualDimensions( rotation, a );
+	const aspectRatio = Math.max( imageAspectRatio, Number.EPSILON );
+	const { visualW, visualH, absC, absS } = getVisualDimensions(
+		rotation,
+		aspectRatio
+	);
 	const W = cropRect.width;
 	const H = cropRect.height;
 
@@ -521,8 +499,8 @@ export function restrictCropRect(
 	const spanAlpha = cropWPx * absC + cropHPx * absS;
 	const spanBeta = cropWPx * absS + cropHPx * absC;
 
-	// Image full-extents at zoom z: (a*z, z).
-	const limitAlpha = a * zoom;
+	// Image full-extents at zoom z: (aspectRatio*z, z).
+	const limitAlpha = aspectRatio * zoom;
 	const limitBeta = zoom;
 
 	let t = 1;
@@ -588,11 +566,11 @@ export function restrictPanZoom(
 	// 6. Convert the world-space correction to a pan-field correction by
 	//    mapping it through the camera's linear part back to screen space,
 	//    then dividing by the visual bounds.
-	const a =
+	const aspectRatio =
 		imageSize.width > 0 && imageSize.height > 0
 			? imageSize.width / imageSize.height
 			: 1;
-	const minZoom = getMinZoomForCover( state.rotation, a, cropRect );
+	const minZoom = getMinZoomForCover( state.rotation, aspectRatio, cropRect );
 	const zoom = Math.max( state.zoom, minZoom );
 
 	// Step 2: build camera with candidate pan and corrected zoom.
@@ -612,22 +590,29 @@ export function restrictPanZoom(
 		CANONICAL_CONTAINER,
 		imageSize
 	);
-	const vb = getVisibleBounds( baseCamera );
+	const visibleBounds = getVisibleBounds( baseCamera );
 
 	// Stencil corners in screen space (axis-aligned rect within visual bounds).
 	const stencilCorners: [ number, number ][] = [
-		[ vb.left + cropRect.x * vb.width, vb.top + cropRect.y * vb.height ],
 		[
-			vb.left + ( cropRect.x + cropRect.width ) * vb.width,
-			vb.top + cropRect.y * vb.height,
+			visibleBounds.left + cropRect.x * visibleBounds.width,
+			visibleBounds.top + cropRect.y * visibleBounds.height,
 		],
 		[
-			vb.left + ( cropRect.x + cropRect.width ) * vb.width,
-			vb.top + ( cropRect.y + cropRect.height ) * vb.height,
+			visibleBounds.left +
+				( cropRect.x + cropRect.width ) * visibleBounds.width,
+			visibleBounds.top + cropRect.y * visibleBounds.height,
 		],
 		[
-			vb.left + cropRect.x * vb.width,
-			vb.top + ( cropRect.y + cropRect.height ) * vb.height,
+			visibleBounds.left +
+				( cropRect.x + cropRect.width ) * visibleBounds.width,
+			visibleBounds.top +
+				( cropRect.y + cropRect.height ) * visibleBounds.height,
+		],
+		[
+			visibleBounds.left + cropRect.x * visibleBounds.width,
+			visibleBounds.top +
+				( cropRect.y + cropRect.height ) * visibleBounds.height,
 		],
 	];
 
@@ -706,8 +691,12 @@ export function restrictPanZoom(
 	// Pan in screen pixels = crop.x * visualW, crop.y * visualH.
 	// The correction is subtractive: a positive world shift (dw > 0) means
 	// the image needs to move opposite to pan direction, so pan decreases.
-	const newCropX = state.crop.x - ( vb.width > 0 ? dsx / vb.width : 0 );
-	const newCropY = state.crop.y - ( vb.height > 0 ? dsy / vb.height : 0 );
+	const newCropX =
+		state.crop.x -
+		( visibleBounds.width > 0 ? dsx / visibleBounds.width : 0 );
+	const newCropY =
+		state.crop.y -
+		( visibleBounds.height > 0 ? dsy / visibleBounds.height : 0 );
 
 	return {
 		crop: { x: newCropX, y: newCropY },
@@ -848,11 +837,15 @@ export function getSourceRegion(
 		syntheticContainer,
 		imageSize
 	);
-	const vb = getVisibleBounds( baseCamera );
+	const visibleBounds = getVisibleBounds( baseCamera );
 
-	const cr = state.cropRect;
-	const cropCenterScreenX = vb.left + ( cr.x + cr.width / 2 ) * vb.width;
-	const cropCenterScreenY = vb.top + ( cr.y + cr.height / 2 ) * vb.height;
+	const cropRect = state.cropRect;
+	const cropCenterScreenX =
+		visibleBounds.left +
+		( cropRect.x + cropRect.width / 2 ) * visibleBounds.width;
+	const cropCenterScreenY =
+		visibleBounds.top +
+		( cropRect.y + cropRect.height / 2 ) * visibleBounds.height;
 
 	// Transform crop center through inverse camera to get source position.
 	const srcCenter = vec2.create();
@@ -869,8 +862,8 @@ export function getSourceRegion(
 		imageSize.height,
 		state.rotation
 	);
-	const sourceW = ( cr.width * rotW ) / state.zoom;
-	const sourceH = ( cr.height * rotH ) / state.zoom;
+	const sourceW = ( cropRect.width * rotW ) / state.zoom;
+	const sourceH = ( cropRect.height * rotH ) / state.zoom;
 
 	return {
 		x: srcCenter[ 0 ] * imageSize.width - sourceW / 2,
