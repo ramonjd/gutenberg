@@ -104,6 +104,11 @@ export function useInteraction(
 	} | null >( null );
 
 	const touchCleanupRef = useRef< ( () => void ) | null >( null );
+	const lastTapRef = useRef< {
+		time: number;
+		x: number;
+		y: number;
+	} | null >( null );
 
 	const onMouseDown = useCallback(
 		( e: React.MouseEvent ) => {
@@ -283,6 +288,88 @@ export function useInteraction(
 					containerRect: e.currentTarget.getBoundingClientRect(),
 				};
 			} else if ( e.touches.length === 1 ) {
+				// Double-tap detection: toggle between fit and 2x zoom.
+				const now = Date.now();
+				const tapX = e.touches[ 0 ].clientX;
+				const tapY = e.touches[ 0 ].clientY;
+				const lastTap = lastTapRef.current;
+
+				if ( lastTap ) {
+					const timeDelta = now - lastTap.time;
+					const distDelta = Math.sqrt(
+						( tapX - lastTap.x ) ** 2 + ( tapY - lastTap.y ) ** 2
+					);
+
+					if ( timeDelta < 300 && distDelta < 30 ) {
+						// It's a double-tap — suppress browser zoom.
+						e.preventDefault();
+						lastTapRef.current = null;
+
+						// Toggle zoom: if zoomed in (>1.5), go to 1x; else go to 2x.
+						const targetZoom =
+							currentState.zoom > 1.5 ? minZoom : 2;
+						const visSize = imageSize ?? containerSize;
+						const rect = e.currentTarget.getBoundingClientRect();
+
+						if ( visSize.width > 0 && visSize.height > 0 ) {
+							// Focal point: tap position relative to container center.
+							const fx =
+								tapX - rect.left - containerSize.width / 2;
+							const fy =
+								tapY - rect.top - containerSize.height / 2;
+
+							const zoomRatio =
+								1 - targetZoom / currentState.zoom;
+							const focalNormX = fx / visSize.width;
+							const focalNormY = fy / visSize.height;
+							const newCropX =
+								currentState.crop.x +
+								( focalNormX - currentState.crop.x ) *
+									zoomRatio;
+							const newCropY =
+								currentState.crop.y +
+								( focalNormY - currentState.crop.y ) *
+									zoomRatio;
+
+							const imgSize = currentState.image
+								? {
+										width: currentState.image.naturalWidth,
+										height: currentState.image
+											.naturalHeight,
+								  }
+								: { width: 1, height: 1 };
+							const { crop: clampedCrop } = restrictPanZoom(
+								{
+									...currentState,
+									zoom: targetZoom,
+									crop: {
+										x: newCropX,
+										y: newCropY,
+									},
+								},
+								imgSize,
+								currentState.cropRect
+							);
+							dispatch( {
+								type: 'SET_ZOOM_AT_POINT',
+								payload: {
+									zoom: targetZoom,
+									crop: clampedCrop,
+								},
+							} );
+						} else {
+							dispatch( {
+								type: 'SET_ZOOM',
+								payload: targetZoom,
+							} );
+						}
+						return;
+					}
+				}
+
+				// Record this tap for future double-tap detection.
+				lastTapRef.current = { time: now, x: tapX, y: tapY };
+
 				// Single finger pan.
 				touchRef.current = {
 					startDistance: 0,
