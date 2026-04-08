@@ -86,4 +86,16 @@
 		word-break: break-all;
 		margin-top: $grid-unit-10;
 	}
+
+	&__edit-button {
+		position: absolute;
+		bottom: $grid-unit-30;
+		right: $grid-unit-30;
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+
+	&:hover &__edit-button {
+		opacity: 1;
+	}
 }

@@ -2,6 +2,7 @@
 export { MediaEditorProvider } from './components/media-editor-provider';
 export { default as MediaPreview } from './components/media-preview';
 export { default as MediaForm } from './components/media-form';
+export { default as ImageEditingPanel } from './components/image-editing-panel';
 
 // Types
 export type {

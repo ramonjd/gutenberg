@@ -1,0 +1,150 @@
+@use "@wordpress/base-styles/colors" as *;
+@use "@wordpress/base-styles/variables" as *;
+
+.media-editor-image-editing-panel {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: #1a1a2e;
+	color: #e0e0e0;
+	border-radius: 4px;
+	overflow: hidden;
+
+	// Canvas area — the cropper lives here
+	&__canvas {
+		flex: 1 1 auto;
+		min-height: 200px;
+		position: relative;
+		overflow: hidden;
+		background: #0f0f23;
+
+		// Override cropper container to fill
+		.wp-image-cropper-next {
+			width: 100%;
+			height: 100%;
+		}
+	}
+
+	// Tab row
+	&__tabs {
+		display: flex;
+		gap: $grid-unit-10;
+		padding: $grid-unit-15 $grid-unit-20;
+		background: #16213e;
+		justify-content: center;
+	}
+
+	&__tab-button {
+		border-radius: 20px !important;
+		text-transform: capitalize;
+	}
+
+	// Panel content area
+	&__panel {
+		padding: $grid-unit-20;
+		background: #16213e;
+		overflow-y: auto;
+		max-height: 280px;
+
+		// Override WP component colors for dark background
+		.components-range-control__wrapper {
+			color: #e0e0e0;
+		}
+
+		.components-base-control__label {
+			color: #ccc;
+		}
+
+		.components-select-control__input {
+			background: #1a1a2e;
+			color: #e0e0e0;
+			border-color: #333;
+		}
+	}
+
+	// Crop panel
+	&__crop-panel {
+		display: flex;
+		flex-direction: column;
+		gap: $grid-unit-15;
+	}
+
+	&__row {
+		display: flex;
+		align-items: flex-end;
+		gap: $grid-unit-10;
+		flex-wrap: wrap;
+	}
+
+	// Adjust panel
+	&__adjust-panel {
+		display: flex;
+		flex-direction: column;
+		gap: $grid-unit-15;
+	}
+
+	// AI panel
+	&__ai-panel {
+		display: flex;
+		flex-direction: column;
+		gap: $grid-unit-20;
+	}
+
+	&__ai-loading {
+		display: flex;
+		align-items: center;
+		gap: $grid-unit-10;
+		padding: $grid-unit-10;
+		background: rgba(255, 255, 255, 0.05);
+		border-radius: 4px;
+	}
+
+	&__ai-section {
+		display: flex;
+		flex-direction: column;
+		gap: $grid-unit-10;
+
+		h4 {
+			margin: 0;
+			font-size: 12px;
+			text-transform: uppercase;
+			letter-spacing: 0.5px;
+			color: #888;
+		}
+	}
+
+	&__ai-hint {
+		color: #888;
+		font-size: 13px;
+		margin: 0;
+	}
+
+	// Bottom toolbar
+	&__toolbar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: $grid-unit-15 $grid-unit-20;
+		background: #0f0f23;
+		border-top: 1px solid #333;
+		flex-shrink: 0;
+	}
+
+	&__toolbar-left,
+	&__toolbar-right {
+		display: flex;
+		align-items: center;
+		gap: $grid-unit-10;
+	}
+
+	&__toolbar-center {
+		flex: 1;
+		text-align: center;
+	}
+
+	&__dimensions {
+		font-size: 12px;
+		color: #888;
+		font-variant-numeric: tabular-nums;
+	}
+}

@@ -1,7 +1,7 @@
 /**
  * WordPress dependencies
  */
-import { Spinner } from '@wordpress/components';
+import { Button, Spinner } from '@wordpress/components';
 import { useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
@@ -10,6 +10,7 @@ import { __ } from '@wordpress/i18n';
  */
 import { useMediaEditorContext } from '../media-editor-provider';
 import { getMediaTypeFromMimeType } from '../../utils';
+import ImageEditingPanel from '../image-editing-panel';
 
 /**
  * Props for MediaPreview component.
@@ -98,6 +99,7 @@ export default function MediaPreview( props: MediaPreviewProps ) {
 	const [ loadingState, setLoadingState ] = useState<
 		'loading' | 'loaded' | 'error'
 	>( 'loading' );
+	const [ isEditing, setIsEditing ] = useState( false );
 	const { media } = useMediaEditorContext();
 
 	const {
@@ -109,11 +111,25 @@ export default function MediaPreview( props: MediaPreviewProps ) {
 
 	const mediaType = getMediaTypeFromMimeType( mimeType );
 
+	const showEditButton =
+		mediaType.type === 'image' &&
+		typeof window !== 'undefined' &&
+		( window as any ).__experimentalMediaEditor;
+
 	if ( ! mediaUrl ) {
 		return (
 			<div className="media-editor-preview media-editor-preview--empty">
 				<p>{ __( 'No media file available.' ) }</p>
 			</div>
+		);
+	}
+
+	if ( isEditing && mediaUrl ) {
+		return (
+			<ImageEditingPanel
+				src={ mediaUrl }
+				onClose={ () => setIsEditing( false ) }
+			/>
 		);
 	}
 
@@ -149,6 +165,16 @@ export default function MediaPreview( props: MediaPreviewProps ) {
 				onError={ () => setLoadingState( 'error' ) }
 				loadingState={ loadingState }
 			/>
+			{ showEditButton && loadingState === 'loaded' && (
+				<Button
+					variant="primary"
+					__next40pxDefaultSize
+					className="media-editor-preview__edit-button"
+					onClick={ () => setIsEditing( true ) }
+				>
+					{ __( 'Edit image' ) }
+				</Button>
+			) }
 		</div>
 	);
 }
