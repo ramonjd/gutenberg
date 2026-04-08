@@ -278,16 +278,26 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		] );
 
 		// Use the interaction hook for mouse, touch, and keyboard events.
-		const { handlers, isDragging, isZooming } = useInteraction(
-			state,
-			dispatch,
-			containerSize,
-			visualSize,
-			{
+		const { handlers, onWheelNative, isDragging, isZooming } =
+			useInteraction( state, dispatch, containerSize, visualSize, {
 				minZoom,
 				maxZoom,
+			} );
+
+		// Register wheel handler natively with { passive: false } so
+		// preventDefault works. React's onWheel registers as passive.
+		useEffect( () => {
+			const el = containerRef.current;
+			if ( ! el ) {
+				return;
 			}
-		);
+			el.addEventListener( 'wheel', onWheelNative, {
+				passive: false,
+			} );
+			return () => {
+				el.removeEventListener( 'wheel', onWheelNative );
+			};
+		}, [ onWheelNative ] );
 
 		// Use the transform style hook for the image CSS transform.
 		const transformString = useTransformStyle(

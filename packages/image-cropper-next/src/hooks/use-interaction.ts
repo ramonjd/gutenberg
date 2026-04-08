@@ -39,10 +39,11 @@ export interface UseInteractionReturn {
 	/** Event handler props to spread on the container element. */
 	handlers: {
 		onMouseDown: ( e: React.MouseEvent ) => void;
-		onWheel: ( e: React.WheelEvent ) => void;
 		onTouchStart: ( e: React.TouchEvent ) => void;
 		onKeyDown: ( e: React.KeyboardEvent ) => void;
 	};
+	/** Native wheel handler — must be registered with { passive: false }. */
+	onWheelNative: ( e: WheelEvent ) => void;
 	/** Whether a drag (pan) interaction is in progress. */
 	isDragging: boolean;
 	/** Whether a double-tap zoom animation is in progress. */
@@ -215,7 +216,7 @@ export function useInteraction(
 	);
 
 	const onWheel = useCallback(
-		( e: React.WheelEvent ) => {
+		( e: WheelEvent ) => {
 			e.preventDefault();
 
 			const s = stateRef.current;
@@ -653,10 +654,10 @@ export function useInteraction(
 	return {
 		handlers: {
 			onMouseDown,
-			onWheel,
 			onTouchStart,
 			onKeyDown,
 		},
+		onWheelNative: onWheel,
 		isDragging,
 		isZooming,
 	};

@@ -176,7 +176,7 @@ describe( 'useInteraction', () => {
 			);
 
 			act( () => {
-				result.current.handlers.onWheel(
+				result.current.onWheelNative(
 					createWheelEvent( { deltaY: -100 } )
 				);
 			} );
@@ -202,7 +202,7 @@ describe( 'useInteraction', () => {
 			);
 
 			act( () => {
-				result.current.handlers.onWheel(
+				result.current.onWheelNative(
 					createWheelEvent( { deltaY: -500 } )
 				);
 			} );
@@ -221,7 +221,7 @@ describe( 'useInteraction', () => {
 			);
 
 			act( () => {
-				result.current.handlers.onWheel(
+				result.current.onWheelNative(
 					createWheelEvent( { deltaY: 500 } )
 				);
 			} );
@@ -242,7 +242,7 @@ describe( 'useInteraction', () => {
 			);
 
 			act( () => {
-				result.current.handlers.onWheel(
+				result.current.onWheelNative(
 					createWheelEvent( { deltaY: -100 } )
 				);
 			} );
