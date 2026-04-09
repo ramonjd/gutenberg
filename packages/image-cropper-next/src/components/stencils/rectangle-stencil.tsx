@@ -117,6 +117,7 @@ export function RectangleStencil( {
 	const boundsMaxX = cropBounds?.maxX ?? 1;
 	const boundsMaxY = cropBounds?.maxY ?? 1;
 	const keyboardSettleTimerRef = useRef< ReturnType< typeof setTimeout > >();
+	const dragElementRef = useRef< Element | null >( null );
 	const [ dragState, setDragState ] = useState< DragState | null >( null );
 	const hasLockedRatio = !! ( aspectRatio && aspectRatio > 0 );
 
@@ -152,6 +153,12 @@ export function RectangleStencil( {
 			if ( ownerDoc.activeElement instanceof HTMLElement ) {
 				ownerDoc.activeElement.blur();
 			}
+			// Capture pointer so drag works across iframe boundaries.
+			const el = event.currentTarget;
+			if ( el instanceof Element ) {
+				el.setPointerCapture( event.nativeEvent.pointerId );
+			}
+			dragElementRef.current = el;
 			setDragState( {
 				handle,
 				startX: event.clientX,
@@ -465,18 +472,39 @@ export function RectangleStencil( {
 			onResizeEnd?.();
 		};
 
-		document.addEventListener( 'mousemove', handleMouseMove );
-		document.addEventListener( 'mouseup', handleMouseUp );
-		document.addEventListener( 'touchmove', handleTouchMove, {
+		// Use the drag element (with pointer capture) for iframe safety.
+		// Fall back to ownerDocument for touch events.
+		const el = dragElementRef.current;
+		const doc = el?.ownerDocument ?? document;
+
+		if ( el ) {
+			el.addEventListener(
+				'pointermove',
+				handleMouseMove as EventListener
+			);
+			el.addEventListener( 'pointerup', handleMouseUp );
+		} else {
+			doc.addEventListener( 'mousemove', handleMouseMove );
+			doc.addEventListener( 'mouseup', handleMouseUp );
+		}
+		doc.addEventListener( 'touchmove', handleTouchMove, {
 			passive: false,
 		} );
-		document.addEventListener( 'touchend', handleMouseUp );
+		doc.addEventListener( 'touchend', handleMouseUp );
 
 		return () => {
-			document.removeEventListener( 'mousemove', handleMouseMove );
-			document.removeEventListener( 'mouseup', handleMouseUp );
-			document.removeEventListener( 'touchmove', handleTouchMove );
-			document.removeEventListener( 'touchend', handleMouseUp );
+			if ( el ) {
+				el.removeEventListener(
+					'pointermove',
+					handleMouseMove as EventListener
+				);
+				el.removeEventListener( 'pointerup', handleMouseUp );
+			} else {
+				doc.removeEventListener( 'mousemove', handleMouseMove );
+				doc.removeEventListener( 'mouseup', handleMouseUp );
+			}
+			doc.removeEventListener( 'touchmove', handleTouchMove );
+			doc.removeEventListener( 'touchend', handleMouseUp );
 		};
 	}, [
 		dragState,

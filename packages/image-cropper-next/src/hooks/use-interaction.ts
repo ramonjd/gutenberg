@@ -150,6 +150,16 @@ export function useInteraction(
 				ownerDoc.activeElement.blur();
 			}
 
+			// Use pointer capture so drag works across iframe boundaries.
+			// Without this, mouseup is lost when the cursor leaves an iframe.
+			const target = e.currentTarget ?? e.target;
+			if (
+				target instanceof Element &&
+				e.nativeEvent?.pointerId !== undefined
+			) {
+				target.setPointerCapture( e.nativeEvent.pointerId );
+			}
+
 			setIsDragging( true );
 			const currentState = stateRef.current;
 			dragRef.current = {
@@ -159,7 +169,7 @@ export function useInteraction(
 				startCropY: currentState.crop.y,
 			};
 
-			const onMouseMove = ( moveEvent: MouseEvent ) => {
+			const onPointerMove = ( moveEvent: PointerEvent ) => {
 				const drag = dragRef.current;
 				if ( ! drag ) {
 					return;
@@ -168,8 +178,6 @@ export function useInteraction(
 				cancelAnimationFrame( rafRef.current );
 				rafRef.current = requestAnimationFrame( () => {
 					const s = stateRef.current;
-					// Convert pixel delta to normalized coordinates.
-					// No rotation math needed — pan is in visual space.
 					const panSize = imageSize ?? containerSize;
 					const deltaX =
 						panSize.width > 0
@@ -201,16 +209,34 @@ export function useInteraction(
 				} );
 			};
 
-			const onMouseUp = () => {
+			const onPointerUp = () => {
 				setIsDragging( false );
 				dragRef.current = null;
 				cancelAnimationFrame( rafRef.current );
-				document.removeEventListener( 'mousemove', onMouseMove );
-				document.removeEventListener( 'mouseup', onMouseUp );
+				if ( target instanceof Element ) {
+					target.removeEventListener( 'pointermove', onPointerMove );
+					target.removeEventListener( 'pointerup', onPointerUp );
+				} else {
+					document.removeEventListener(
+						'mousemove',
+						onPointerMove as EventListener
+					);
+					document.removeEventListener( 'mouseup', onPointerUp );
+				}
 			};
 
-			document.addEventListener( 'mousemove', onMouseMove );
-			document.addEventListener( 'mouseup', onMouseUp );
+			// Prefer pointer events on target (iframe-safe via capture).
+			// Fall back to document mouse events (test environment).
+			if ( target instanceof Element ) {
+				target.addEventListener( 'pointermove', onPointerMove );
+				target.addEventListener( 'pointerup', onPointerUp );
+			} else {
+				document.addEventListener(
+					'mousemove',
+					onPointerMove as EventListener
+				);
+				document.addEventListener( 'mouseup', onPointerUp );
+			}
 		},
 		[ containerSize, imageSize, dispatch ]
 	);
