@@ -249,6 +249,62 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			state.cropRect,
 		] );
 
+		// In freeform mode, when aspectRatio changes, compute the largest
+		// inscribed rect of the new ratio within the visual bounds, centered.
+		const prevAspectRatioRef = useRef( aspectRatio );
+		useEffect( () => {
+			if ( prevAspectRatioRef.current === aspectRatio ) {
+				return;
+			}
+			prevAspectRatioRef.current = aspectRatio;
+
+			if (
+				! freeformCrop ||
+				visualSize.width === 0 ||
+				visualSize.height === 0
+			) {
+				return;
+			}
+
+			// No aspect ratio (free) — don't resize the crop.
+			if ( ! aspectRatio || aspectRatio <= 0 ) {
+				return;
+			}
+
+			// Compute the normalized ratio for the desired pixel aspect ratio.
+			const normalizedRatio =
+				( aspectRatio * visualSize.height ) / visualSize.width;
+
+			// Largest inscribed rect at this ratio, centered in [0,1]x[0,1].
+			let w: number;
+			let h: number;
+			if ( normalizedRatio <= 1 ) {
+				w = 1;
+				h = 1 / normalizedRatio;
+				if ( h > 1 ) {
+					h = 1;
+					w = normalizedRatio;
+				}
+			} else {
+				h = 1;
+				w = normalizedRatio;
+				if ( w > 1 ) {
+					w = 1;
+					h = 1 / normalizedRatio;
+				}
+			}
+
+			dispatch( {
+				type: 'SET_CROP_RECT',
+				payload: {
+					x: ( 1 - w ) / 2,
+					y: ( 1 - h ) / 2,
+					width: w,
+					height: h,
+				},
+			} );
+		}, [ aspectRatio, freeformCrop, visualSize, dispatch ] );
+
 		// Compute the crop handle bounds from the actual image footprint.
 		// Only recalculate when transform-relevant fields change, not on
 		// every cropRect change (which would be circular during drag).
