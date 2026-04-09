@@ -12,6 +12,7 @@ import {
 	useEffect,
 	useRef,
 	useId,
+	createPortal,
 } from '@wordpress/element';
 
 /**
@@ -811,4 +812,261 @@ const UndoRedoComponent = () => {
 
 export const UndoRedo: Story = {
 	render: UndoRedoComponent,
+};
+
+/**
+ * Helper: renders children inside an iframe via createPortal.
+ * Copies the parent page's stylesheets into the iframe so the
+ * cropper styles are available.
+ */
+function IframeWrapper( { children }: { children: React.ReactNode } ) {
+	const iframeRef = useRef< HTMLIFrameElement >( null );
+	const [ mountNode, setMountNode ] = useState< HTMLElement | null >( null );
+
+	useEffect( () => {
+		const iframe = iframeRef.current;
+		if ( ! iframe ) {
+			return;
+		}
+		const handleLoad = () => {
+			const doc = iframe.contentDocument;
+			if ( ! doc ) {
+				return;
+			}
+			// Copy parent stylesheets into the iframe.
+			const parentStyles = document.querySelectorAll(
+				'style, link[rel="stylesheet"]'
+			);
+			parentStyles.forEach( ( node ) => {
+				doc.head.appendChild( node.cloneNode( true ) );
+			} );
+			// Create a mount point.
+			const root = doc.createElement( 'div' );
+			doc.body.style.margin = '0';
+			doc.body.appendChild( root );
+			setMountNode( root );
+		};
+		iframe.addEventListener( 'load', handleLoad );
+		// Trigger load for about:blank.
+		if ( iframe.contentDocument?.readyState === 'complete' ) {
+			handleLoad();
+		}
+		return () => iframe.removeEventListener( 'load', handleLoad );
+	}, [] );
+
+	return (
+		<>
+			<iframe
+				ref={ iframeRef }
+				title="Iframe test"
+				style={ {
+					width: '100%',
+					maxWidth: 620,
+					height: 600,
+					border: '2px solid #ccc',
+					borderRadius: 4,
+				} }
+				src="about:blank"
+			/>
+			{ mountNode && createPortal( children, mountNode ) }
+		</>
+	);
+}
+
+/**
+ * Cropper inside an iframe — tests that drag, zoom, and resize
+ * work correctly across iframe boundaries (pointer capture).
+ */
+const InIframeComponent = () => {
+	const {
+		state,
+		dispatch,
+		setRotation,
+		setFlip,
+		setZoom,
+		setCropRect,
+		snapRotate90,
+		reset,
+	} = useCropperState();
+
+	const [ aspectRatioValue, setAspectRatioValue ] = useState( '0' );
+	const [ freeformCrop, setFreeformCrop ] = useState( true );
+	const freeformId = useId();
+
+	const baseAngle = Math.round( state.rotation / 90 ) * 90;
+	const fineOffset = state.rotation - baseAngle;
+
+	const handleRotateLeft = useCallback( () => {
+		snapRotate90( -1 );
+	}, [ snapRotate90 ] );
+
+	const handleRotateRight = useCallback( () => {
+		snapRotate90( 1 );
+	}, [ snapRotate90 ] );
+
+	const handleRotationSlider = useCallback(
+		( event: React.ChangeEvent< HTMLInputElement > ) => {
+			setRotation( baseAngle + parseFloat( event.target.value ) );
+		},
+		[ baseAngle, setRotation ]
+	);
+
+	const handleAspectRatioChange = useCallback(
+		( event: React.ChangeEvent< HTMLSelectElement > ) => {
+			const value = event.target.value;
+			setAspectRatioValue( value );
+			const ratio = parseFloat( value );
+			if ( ratio > 0 && state.image ) {
+				const natW = state.image.naturalWidth;
+				const natH = state.image.naturalHeight;
+				const visualBBox = getRotatedBBox( natW, natH, state.rotation );
+				const visualW = visualBBox.width;
+				const visualH = visualBBox.height;
+				const normalizedRatio = ( ratio * visualH ) / visualW;
+				let w = state.cropRect.width;
+				let h = w / normalizedRatio;
+				if ( h > 1 ) {
+					h = state.cropRect.height;
+					w = h * normalizedRatio;
+				}
+				w = Math.min( w, 1 );
+				h = Math.min( h, 1 );
+				setCropRect( {
+					x: ( 1 - w ) / 2,
+					y: ( 1 - h ) / 2,
+					width: w,
+					height: h,
+				} );
+			}
+		},
+		[ state.image, state.cropRect, state.rotation, setCropRect ]
+	);
+
+	const handleReset = useCallback( () => {
+		reset();
+		setAspectRatioValue( '0' );
+	}, [ reset ] );
+
+	return (
+		<div>
+			<p style={ { marginBottom: 8, color: '#666', fontSize: 13 } }>
+				The cropper below is rendered inside an{ ' ' }
+				<code>&lt;iframe&gt;</code>. Test that drag, zoom, resize
+				handles, and keyboard shortcuts all work correctly across the
+				iframe boundary.
+			</p>
+
+			<div className="image-cropper-next-story__controls">
+				<div className="image-cropper-next-story__row">
+					<strong>Rotation: { state.rotation }deg</strong>
+					<button onClick={ handleRotateLeft }>-90</button>
+					<button onClick={ handleRotateRight }>+90</button>
+				</div>
+				<input
+					className="image-cropper-next-story__slider"
+					type="range"
+					min={ -MAX_ROTATION_OFFSET }
+					max={ MAX_ROTATION_OFFSET }
+					step="0.5"
+					value={ fineOffset }
+					onChange={ handleRotationSlider }
+				/>
+
+				<div className="image-cropper-next-story__row">
+					<strong>
+						Flip: H=
+						{ state.flip.horizontal ? 'Yes' : 'No' }, V=
+						{ state.flip.vertical ? 'Yes' : 'No' }
+					</strong>
+					<button
+						onClick={ () =>
+							setFlip( {
+								horizontal: ! state.flip.horizontal,
+								vertical: state.flip.vertical,
+							} )
+						}
+					>
+						Flip H
+					</button>
+					<button
+						onClick={ () =>
+							setFlip( {
+								horizontal: state.flip.horizontal,
+								vertical: ! state.flip.vertical,
+							} )
+						}
+					>
+						Flip V
+					</button>
+				</div>
+
+				<div className="image-cropper-next-story__row">
+					<strong>Zoom: { state.zoom.toFixed( 1 ) }x</strong>
+					<input
+						type="range"
+						min={ MIN_ZOOM }
+						max={ MAX_ZOOM }
+						step="0.1"
+						value={ state.zoom }
+						onChange={ ( event ) =>
+							setZoom( parseFloat( event.target.value ) )
+						}
+					/>
+				</div>
+
+				<div className="image-cropper-next-story__row">
+					<strong>Aspect Ratio:</strong>
+					<select
+						value={ aspectRatioValue }
+						onChange={ handleAspectRatioChange }
+					>
+						{ DEFAULT_ASPECT_RATIOS.map( ( preset ) => (
+							<option
+								key={ preset.label }
+								value={ preset.value.toString() }
+							>
+								{ preset.label }
+							</option>
+						) ) }
+					</select>
+				</div>
+
+				<div className="image-cropper-next-story__row">
+					<label htmlFor={ freeformId }>Freeform Crop</label>
+					<input
+						id={ freeformId }
+						type="checkbox"
+						checked={ freeformCrop }
+						onChange={ ( e ) =>
+							setFreeformCrop( e.target.checked )
+						}
+					/>
+				</div>
+
+				<div className="image-cropper-next-story__row">
+					<button onClick={ handleReset }>Reset</button>
+				</div>
+			</div>
+
+			<IframeWrapper>
+				<Cropper
+					src={ SAMPLE_IMAGE }
+					state={ state }
+					dispatch={ dispatch }
+					showGrid
+					showDimming
+					freeformCrop={ freeformCrop }
+					aspectRatio={
+						parseFloat( aspectRatioValue ) > 0
+							? parseFloat( aspectRatioValue )
+							: undefined
+					}
+				/>
+			</IframeWrapper>
+		</div>
+	);
+};
+
+export const InIframe: Story = {
+	render: InIframeComponent,
 };
