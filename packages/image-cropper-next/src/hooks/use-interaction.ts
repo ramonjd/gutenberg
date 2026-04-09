@@ -148,15 +148,17 @@ export function useInteraction(
 			}
 			e.preventDefault();
 
+			// Grab the native DOM element before React nullifies currentTarget.
+			const el = e.currentTarget as HTMLElement;
+
 			// Blur any focused handle so its focus ring doesn't linger.
-			const ownerDoc = e.currentTarget?.ownerDocument;
+			const ownerDoc = el.ownerDocument;
 			if ( ownerDoc?.activeElement instanceof HTMLElement ) {
 				ownerDoc.activeElement.blur();
 			}
 
 			// Capture pointer so drag works across iframe boundaries.
-			const target = e.currentTarget;
-			target.setPointerCapture( e.pointerId );
+			el.setPointerCapture( e.pointerId );
 
 			setIsDragging( true );
 			const currentState = stateRef.current;
@@ -167,11 +169,12 @@ export function useInteraction(
 				startCropY: currentState.crop.y,
 			};
 
-			const onPointerMove = ( moveEvent: PointerEvent ) => {
+			const onPointerMove = ( moveEvent: Event ) => {
 				const drag = dragRef.current;
 				if ( ! drag ) {
 					return;
 				}
+				const pe = moveEvent as PointerEvent;
 
 				cancelAnimationFrame( rafRef.current );
 				rafRef.current = requestAnimationFrame( () => {
@@ -179,13 +182,11 @@ export function useInteraction(
 					const panSize = imageSize ?? containerSize;
 					const deltaX =
 						panSize.width > 0
-							? ( moveEvent.clientX - drag.startX ) /
-							  panSize.width
+							? ( pe.clientX - drag.startX ) / panSize.width
 							: 0;
 					const deltaY =
 						panSize.height > 0
-							? ( moveEvent.clientY - drag.startY ) /
-							  panSize.height
+							? ( pe.clientY - drag.startY ) / panSize.height
 							: 0;
 
 					const { crop: newCrop } = restrictPanZoom(
@@ -211,15 +212,14 @@ export function useInteraction(
 				setIsDragging( false );
 				dragRef.current = null;
 				cancelAnimationFrame( rafRef.current );
-				target.removeEventListener( 'pointermove', onPointerMove );
-				target.removeEventListener( 'pointerup', onPointerUp );
-				target.removeEventListener( 'lostpointercapture', onPointerUp );
+				el.removeEventListener( 'pointermove', onPointerMove );
+				el.removeEventListener( 'pointerup', onPointerUp );
+				el.removeEventListener( 'lostpointercapture', onPointerUp );
 			};
 
-			target.addEventListener( 'pointermove', onPointerMove );
-			target.addEventListener( 'pointerup', onPointerUp );
-			// End drag if capture is lost (e.g., element removed from DOM).
-			target.addEventListener( 'lostpointercapture', onPointerUp );
+			el.addEventListener( 'pointermove', onPointerMove );
+			el.addEventListener( 'pointerup', onPointerUp );
+			el.addEventListener( 'lostpointercapture', onPointerUp );
 		},
 		[ containerSize, imageSize, dispatch ]
 	);
