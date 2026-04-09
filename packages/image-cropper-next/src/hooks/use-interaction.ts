@@ -38,7 +38,7 @@ function getImageSize( state: CropperState ): {
 export interface UseInteractionReturn {
 	/** Event handler props to spread on the container element. */
 	handlers: {
-		onMouseDown: ( e: React.MouseEvent ) => void;
+		onPointerDown: ( e: React.PointerEvent ) => void;
 		onTouchStart: ( e: React.TouchEvent ) => void;
 		onKeyDown: ( e: React.KeyboardEvent ) => void;
 	};
@@ -140,8 +140,12 @@ export function useInteraction(
 		y: number;
 	} | null >( null );
 
-	const onMouseDown = useCallback(
-		( e: React.MouseEvent ) => {
+	const onPointerDown = useCallback(
+		( e: React.PointerEvent ) => {
+			// Only handle primary button (left click / first touch).
+			if ( e.button !== 0 ) {
+				return;
+			}
 			e.preventDefault();
 
 			// Blur any focused handle so its focus ring doesn't linger.
@@ -150,15 +154,9 @@ export function useInteraction(
 				ownerDoc.activeElement.blur();
 			}
 
-			// Use pointer capture so drag works across iframe boundaries.
-			// Without this, mouseup is lost when the cursor leaves an iframe.
-			const target = e.currentTarget ?? e.target;
-			if (
-				target instanceof Element &&
-				e.nativeEvent?.pointerId !== undefined
-			) {
-				target.setPointerCapture( e.nativeEvent.pointerId );
-			}
+			// Capture pointer so drag works across iframe boundaries.
+			const target = e.currentTarget;
+			target.setPointerCapture( e.pointerId );
 
 			setIsDragging( true );
 			const currentState = stateRef.current;
@@ -213,30 +211,15 @@ export function useInteraction(
 				setIsDragging( false );
 				dragRef.current = null;
 				cancelAnimationFrame( rafRef.current );
-				if ( target instanceof Element ) {
-					target.removeEventListener( 'pointermove', onPointerMove );
-					target.removeEventListener( 'pointerup', onPointerUp );
-				} else {
-					document.removeEventListener(
-						'mousemove',
-						onPointerMove as EventListener
-					);
-					document.removeEventListener( 'mouseup', onPointerUp );
-				}
+				target.removeEventListener( 'pointermove', onPointerMove );
+				target.removeEventListener( 'pointerup', onPointerUp );
+				target.removeEventListener( 'lostpointercapture', onPointerUp );
 			};
 
-			// Prefer pointer events on target (iframe-safe via capture).
-			// Fall back to document mouse events (test environment).
-			if ( target instanceof Element ) {
-				target.addEventListener( 'pointermove', onPointerMove );
-				target.addEventListener( 'pointerup', onPointerUp );
-			} else {
-				document.addEventListener(
-					'mousemove',
-					onPointerMove as EventListener
-				);
-				document.addEventListener( 'mouseup', onPointerUp );
-			}
+			target.addEventListener( 'pointermove', onPointerMove );
+			target.addEventListener( 'pointerup', onPointerUp );
+			// End drag if capture is lost (e.g., element removed from DOM).
+			target.addEventListener( 'lostpointercapture', onPointerUp );
 		},
 		[ containerSize, imageSize, dispatch ]
 	);
@@ -683,7 +666,7 @@ export function useInteraction(
 
 	return {
 		handlers: {
-			onMouseDown,
+			onPointerDown,
 			onTouchStart,
 			onKeyDown,
 		},

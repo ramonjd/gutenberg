@@ -27,12 +27,33 @@ function createState( overrides: Partial< CropperState > = {} ): CropperState {
 function createMouseEvent(
 	overrides: Partial< React.MouseEvent > = {}
 ): React.MouseEvent {
+	const listeners: Record< string, EventListener > = {};
+	const mockTarget = {
+		setPointerCapture: jest.fn(),
+		releasePointerCapture: jest.fn(),
+		addEventListener: jest.fn( ( type: string, fn: EventListener ) => {
+			listeners[ type ] = fn;
+		} ),
+		removeEventListener: jest.fn(),
+		ownerDocument: document,
+	};
 	return {
 		preventDefault: jest.fn(),
+		stopPropagation: jest.fn(),
 		clientX: 0,
 		clientY: 0,
+		button: 0,
+		pointerId: 1,
+		currentTarget: mockTarget,
+		nativeEvent: { pointerId: 1 },
 		...overrides,
-	} as unknown as React.MouseEvent;
+		// Expose listeners for test access.
+		_listeners: listeners,
+		_mockTarget: mockTarget,
+	} as unknown as React.PointerEvent & {
+		_listeners: Record< string, EventListener >;
+		_mockTarget: typeof mockTarget;
+	};
 }
 
 /**
@@ -94,26 +115,32 @@ describe( 'useInteraction', () => {
 	} );
 
 	describe( 'mouse drag', () => {
-		it( 'should dispatch SET_CROP on mousedown + mousemove', () => {
+		it( 'should dispatch SET_CROP on pointerdown + pointermove', () => {
 			const state = createState( { zoom: 2 } );
 			const { result } = renderHook( () =>
 				useInteraction( state, dispatchMock, containerSize )
 			);
 
-			// Simulate mousedown.
-			act( () => {
-				result.current.handlers.onMouseDown(
-					createMouseEvent( { clientX: 100, clientY: 100 } )
-				);
+			const pointerEvent = createMouseEvent( {
+				clientX: 100,
+				clientY: 100,
 			} );
 
-			// Simulate mousemove on the document.
+			// Simulate pointerdown.
 			act( () => {
-				const moveEvent = new MouseEvent( 'mousemove', {
-					clientX: 150,
-					clientY: 120,
-				} );
-				document.dispatchEvent( moveEvent );
+				result.current.handlers.onPointerDown( pointerEvent );
+			} );
+
+			// Simulate pointermove via the listener registered on the target.
+			act( () => {
+				const moveListener = ( pointerEvent as any )._listeners
+					?.pointermove;
+				if ( moveListener ) {
+					moveListener( {
+						clientX: 150,
+						clientY: 120,
+					} as PointerEvent );
+				}
 			} );
 
 			expect( dispatchMock ).toHaveBeenCalledWith(
@@ -131,30 +158,43 @@ describe( 'useInteraction', () => {
 			expect( typeof payload.x ).toBe( 'number' );
 			expect( typeof payload.y ).toBe( 'number' );
 
-			// Clean up: simulate mouseup.
+			// Clean up: simulate pointerup.
 			act( () => {
-				document.dispatchEvent( new MouseEvent( 'mouseup' ) );
+				const upListener = ( pointerEvent as any )._listeners
+					?.pointerup;
+				if ( upListener ) {
+					upListener( {} as PointerEvent );
+				}
 			} );
 		} );
 
-		it( 'should stop dispatching after mouseup', () => {
+		it( 'should stop dispatching after pointerup', () => {
 			const state = createState( { zoom: 2 } );
 			const { result } = renderHook( () =>
 				useInteraction( state, dispatchMock, containerSize )
 			);
 
-			act( () => {
-				result.current.handlers.onMouseDown(
-					createMouseEvent( { clientX: 100, clientY: 100 } )
-				);
+			const pe = createMouseEvent( {
+				clientX: 100,
+				clientY: 100,
 			} );
 
 			act( () => {
-				document.dispatchEvent( new MouseEvent( 'mouseup' ) );
+				result.current.handlers.onPointerDown( pe );
+			} );
+
+			// Simulate pointerup.
+			act( () => {
+				const upListener = ( pe as any )._listeners?.pointerup;
+				if ( upListener ) {
+					upListener( {} as PointerEvent );
+				}
 			} );
 
 			dispatchMock.mockClear();
 
+			// Simulate another pointermove — should not dispatch
+			// because pointerup removed the listener.
 			act( () => {
 				document.dispatchEvent(
 					new MouseEvent( 'mousemove', {

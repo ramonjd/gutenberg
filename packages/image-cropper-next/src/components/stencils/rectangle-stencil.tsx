@@ -142,10 +142,13 @@ export function RectangleStencil( {
 	const height = cropRect.height * imageSize.height;
 
 	/**
-	 * Start a resize drag on a handle (mouse).
+	 * Start a resize drag on a handle (pointer — works across iframes).
 	 */
-	const handleMouseDown = useCallback(
-		( handle: HandlePosition, event: React.MouseEvent ) => {
+	const handlePointerDown = useCallback(
+		( handle: HandlePosition, event: React.PointerEvent ) => {
+			if ( event.button !== 0 ) {
+				return;
+			}
 			event.preventDefault();
 			event.stopPropagation();
 			// Blur any previously focused handle.
@@ -155,37 +158,12 @@ export function RectangleStencil( {
 			}
 			// Capture pointer so drag works across iframe boundaries.
 			const el = event.currentTarget;
-			if ( el instanceof Element ) {
-				el.setPointerCapture( event.nativeEvent.pointerId );
-			}
+			el.setPointerCapture( event.pointerId );
 			dragElementRef.current = el;
 			setDragState( {
 				handle,
 				startX: event.clientX,
 				startY: event.clientY,
-				startRect: { ...cropRect },
-			} );
-		},
-		[ cropRect ]
-	);
-
-	/**
-	 * Start a resize drag on a handle (touch).
-	 */
-	const handleTouchStart = useCallback(
-		( handle: HandlePosition, event: React.TouchEvent ) => {
-			event.preventDefault();
-			event.stopPropagation();
-			const touch = event.touches[ 0 ];
-			// Blur any previously focused handle.
-			const ownerDoc = event.currentTarget.ownerDocument;
-			if ( ownerDoc.activeElement instanceof HTMLElement ) {
-				ownerDoc.activeElement.blur();
-			}
-			setDragState( {
-				handle,
-				startX: touch.clientX,
-				startY: touch.clientY,
 				startRect: { ...cropRect },
 			} );
 		},
@@ -455,42 +433,26 @@ export function RectangleStencil( {
 			onCropChange( newRect );
 		};
 
-		const handleTouchMove = ( event: TouchEvent ) => {
-			event.preventDefault();
-			if ( event.touches.length === 0 ) {
-				return;
-			}
-			const touch = event.touches[ 0 ];
-			const newRect = hasLockedRatio
-				? computeLockedRect( dragState, touch.clientX, touch.clientY )
-				: computeFreeRect( dragState, touch.clientX, touch.clientY );
-			onCropChange( newRect );
-		};
-
 		const handleMouseUp = () => {
 			setDragState( null );
 			onResizeEnd?.();
 		};
 
-		// Use the drag element (with pointer capture) for iframe safety.
-		// Fall back to ownerDocument for touch events.
+		// Pointer events on the captured element handle both mouse and
+		// touch, and work across iframe boundaries.
 		const el = dragElementRef.current;
-		const doc = el?.ownerDocument ?? document;
-
 		if ( el ) {
 			el.addEventListener(
 				'pointermove',
 				handleMouseMove as EventListener
 			);
 			el.addEventListener( 'pointerup', handleMouseUp );
+			el.addEventListener( 'lostpointercapture', handleMouseUp );
 		} else {
-			doc.addEventListener( 'mousemove', handleMouseMove );
-			doc.addEventListener( 'mouseup', handleMouseUp );
+			// Fallback for tests where the element ref isn't set.
+			document.addEventListener( 'mousemove', handleMouseMove );
+			document.addEventListener( 'mouseup', handleMouseUp );
 		}
-		doc.addEventListener( 'touchmove', handleTouchMove, {
-			passive: false,
-		} );
-		doc.addEventListener( 'touchend', handleMouseUp );
 
 		return () => {
 			if ( el ) {
@@ -499,12 +461,11 @@ export function RectangleStencil( {
 					handleMouseMove as EventListener
 				);
 				el.removeEventListener( 'pointerup', handleMouseUp );
+				el.removeEventListener( 'lostpointercapture', handleMouseUp );
 			} else {
-				doc.removeEventListener( 'mousemove', handleMouseMove );
-				doc.removeEventListener( 'mouseup', handleMouseUp );
+				document.removeEventListener( 'mousemove', handleMouseMove );
+				document.removeEventListener( 'mouseup', handleMouseUp );
 			}
-			doc.removeEventListener( 'touchmove', handleTouchMove );
-			doc.removeEventListener( 'touchend', handleMouseUp );
 		};
 	}, [
 		dragState,
@@ -550,11 +511,8 @@ export function RectangleStencil( {
 					<div
 						key={ pos }
 						className={ `wp-image-cropper-next__handle wp-image-cropper-next__handle--${ pos }` }
-						onMouseDown={ ( event ) =>
-							handleMouseDown( pos, event )
-						}
-						onTouchStart={ ( event ) =>
-							handleTouchStart( pos, event )
+						onPointerDown={ ( event ) =>
+							handlePointerDown( pos, event )
 						}
 						onKeyDown={ ( event ) => handleKeyDown( pos, event ) }
 						role="separator"
