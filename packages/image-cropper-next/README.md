@@ -6,6 +6,16 @@ An experimental, modular image cropper for WordPress. Designed for extensibility
 
 This is a private package within the Gutenberg monorepo. It is available as a workspace dependency.
 
+### Styles
+
+**WordPress:** Styles are automatically enqueued when the script is loaded (`wpScript: true`). No extra import needed.
+
+**Non-WordPress (npm):** Import the compiled CSS alongside the JS:
+
+```javascript
+import '@wordpress/image-cropper-next/build-style/style.css';
+```
+
 ## Features
 
 -   Rectangular crop with resize handles and aspect ratio lock

@@ -28,6 +28,7 @@
 		"src",
 		"build",
 		"build-module",
+		"build-style",
 		"build-types",
 		"*.md"
 	],
@@ -39,8 +40,10 @@
 			"import": "./build-module/index.mjs",
 			"require": "./build/index.cjs"
 		},
+		"./build-style/": "./build-style/",
 		"./package.json": "./package.json"
 	},
+	"wpScript": true,
 	"types": "build-types",
 	"sideEffects": [
 		"src/**/*.scss",
