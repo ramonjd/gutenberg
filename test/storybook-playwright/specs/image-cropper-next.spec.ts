@@ -8,12 +8,12 @@ import { expect, test } from '@playwright/test';
  */
 import { gotoStoryId } from '../utils';
 
-test.describe( 'ImageCropperNext', () => {
+test.describe( 'MediaEditor ImageCropper', () => {
 	test( 'default crop should render correctly', async ( { page } ) => {
-		await gotoStoryId( page, 'imagecroppernext-rectanglecrop--default' );
-		await page.waitForSelector( '.wp-image-cropper-next' );
+		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
+		await page.waitForSelector( '.wp-media-editor-image-cropper' );
 		await expect(
-			page.locator( '.wp-image-cropper-next__image' )
+			page.locator( '.wp-media-editor-image-cropper__image' )
 		).toBeVisible();
 		expect(
 			await page.screenshot( { animations: 'disabled' } )
@@ -21,13 +21,10 @@ test.describe( 'ImageCropperNext', () => {
 	} );
 
 	test( 'with controls should render correctly', async ( { page } ) => {
-		await gotoStoryId(
-			page,
-			'imagecroppernext-rectanglecrop--with-controls'
-		);
-		await page.waitForSelector( '.wp-image-cropper-next' );
+		await gotoStoryId( page, 'mediaeditor-imagecropper--with-controls' );
+		await page.waitForSelector( '.wp-media-editor-image-cropper' );
 		await expect(
-			page.locator( '.wp-image-cropper-next__image' )
+			page.locator( '.wp-media-editor-image-cropper__image' )
 		).toBeVisible();
 		expect(
 			await page.screenshot( { animations: 'disabled' } )

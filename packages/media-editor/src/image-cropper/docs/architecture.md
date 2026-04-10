@@ -94,7 +94,7 @@ See [extensibility.md](extensibility.md) for the full developer guide. Summary:
 ## File map
 
 ```
-packages/image-cropper-next/
+packages/media-editor/src/image-cropper/
 ├── docs/
 │   ├── architecture.md                  # This file
 │   └── extensibility.md                 # Developer extension guide

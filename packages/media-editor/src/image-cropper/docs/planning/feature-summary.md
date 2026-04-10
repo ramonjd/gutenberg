@@ -1,4 +1,4 @@
-# @wordpress/image-cropper-next — Feature Summary
+# @wordpress/media-editor — Feature Summary
 
 ## Current Features
 

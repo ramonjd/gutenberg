@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"$id": "https://schemas.wp.org/trunk/image-cropper-next/cropper-state.json",
+	"$id": "https://schemas.wp.org/trunk/media-editor/image-cropper/cropper-state.json",
 	"title": "CropperState",
 	"description": "The full state of the image cropper. AI agents can read this to understand the current crop configuration and derive export parameters.",
 	"type": "object",

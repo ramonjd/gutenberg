@@ -1,6 +1,6 @@
 {
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
-	"$id": "https://schemas.wp.org/trunk/image-cropper-next/transform-operation.json",
+	"$id": "https://schemas.wp.org/trunk/media-editor/image-cropper/transform-operation.json",
 	"title": "TransformOperation",
 	"description": "A JSON-serializable transform operation for the image cropper. AI agents can use these operations to programmatically crop, rotate, flip, and zoom images.",
 	"oneOf": [

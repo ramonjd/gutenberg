@@ -1,10 +1,10 @@
 # Migration from @wordpress/image-cropper
 
-This document describes the migration path from `@wordpress/image-cropper` (the react-easy-crop wrapper) to `@wordpress/image-cropper-next`.
+This document describes the migration path from `@wordpress/image-cropper` (the react-easy-crop wrapper) to `@wordpress/media-editor`.
 
 ## API comparison
 
-| Aspect | Old (`image-cropper`) | New (`image-cropper-next`) |
+| Aspect | Old (`image-cropper`) | New (`media-editor/image-cropper`) |
 |--------|----------------------|---------------------------|
 | Underlying library | `react-easy-crop` | Custom, `gl-matrix` only |
 | Component | `<ImageCropper>` | `<Cropper>` |
@@ -30,20 +30,20 @@ The recommended approach is a direct replacement in `block-editor` when ready:
 
 ### Step 1: Add dependency
 
-In `packages/block-editor/package.json`, add `@wordpress/image-cropper-next` alongside the existing `@wordpress/image-cropper`:
+In `packages/block-editor/package.json`, add `@wordpress/media-editor` alongside the existing `@wordpress/image-cropper`:
 
 ```json
 {
   "dependencies": {
     "@wordpress/image-cropper": "file:../image-cropper",
-    "@wordpress/image-cropper-next": "file:../image-cropper-next"
+    "@wordpress/media-editor": "file:../media-editor/image-cropper"
   }
 }
 ```
 
 ### Step 2: Build the new integration
 
-Create the new image editing UI using `image-cropper-next`. This can be built and tested in parallel with the existing integration:
+Create the new image editing UI using `media-editor/image-cropper`. This can be built and tested in parallel with the existing integration:
 
 ```tsx
 // Old pattern:
@@ -59,7 +59,7 @@ function OldEditor() {
 }
 
 // New pattern:
-import { Cropper, useCropperState } from '@wordpress/image-cropper-next';
+import { Cropper, useCropperState } from '@wordpress/media-editor';
 
 function NewEditor() {
   const { state, dispatch, setZoom, setRotation, snapRotate90, reset } =
@@ -117,7 +117,7 @@ const dataUrl = await getCroppedImage( src );  // string | null
 const blob = await getCroppedImage( 'image/jpeg', 0.9 );  // Blob | null
 
 // If you need a data URL from the new API:
-import { canvasToDataURL, renderToCanvas, loadImage } from '@wordpress/image-cropper-next';
+import { canvasToDataURL, renderToCanvas, loadImage } from '@wordpress/media-editor';
 const image = await loadImage( src );
 const canvas = renderToCanvas( image, state );
 const dataUrl = canvasToDataURL( canvas, 'image/jpeg', 0.9 );
@@ -135,7 +135,7 @@ Once the new integration is tested:
 
 1. Add a deprecation notice to `@wordpress/image-cropper`'s README
 2. Mark all exports with `@deprecated` JSDoc tags
-3. Add a console warning on first use pointing to `@wordpress/image-cropper-next`
+3. Add a console warning on first use pointing to `@wordpress/media-editor`
 4. Keep the old package in the monorepo for at least one major release cycle
 5. Remove after the deprecation period
 
@@ -165,8 +165,8 @@ The old package relies on react-easy-crop's built-in containment. The new packag
 
 ## Timeline
 
-1. **Now**: Both packages coexist. `image-cropper-next` is experimental and private.
-2. **Integration**: `block-editor` builds new image editing UI using `image-cropper-next`.
+1. **Now**: Both packages coexist. `media-editor/image-cropper` is experimental and private.
+2. **Integration**: `block-editor` builds new image editing UI using `media-editor/image-cropper`.
 3. **Switch**: Old integration removed, new one activated.
 4. **Deprecation**: `@wordpress/image-cropper` marked deprecated with console warning.
 5. **Removal**: Old package removed after deprecation period (one major release cycle minimum).

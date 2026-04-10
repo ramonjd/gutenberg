@@ -186,7 +186,7 @@ The media editor doesn't process video. It defines a crop on video content and o
 
 ## Package rename
 
-As the package evolves beyond image cropping, it should be renamed from `@wordpress/image-cropper-next` to `@wordpress/media-editor` to reflect its role as the unified media editing surface. This rename should happen when:
+As the package evolves beyond image cropping, it should be renamed from `@wordpress/media-editor` to `@wordpress/media-editor` to reflect its role as the unified media editing surface. This rename should happen when:
 
 1. Video mode (frame extraction + preview) is implemented
 2. The package is no longer experimental/private

@@ -1,6 +1,6 @@
 # Extensibility Guide
 
-`@wordpress/image-cropper-next` is designed to be extended by WordPress themes, plugins, and AI agents. This document describes the extension points and how to use them.
+`@wordpress/media-editor` is designed to be extended by WordPress themes, plugins, and AI agents. This document describes the extension points and how to use them.
 
 ## Architecture overview
 
@@ -28,8 +28,8 @@ Pipeline / Export          -- TransformOperation[] → canvas → Blob
 The crop area UI is fully pluggable. Any component that implements `StencilProps` can replace the default `RectangleStencil`.
 
 ```tsx
-import { Cropper, useCropperState } from '@wordpress/image-cropper-next';
-import type { StencilProps } from '@wordpress/image-cropper-next';
+import { Cropper, useCropperState } from '@wordpress/media-editor';
+import type { StencilProps } from '@wordpress/media-editor';
 
 function CircularStencil( { cropRect, containerSize, imageSize, onCropChange }: StencilProps ) {
   // Render a circular crop overlay using cropRect bounds.
@@ -62,8 +62,8 @@ function MyCropper() {
 The pipeline is the primary interface for programmatic control. Operations are JSON-serializable, making them ideal for AI agents, undo/redo stacks, and remote control.
 
 ```typescript
-import { useCropperState } from '@wordpress/image-cropper-next';
-import type { TransformOperation } from '@wordpress/image-cropper-next';
+import { useCropperState } from '@wordpress/media-editor';
+import type { TransformOperation } from '@wordpress/media-editor';
 
 // An AI agent generates a list of operations:
 const operations: TransformOperation[] = [
@@ -83,7 +83,7 @@ for ( const op of operations ) {
 **Replay from scratch:**
 
 ```typescript
-import { stateFromPipeline, serializePipeline, deserializePipeline } from '@wordpress/image-cropper-next';
+import { stateFromPipeline, serializePipeline, deserializePipeline } from '@wordpress/media-editor';
 
 // Replay a pipeline from initial state:
 const finalState = stateFromPipeline( operations );
@@ -116,7 +116,7 @@ These are local schema files within the package directory, not published to sche
 The export system converts cropper state to canvas output. You can build custom export pipelines for image processing, format conversion, or AI preprocessing.
 
 ```typescript
-import { createExportCamera, loadImage } from '@wordpress/image-cropper-next';
+import { createExportCamera, loadImage } from '@wordpress/media-editor';
 
 // Get the export camera matrix:
 const camera = createExportCamera( state, imageSize, outputSize );
@@ -145,7 +145,7 @@ The state is a plain object, and dispatch is a standard React reducer dispatch. 
 When the cropper and controls are in the same component:
 
 ```tsx
-import { Cropper, useCropperState } from '@wordpress/image-cropper-next';
+import { Cropper, useCropperState } from '@wordpress/media-editor';
 
 function ImageEditor() {
   const { state, dispatch, setZoom, snapRotate90, reset } = useCropperState();
@@ -165,7 +165,7 @@ function ImageEditor() {
 When controls and the cropper are in different parts of the tree, use `CropperProvider` to avoid prop-drilling. Any descendant can call `useCropper()` to access the state:
 
 ```tsx
-import { Cropper, CropperProvider, useCropper } from '@wordpress/image-cropper-next';
+import { Cropper, CropperProvider, useCropper } from '@wordpress/media-editor';
 
 function ImageEditor() {
   return (
@@ -222,7 +222,7 @@ The camera provides world-to-screen and screen-to-world transforms. Use it for:
 - Custom overlays (annotations, AI selection regions)
 
 ```typescript
-import { createCamera, worldToScreen, screenToWorld } from '@wordpress/image-cropper-next';
+import { createCamera, worldToScreen, screenToWorld } from '@wordpress/media-editor';
 
 const camera = createCamera( state, containerSize, imageSize );
 
@@ -238,7 +238,7 @@ const imagePos = screenToWorld( camera, { x: 300, y: 200 } );
 `getSourceRegion()` converts the current crop state to source-pixel coordinates. This is the bridge between the cropper and external tools (image processing libraries, AI APIs, server-side processing) that work in source-pixel coordinates.
 
 ```typescript
-import { getSourceRegion } from '@wordpress/image-cropper-next';
+import { getSourceRegion } from '@wordpress/media-editor';
 
 const region = getSourceRegion( state, { width: naturalWidth, height: naturalHeight } );
 // region = { x, y, width, height, rotation, flip, zoom }
@@ -266,7 +266,7 @@ const aiRequest = {
 `applyToCanvas()` applies the cropper's transform to an existing canvas or image source. This enables multi-step editing where an upstream tool (brightness, color, filters) has already processed the image.
 
 ```typescript
-import { applyToCanvas } from '@wordpress/image-cropper-next';
+import { applyToCanvas } from '@wordpress/media-editor';
 
 // Step 1: Apply brightness/color adjustments to a canvas
 const processedCanvas = applyBrightness( sourceImage, { brightness: 1.2 } );
@@ -406,7 +406,7 @@ import {
   stateFromPipeline,
   getSourceRegion,
   exportCroppedImage,
-} from '@wordpress/image-cropper-next';
+} from '@wordpress/media-editor';
 
 // 1. Build state from operations (pure — runs in Node, workers, anywhere)
 const state = stateFromPipeline( [
@@ -540,8 +540,8 @@ These patterns show how the cropper integrates with WordPress-specific systems. 
 WordPress themes register image sizes via `add_image_size()`. The cropper can suggest aspect ratios that match the active theme's layout:
 
 ```typescript
-import { DEFAULT_ASPECT_RATIOS } from '@wordpress/image-cropper-next';
-import type { AspectRatioPreset } from '@wordpress/image-cropper-next';
+import { DEFAULT_ASPECT_RATIOS } from '@wordpress/media-editor';
+import type { AspectRatioPreset } from '@wordpress/media-editor';
 
 // Build presets from theme's registered image sizes.
 function getThemePresets( imageSizes ): AspectRatioPreset[] {
@@ -622,7 +622,7 @@ wp.hooks.addFilter( 'imageEditing.beforeSave', 'my-plugin', ( blob, state ) => {
 Save crop metadata to the attachment via the REST API so the server can regenerate crops:
 
 ```typescript
-import { getSourceRegion } from '@wordpress/image-cropper-next';
+import { getSourceRegion } from '@wordpress/media-editor';
 
 // After the user finishes editing:
 const region = getSourceRegion( state, {
@@ -758,7 +758,7 @@ In the lazy-loaded module:
 
 ```tsx
 // ImageEditor.tsx — only loaded on demand
-import { Cropper, useCropperState } from '@wordpress/image-cropper-next';
+import { Cropper, useCropperState } from '@wordpress/media-editor';
 
 export default function ImageEditor( { src } ) {
   const { state, dispatch } = useCropperState();
@@ -790,29 +790,29 @@ These features are not built yet but the architecture supports them:
 ### Running unit tests
 
 ```bash
-# All image-cropper-next unit tests
-npx wp-scripts test-unit-js --testPathPattern="image-cropper-next"
+# All media-editor/image-cropper unit tests
+npx wp-scripts test-unit-js --testPathPattern="media-editor/image-cropper"
 
 # Specific test file (e.g., camera tests only)
-npx wp-scripts test-unit-js --testPathPattern="image-cropper-next" --testNamePattern="camera"
+npx wp-scripts test-unit-js --testPathPattern="media-editor/image-cropper" --testNamePattern="camera"
 
 # TypeScript type checking (no emit)
-npx tsc --project packages/image-cropper-next/tsconfig.json --noEmit
+npx tsc --project packages/media-editor/src/image-cropper/tsconfig.json --noEmit
 ```
 
 ### Running visual regression tests (storybook-playwright)
 
-Visual regression tests use Playwright to screenshot Storybook stories and compare against baseline images. The spec is at `test/storybook-playwright/specs/image-cropper-next.spec.ts`.
+Visual regression tests use Playwright to screenshot Storybook stories and compare against baseline images. The spec is at `test/storybook-playwright/specs/media-editor/image-cropper.spec.ts`.
 
 ```bash
 # Start Storybook first (port 50241)
 npm run storybook
 
 # Run the visual regression tests
-npx playwright test test/storybook-playwright/specs/image-cropper-next.spec.ts
+npx playwright test test/storybook-playwright/specs/media-editor/image-cropper.spec.ts
 
 # Update screenshots after intentional visual changes
-npx playwright test test/storybook-playwright/specs/image-cropper-next.spec.ts --update-snapshots
+npx playwright test test/storybook-playwright/specs/media-editor/image-cropper.spec.ts --update-snapshots
 ```
 
 ### What the tests cover
@@ -829,7 +829,7 @@ npx playwright test test/storybook-playwright/specs/image-cropper-next.spec.ts -
 - Tests `restrictPanZoom` and `restrictCropRect` boundary enforcement
 - Run after any changes to camera restriction logic
 
-**Visual regression** (`test/storybook-playwright/specs/image-cropper-next.spec.ts`):
+**Visual regression** (`test/storybook-playwright/specs/media-editor/image-cropper.spec.ts`):
 - Screenshots the Default and WithControls stories
 - Catches unintended visual changes to the cropper UI
 
@@ -839,7 +839,7 @@ npx playwright test test/storybook-playwright/specs/image-cropper-next.spec.ts -
 
 2. **New containment invariant cases**: Add rotation/zoom combinations to the parametric test in `core/test/camera.ts`.
 
-3. **New visual regression stories**: Add a new test case in `test/storybook-playwright/specs/image-cropper-next.spec.ts` using `gotoStoryId` with the Storybook story ID (format: `imagecroppernext-rectanglecrop--story-name`).
+3. **New visual regression stories**: Add a new test case in `test/storybook-playwright/specs/media-editor/image-cropper.spec.ts` using `gotoStoryId` with the Storybook story ID (format: `imagecroppernext-rectanglecrop--story-name`).
 
 ## For AI agents maintaining this codebase
 
@@ -865,7 +865,7 @@ All crop/pan values are in **normalized visual space** where `[0,1]` maps to the
 ### Testing
 
 ```bash
-npm run test:unit -- packages/image-cropper-next/    # All tests
+npm run test:unit -- packages/media-editor/src/image-cropper/    # All tests
 npm run test:unit -- --testPathPattern="camera"       # Camera tests only
 ```
 
