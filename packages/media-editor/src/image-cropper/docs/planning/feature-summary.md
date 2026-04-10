@@ -96,7 +96,7 @@
 
 ### Theming
 
-- BEM CSS classes (`.wp-image-cropper-next__*`) for full visual customization by themes.
+- BEM CSS classes (`.wp-media-editor-image-cropper__*`) for full visual customization by themes.
 - No hardcoded colors or dimensions — everything is overridable via CSS.
 
 ### Pipeline Extensibility

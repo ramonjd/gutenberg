@@ -4,9 +4,9 @@
 import type { NormalizedRect, Size } from '../../core/types';
 
 /**
- * Props for the DimmingOverlay component.
+ * Props for the GridOverlay component.
  */
-interface DimmingOverlayProps {
+interface GridOverlayProps {
 	/** The crop rectangle in normalized coordinates. */
 	cropRect: NormalizedRect;
 	/** The container element dimensions in pixels. */
@@ -16,22 +16,22 @@ interface DimmingOverlayProps {
 }
 
 /**
- * Renders a semi-transparent overlay outside the crop rectangle.
+ * Renders a rule-of-thirds grid inside the crop rectangle.
  *
- * Uses the box-shadow approach: a div matching the crop rect position
- * with a large box-shadow that dims everything outside it.
+ * Displays 2 horizontal and 2 vertical lines at 1/3 and 2/3
+ * positions within the crop area.
  *
  * @param props               Component props.
  * @param props.cropRect      The crop rectangle in normalized coordinates.
  * @param props.containerSize The container element dimensions in pixels.
  * @param props.imageSize     The rendered image dimensions in pixels.
- * @return The dimming overlay element.
+ * @return The grid overlay element.
  */
-export function DimmingOverlay( {
+export function GridOverlay( {
 	cropRect,
 	containerSize,
 	imageSize,
-}: DimmingOverlayProps ) {
+}: GridOverlayProps ) {
 	if ( containerSize.width === 0 || containerSize.height === 0 ) {
 		return null;
 	}
@@ -43,15 +43,37 @@ export function DimmingOverlay( {
 	const width = cropRect.width * imageSize.width;
 	const height = cropRect.height * imageSize.height;
 
+	const thirdW = width / 3;
+	const thirdH = height / 3;
+
 	return (
 		<div
-			className="wp-image-cropper-next__dimming"
+			className="wp-media-editor-image-cropper__grid"
 			style={ {
 				left,
 				top,
 				width,
 				height,
 			} }
-		/>
+		>
+			{ /* Horizontal lines at 1/3 and 2/3 */ }
+			<div
+				className="wp-media-editor-image-cropper__grid-line wp-media-editor-image-cropper__grid-line--horizontal"
+				style={ { top: thirdH } }
+			/>
+			<div
+				className="wp-media-editor-image-cropper__grid-line wp-media-editor-image-cropper__grid-line--horizontal"
+				style={ { top: thirdH * 2 } }
+			/>
+			{ /* Vertical lines at 1/3 and 2/3 */ }
+			<div
+				className="wp-media-editor-image-cropper__grid-line wp-media-editor-image-cropper__grid-line--vertical"
+				style={ { left: thirdW } }
+			/>
+			<div
+				className="wp-media-editor-image-cropper__grid-line wp-media-editor-image-cropper__grid-line--vertical"
+				style={ { left: thirdW * 2 } }
+			/>
+		</div>
 	);
 }

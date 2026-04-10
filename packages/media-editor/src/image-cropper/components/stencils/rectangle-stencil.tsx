@@ -484,7 +484,7 @@ export function RectangleStencil( {
 
 	return (
 		<div
-			className="wp-image-cropper-next__stencil"
+			className="wp-media-editor-image-cropper__stencil"
 			style={ {
 				left,
 				top,
@@ -496,7 +496,7 @@ export function RectangleStencil( {
 			{ /* The crop rectangle border. pointer-events: none is set in
 				   CSS so clicks pass through to the container for panning. */ }
 			<div
-				className="wp-image-cropper-next__stencil-rect"
+				className="wp-media-editor-image-cropper__stencil-rect"
 				style={ {
 					width: '100%',
 					height: '100%',
@@ -510,7 +510,7 @@ export function RectangleStencil( {
 					// eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- resize handles need mouse and keyboard events.
 					<div
 						key={ pos }
-						className={ `wp-image-cropper-next__handle wp-image-cropper-next__handle--${ pos }` }
+						className={ `wp-media-editor-image-cropper__handle wp-media-editor-image-cropper__handle--${ pos }` }
 						onPointerDown={ ( event ) =>
 							handlePointerDown( pos, event )
 						}

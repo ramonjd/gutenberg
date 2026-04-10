@@ -311,23 +311,23 @@ The `onStateChange` callback on the Cropper component fires on every state chang
 The component uses BEM-style CSS classes that themes can override:
 
 ```
-.wp-image-cropper-next                -- Container (cursor: grab)
-.wp-image-cropper-next--dragging      -- Applied during image pan drag (cursor: grabbing)
-.wp-image-cropper-next__image         -- The image element
-.wp-image-cropper-next__stencil       -- Crop area container (pointer-events: none)
-.wp-image-cropper-next__stencil-rect  -- Crop border rectangle
-.wp-image-cropper-next__handle        -- Resize handle (all, pointer-events: auto)
-.wp-image-cropper-next__handle--n     -- North handle (cursor: ns-resize)
-.wp-image-cropper-next__handle--s     -- South handle (cursor: ns-resize)
-.wp-image-cropper-next__handle--e     -- East handle (cursor: ew-resize)
-.wp-image-cropper-next__handle--w     -- West handle (cursor: ew-resize)
-.wp-image-cropper-next__handle--nw    -- North-west handle (cursor: nwse-resize)
-.wp-image-cropper-next__handle--ne    -- North-east handle (cursor: nesw-resize)
-.wp-image-cropper-next__handle--sw    -- South-west handle (cursor: nesw-resize)
-.wp-image-cropper-next__handle--se    -- South-east handle (cursor: nwse-resize)
-.wp-image-cropper-next__dimming       -- Dimming overlay outside crop area
-.wp-image-cropper-next__grid          -- Grid overlay container
-.wp-image-cropper-next__grid-line     -- Individual grid line
+.wp-media-editor-image-cropper                -- Container (cursor: grab)
+.wp-media-editor-image-cropper--dragging      -- Applied during image pan drag (cursor: grabbing)
+.wp-media-editor-image-cropper__image         -- The image element
+.wp-media-editor-image-cropper__stencil       -- Crop area container (pointer-events: none)
+.wp-media-editor-image-cropper__stencil-rect  -- Crop border rectangle
+.wp-media-editor-image-cropper__handle        -- Resize handle (all, pointer-events: auto)
+.wp-media-editor-image-cropper__handle--n     -- North handle (cursor: ns-resize)
+.wp-media-editor-image-cropper__handle--s     -- South handle (cursor: ns-resize)
+.wp-media-editor-image-cropper__handle--e     -- East handle (cursor: ew-resize)
+.wp-media-editor-image-cropper__handle--w     -- West handle (cursor: ew-resize)
+.wp-media-editor-image-cropper__handle--nw    -- North-west handle (cursor: nwse-resize)
+.wp-media-editor-image-cropper__handle--ne    -- North-east handle (cursor: nesw-resize)
+.wp-media-editor-image-cropper__handle--sw    -- South-west handle (cursor: nesw-resize)
+.wp-media-editor-image-cropper__handle--se    -- South-east handle (cursor: nwse-resize)
+.wp-media-editor-image-cropper__dimming       -- Dimming overlay outside crop area
+.wp-media-editor-image-cropper__grid          -- Grid overlay container
+.wp-media-editor-image-cropper__grid-line     -- Individual grid line
 ```
 
 All styles are in CSS classes with no inline style overrides, so consumers can override anything with equal or higher specificity.
@@ -335,11 +335,11 @@ All styles are in CSS classes with no inline style overrides, so consumers can o
 **Override handles and dimming:**
 
 ```css
-.wp-image-cropper-next__handle {
+.wp-media-editor-image-cropper__handle {
   background: var(--wp--preset--color--primary);
   border-radius: 50%;
 }
-.wp-image-cropper-next__dimming {
+.wp-media-editor-image-cropper__dimming {
   background: rgba(0, 0, 0, 0.6);
 }
 ```
@@ -348,14 +348,14 @@ All styles are in CSS classes with no inline style overrides, so consumers can o
 
 ```css
 /* Use crosshair instead of grab */
-.wp-image-cropper-next {
+.wp-media-editor-image-cropper {
   cursor: crosshair;
 }
-.wp-image-cropper-next--dragging {
+.wp-media-editor-image-cropper--dragging {
   cursor: move;
 }
 /* Custom handle cursor */
-.wp-image-cropper-next__handle {
+.wp-media-editor-image-cropper__handle {
   cursor: pointer;
 }
 ```
@@ -364,10 +364,10 @@ All styles are in CSS classes with no inline style overrides, so consumers can o
 
 ```css
 /* Only show corner handles, hide edge handles */
-.wp-image-cropper-next__handle--n,
-.wp-image-cropper-next__handle--s,
-.wp-image-cropper-next__handle--e,
-.wp-image-cropper-next__handle--w {
+.wp-media-editor-image-cropper__handle--n,
+.wp-media-editor-image-cropper__handle--s,
+.wp-media-editor-image-cropper__handle--e,
+.wp-media-editor-image-cropper__handle--w {
   display: none;
 }
 ```

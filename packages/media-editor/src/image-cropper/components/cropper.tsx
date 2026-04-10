@@ -461,8 +461,8 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			<div
 				ref={ setContainerRef }
 				className={ clsx(
-					'wp-image-cropper-next',
-					isDragging && 'wp-image-cropper-next--dragging',
+					'wp-media-editor-image-cropper',
+					isDragging && 'wp-media-editor-image-cropper--dragging',
 					className
 				) }
 				tabIndex={ 0 }
@@ -472,7 +472,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			>
 				{ /* The image layer */ }
 				<img
-					className="wp-image-cropper-next__image"
+					className="wp-media-editor-image-cropper__image"
 					src={ src }
 					alt=""
 					onLoad={ handleImageLoad }
@@ -515,7 +515,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 				<div
 					aria-live="polite"
 					aria-atomic="true"
-					className="wp-image-cropper-next__aria-live"
+					className="wp-media-editor-image-cropper__aria-live"
 					style={ {
 						position: 'absolute',
 						width: 1,

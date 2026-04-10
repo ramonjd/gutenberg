@@ -39,7 +39,7 @@ import './style.css';
 const SAMPLE_IMAGE = '1-100-grid.webp';
 
 const meta: Meta< typeof Cropper > = {
-	title: 'ImageCropperNext/RectangleCrop',
+	title: 'MediaEditor/ImageCropper',
 	component: Cropper,
 	tags: [ 'status-experimental' ],
 };
@@ -55,7 +55,7 @@ const DefaultComponent = () => {
 	const { state, dispatch } = useCropperState();
 
 	return (
-		<div className="image-cropper-next-story__container">
+		<div className="image-cropper-story__container">
 			<Cropper
 				src={ SAMPLE_IMAGE }
 				state={ state }
@@ -190,14 +190,14 @@ const WithControlsComponent = () => {
 
 	return (
 		<div>
-			<div className="image-cropper-next-story__controls">
-				<div className="image-cropper-next-story__row">
+			<div className="image-cropper-story__controls">
+				<div className="image-cropper-story__row">
 					<strong>Rotation: { state.rotation }deg</strong>
 					<button onClick={ handleRotateLeft }>-90</button>
 					<button onClick={ handleRotateRight }>+90</button>
 				</div>
 				<input
-					className="image-cropper-next-story__slider"
+					className="image-cropper-story__slider"
 					type="range"
 					min={ -MAX_ROTATION_OFFSET }
 					max={ MAX_ROTATION_OFFSET }
@@ -206,7 +206,7 @@ const WithControlsComponent = () => {
 					onChange={ handleRotationSlider }
 				/>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<strong>
 						Flip: H={ state.flip.horizontal ? 'Yes' : 'No' }, V=
 						{ state.flip.vertical ? 'Yes' : 'No' }
@@ -219,7 +219,7 @@ const WithControlsComponent = () => {
 					</button>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<strong>Zoom: { state.zoom.toFixed( 2 ) }</strong>
 					<input
 						type="range"
@@ -231,7 +231,7 @@ const WithControlsComponent = () => {
 					/>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<strong>Aspect Ratio:</strong>
 					<select
 						value={ aspectRatioValue }
@@ -248,7 +248,7 @@ const WithControlsComponent = () => {
 					</select>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					{ /* eslint-disable-next-line jsx-a11y/label-has-associated-control -- checkbox is nested */ }
 					<label>
 						<input
@@ -262,7 +262,7 @@ const WithControlsComponent = () => {
 					</label>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<button onClick={ handleReset }>Reset</button>
 					<select
 						value={ exportFormat }
@@ -294,7 +294,7 @@ const WithControlsComponent = () => {
 				</div>
 			</div>
 
-			<div className="image-cropper-next-story__container">
+			<div className="image-cropper-story__container">
 				<Cropper
 					src={ SAMPLE_IMAGE }
 					state={ state }
@@ -312,7 +312,7 @@ const WithControlsComponent = () => {
 
 			<div style={ { marginTop: 16 } }>
 				<strong>Current State:</strong>
-				<pre className="image-cropper-next-story__state">
+				<pre className="image-cropper-story__state">
 					{ JSON.stringify(
 						{
 							rotation: state.rotation,
@@ -352,7 +352,7 @@ const ResizableContainerComponent = () => {
 				Drag the bottom-right corner of the container to resize it. The
 				cropper adapts automatically.
 			</p>
-			<div className="image-cropper-next-story__resizable">
+			<div className="image-cropper-story__resizable">
 				<Cropper
 					src={ SAMPLE_IMAGE }
 					state={ state }
@@ -421,17 +421,17 @@ const ProgrammaticAPIComponent = () => {
 
 	return (
 		<div>
-			<div className="image-cropper-next-story__controls">
+			<div className="image-cropper-story__controls">
 				<label htmlFor={ opsJsonId }>
 					<strong>Transform Operations (JSON):</strong>
 				</label>
 				<textarea
 					id={ opsJsonId }
-					className="image-cropper-next-story__json"
+					className="image-cropper-story__json"
 					value={ jsonInput }
 					onChange={ ( e ) => setJsonInput( e.target.value ) }
 				/>
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<button onClick={ handleApply }>Apply</button>
 					<button onClick={ handleReset }>Reset</button>
 				</div>
@@ -440,7 +440,7 @@ const ProgrammaticAPIComponent = () => {
 				) }
 			</div>
 
-			<div className="image-cropper-next-story__container">
+			<div className="image-cropper-story__container">
 				<Cropper
 					src={ SAMPLE_IMAGE }
 					state={ state }
@@ -452,7 +452,7 @@ const ProgrammaticAPIComponent = () => {
 
 			<div style={ { marginTop: 16 } }>
 				<strong>Current State:</strong>
-				<pre className="image-cropper-next-story__state">
+				<pre className="image-cropper-story__state">
 					{ JSON.stringify( state, null, 2 ) }
 				</pre>
 			</div>
@@ -539,14 +539,14 @@ const WithPreviewComponent = () => {
 
 	return (
 		<div>
-			<div className="image-cropper-next-story__controls">
-				<div className="image-cropper-next-story__row">
+			<div className="image-cropper-story__controls">
+				<div className="image-cropper-story__row">
 					<strong>Rotation: { state.rotation }deg</strong>
 					<button onClick={ handleRotateLeft }>-90</button>
 					<button onClick={ handleRotateRight }>+90</button>
 				</div>
 				<input
-					className="image-cropper-next-story__slider"
+					className="image-cropper-story__slider"
 					type="range"
 					min={ -MAX_ROTATION_OFFSET }
 					max={ MAX_ROTATION_OFFSET }
@@ -555,7 +555,7 @@ const WithPreviewComponent = () => {
 					onChange={ handleRotationSlider }
 				/>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<strong>
 						Flip: H={ state.flip.horizontal ? 'Yes' : 'No' }, V=
 						{ state.flip.vertical ? 'Yes' : 'No' }
@@ -568,7 +568,7 @@ const WithPreviewComponent = () => {
 					</button>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<strong>Zoom: { state.zoom.toFixed( 2 ) }</strong>
 					<input
 						type="range"
@@ -580,7 +580,7 @@ const WithPreviewComponent = () => {
 					/>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<button onClick={ () => reset() }>Reset</button>
 				</div>
 			</div>
@@ -590,7 +590,7 @@ const WithPreviewComponent = () => {
 			>
 				<div>
 					<strong>Cropper</strong>
-					<div className="image-cropper-next-story__container">
+					<div className="image-cropper-story__container">
 						<Cropper
 							src={ SAMPLE_IMAGE }
 							state={ state }
@@ -601,11 +601,11 @@ const WithPreviewComponent = () => {
 					</div>
 				</div>
 
-				<div className="image-cropper-next-story__export-preview">
+				<div className="image-cropper-story__export-preview">
 					<strong>Export Preview</strong>
 					{ previewSrc ? (
 						<img
-							className="image-cropper-next-story__export-image"
+							className="image-cropper-story__export-image"
 							src={ previewSrc }
 							alt="Crop preview"
 						/>
@@ -703,8 +703,8 @@ const UndoRedoComponent = () => {
 
 	return (
 		<div>
-			<div className="image-cropper-next-story__controls">
-				<div className="image-cropper-next-story__row">
+			<div className="image-cropper-story__controls">
+				<div className="image-cropper-story__row">
 					<button onClick={ undo } disabled={ past.length === 0 }>
 						Undo ({ past.length })
 					</button>
@@ -759,7 +759,7 @@ const UndoRedoComponent = () => {
 				</div>
 			</div>
 
-			<div className="image-cropper-next-story__container">
+			<div className="image-cropper-story__container">
 				<Cropper
 					src={ SAMPLE_IMAGE }
 					state={ state }
@@ -771,7 +771,7 @@ const UndoRedoComponent = () => {
 
 			<div style={ { marginTop: 16 } }>
 				<strong>Pipeline ({ pipeline.length } operations):</strong>
-				<pre className="image-cropper-next-story__state">
+				<pre className="image-cropper-story__state">
 					{ pipeline.length === 0
 						? '(empty)'
 						: pipeline
@@ -956,14 +956,14 @@ const InIframeComponent = () => {
 				iframe boundary.
 			</p>
 
-			<div className="image-cropper-next-story__controls">
-				<div className="image-cropper-next-story__row">
+			<div className="image-cropper-story__controls">
+				<div className="image-cropper-story__row">
 					<strong>Rotation: { state.rotation }deg</strong>
 					<button onClick={ handleRotateLeft }>-90</button>
 					<button onClick={ handleRotateRight }>+90</button>
 				</div>
 				<input
-					className="image-cropper-next-story__slider"
+					className="image-cropper-story__slider"
 					type="range"
 					min={ -MAX_ROTATION_OFFSET }
 					max={ MAX_ROTATION_OFFSET }
@@ -972,7 +972,7 @@ const InIframeComponent = () => {
 					onChange={ handleRotationSlider }
 				/>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<strong>
 						Flip: H=
 						{ state.flip.horizontal ? 'Yes' : 'No' }, V=
@@ -1000,7 +1000,7 @@ const InIframeComponent = () => {
 					</button>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<strong>Zoom: { state.zoom.toFixed( 1 ) }x</strong>
 					<input
 						type="range"
@@ -1014,7 +1014,7 @@ const InIframeComponent = () => {
 					/>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<strong>Aspect Ratio:</strong>
 					<select
 						value={ aspectRatioValue }
@@ -1031,7 +1031,7 @@ const InIframeComponent = () => {
 					</select>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<label htmlFor={ freeformId }>Freeform Crop</label>
 					<input
 						id={ freeformId }
@@ -1043,7 +1043,7 @@ const InIframeComponent = () => {
 					/>
 				</div>
 
-				<div className="image-cropper-next-story__row">
+				<div className="image-cropper-story__row">
 					<button onClick={ handleReset }>Reset</button>
 				</div>
 			</div>

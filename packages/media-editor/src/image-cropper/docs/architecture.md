@@ -88,7 +88,7 @@ See [extensibility.md](extensibility.md) for the full developer guide. Summary:
 | AI agent control | `TransformOperation[]` pipeline — JSON-serializable, replayable |
 | Custom export | `createExportCamera()` → `ctx.setTransform()` → post-process |
 | Coordinate transforms | `worldToScreen()` / `screenToWorld()` via camera |
-| Theming | BEM CSS classes (`.wp-image-cropper-next__*`) |
+| Theming | BEM CSS classes (`.wp-media-editor-image-cropper__*`) |
 | State observation | `CropperState` is a plain object, `dispatch` is standard React |
 
 ## File map
