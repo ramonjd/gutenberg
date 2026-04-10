@@ -610,7 +610,7 @@ const WithPreviewComponent = () => {
 			<div
 				style={ { display: 'flex', gap: 24, alignItems: 'flex-start' } }
 			>
-				<div>
+				<div style={ { flex: '1 1 50%', minWidth: 0 } }>
 					<strong>Cropper</strong>
 					<div className="image-cropper-story__container">
 						<Cropper
@@ -623,7 +623,7 @@ const WithPreviewComponent = () => {
 					</div>
 				</div>
 
-				<div className="image-cropper-story__export-preview">
+				<div style={ { flex: '1 1 50%', minWidth: 0 } }>
 					<strong>Export Preview</strong>
 					{ previewSrc ? (
 						<img
