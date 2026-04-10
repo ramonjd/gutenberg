@@ -7,9 +7,8 @@
 }
 
 .image-cropper-story__resizable {
-	width: 100%;
-	max-width: 400px;
-	aspect-ratio: 4 / 3;
+	width: 400px;
+	height: 300px;
 	border: 1px solid #ccc;
 	resize: both;
 	overflow: auto;
@@ -80,7 +79,7 @@
 
 .image-cropper-story__export-preview {
 	margin-top: 16px;
-	max-width: 100%;
+	max-width: 300px;
 }
 
 .image-cropper-story__export-image {
