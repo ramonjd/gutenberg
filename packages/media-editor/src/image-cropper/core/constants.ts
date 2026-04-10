@@ -66,8 +66,15 @@ export interface AspectRatioPreset {
  * // Extend defaults:
  * const extended = [ ...DEFAULT_ASPECT_RATIOS, { label: 'Cinema (21:9)', value: 21 / 9 } ];
  */
+/**
+ * Sentinel value for "Original" aspect ratio — resolved at runtime
+ * to the image's natural width / height.
+ */
+export const ORIGINAL_ASPECT_RATIO = -1;
+
 export const DEFAULT_ASPECT_RATIOS: AspectRatioPreset[] = [
-	{ label: 'Original', value: 0 },
+	{ label: 'Free', value: 0 },
+	{ label: 'Original', value: ORIGINAL_ASPECT_RATIO },
 	{ label: 'Square (1:1)', value: 1 },
 	{ label: 'Landscape (16:9)', value: 16 / 9 },
 	{ label: 'Portrait (9:16)', value: 9 / 16 },

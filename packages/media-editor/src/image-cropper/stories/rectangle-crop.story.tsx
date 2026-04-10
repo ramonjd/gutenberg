@@ -26,6 +26,7 @@ import {
 	MAX_ZOOM,
 	MAX_ROTATION_OFFSET,
 	DEFAULT_ASPECT_RATIOS,
+	ORIGINAL_ASPECT_RATIO,
 } from '../core/constants';
 import {
 	loadImage,
@@ -37,6 +38,27 @@ import { getRotatedBBox, getSourceRegion } from '../core/camera';
 import './style.css';
 
 const SAMPLE_IMAGE = '1-100-grid.webp';
+
+/**
+ * Resolve an aspect ratio value from the select dropdown.
+ * 0 = free (no lock), ORIGINAL_ASPECT_RATIO (-1) = image's natural ratio.
+ */
+function resolveAspectRatio(
+	value: string,
+	imageState: { naturalWidth: number; naturalHeight: number } | null
+): number | undefined {
+	const num = parseFloat( value );
+	if ( num === 0 ) {
+		return undefined; // Free — no lock.
+	}
+	if ( num === ORIGINAL_ASPECT_RATIO && imageState ) {
+		return imageState.naturalWidth / imageState.naturalHeight;
+	}
+	if ( num > 0 ) {
+		return num;
+	}
+	return undefined;
+}
 
 const meta: Meta< typeof Cropper > = {
 	title: 'MediaEditor/ImageCropper',
@@ -145,8 +167,9 @@ const WithControlsComponent = () => {
 			// In fixed mode (freeformCrop=false), the cropper's useEffect
 			// auto-computes the crop rect from the aspect ratio. In freeform
 			// mode, we adjust the crop rect here to fit the new ratio.
-			const ratio = parseFloat( value );
-			if ( freeformCrop && ratio > 0 && state.image ) {
+			const resolved = resolveAspectRatio( value, state.image );
+			if ( freeformCrop && resolved && resolved > 0 && state.image ) {
+				const ratio = resolved;
 				const natW = state.image.naturalWidth;
 				const natH = state.image.naturalHeight;
 				const visualBBox = getRotatedBBox( natW, natH, state.rotation );
@@ -302,11 +325,10 @@ const WithControlsComponent = () => {
 					showGrid
 					showDimming
 					freeformCrop={ freeformCrop }
-					aspectRatio={
-						parseFloat( aspectRatioValue ) > 0
-							? parseFloat( aspectRatioValue )
-							: undefined
-					}
+					aspectRatio={ resolveAspectRatio(
+						aspectRatioValue,
+						state.image
+					) }
 				/>
 			</div>
 
@@ -1056,11 +1078,10 @@ const InIframeComponent = () => {
 					showGrid
 					showDimming
 					freeformCrop={ freeformCrop }
-					aspectRatio={
-						parseFloat( aspectRatioValue ) > 0
-							? parseFloat( aspectRatioValue )
-							: undefined
-					}
+					aspectRatio={ resolveAspectRatio(
+						aspectRatioValue,
+						state.image
+					) }
 				/>
 			</IframeWrapper>
 		</div>
