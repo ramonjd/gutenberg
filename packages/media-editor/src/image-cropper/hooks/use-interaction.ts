@@ -126,6 +126,8 @@ export function useInteraction(
 	const [ isDragging, setIsDragging ] = useState( false );
 	const [ isZooming, setIsZooming ] = useState( false );
 	const zoomTimerRef = useRef< ReturnType< typeof setTimeout > >();
+	const wheelGestureTimerRef = useRef< ReturnType< typeof setTimeout > >();
+	const wheelGestureActiveRef = useRef( false );
 	const rafRef = useRef< number >( 0 );
 
 	const touchRef = useRef< {
@@ -236,6 +238,18 @@ export function useInteraction(
 		( e: WheelEvent ) => {
 			e.preventDefault();
 
+			// Debounced gesture boundaries for wheel zoom.
+			// Start on first wheel event, end after 300ms of no events.
+			if ( ! wheelGestureActiveRef.current ) {
+				wheelGestureActiveRef.current = true;
+				onGestureStart?.();
+			}
+			clearTimeout( wheelGestureTimerRef.current );
+			wheelGestureTimerRef.current = setTimeout( () => {
+				wheelGestureActiveRef.current = false;
+				onGestureEnd?.();
+			}, DOUBLE_TAP_TIME );
+
 			const s = stateRef.current;
 			const delta = -e.deltaY * zoomSpeed;
 			const newZoom = Math.min(
@@ -303,7 +317,16 @@ export function useInteraction(
 				dispatch( { type: 'SET_ZOOM', payload: newZoom } );
 			}
 		},
-		[ dispatch, zoomSpeed, minZoom, maxZoom, containerSize, imageSize ]
+		[
+			dispatch,
+			zoomSpeed,
+			minZoom,
+			maxZoom,
+			containerSize,
+			imageSize,
+			onGestureStart,
+			onGestureEnd,
+		]
 	);
 
 	const onTouchStart = useCallback(
