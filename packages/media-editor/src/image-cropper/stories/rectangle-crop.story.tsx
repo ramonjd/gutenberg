@@ -721,21 +721,26 @@ const UndoRedoComponent = () => {
 		reset();
 	}, [ reset ] );
 
-	// Keyboard shortcuts.
+	// Keyboard shortcuts via refs to avoid stale closures.
+	const undoRef = useRef( undo );
+	const redoRef = useRef( redo );
+	undoRef.current = undo;
+	redoRef.current = redo;
+
 	useEffect( () => {
 		const handler = ( e: KeyboardEvent ) => {
 			if ( ( e.metaKey || e.ctrlKey ) && e.key === 'z' ) {
 				e.preventDefault();
 				if ( e.shiftKey ) {
-					redo();
+					redoRef.current();
 				} else {
-					undo();
+					undoRef.current();
 				}
 			}
 		};
 		document.addEventListener( 'keydown', handler );
 		return () => document.removeEventListener( 'keydown', handler );
-	}, [ undo, redo ] );
+	}, [] );
 
 	return (
 		<div>
