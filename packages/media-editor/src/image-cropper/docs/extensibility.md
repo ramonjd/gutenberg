@@ -286,7 +286,10 @@ Accepts any `CanvasImageSource`: `HTMLImageElement`, `HTMLCanvasElement`, `Offsc
 
 ### 8. State change notifications
 
-The `onStateChange` callback on the Cropper component fires on every state change. Use it for syncing with external tools, analytics, WordPress hooks, or AI agents.
+The `Cropper` component provides two notification mechanisms:
+
+- **`onStateChange`** — fires on every state change (every frame during a drag). Use for real-time syncing, live previews, or analytics.
+- **`onGestureStart` / `onGestureEnd`** — fire at gesture boundaries (pointerdown/pointerup, wheel burst start/end). Use for undo/redo snapshots, debounced saves, or "user finished editing" detection.
 
 ```tsx
 <Cropper
@@ -294,14 +297,16 @@ The `onStateChange` callback on the Cropper component fires on every state chang
   state={ state }
   dispatch={ dispatch }
   onStateChange={ ( currentState ) => {
-    // Sync with WordPress hooks:
-    wp.hooks.doAction( 'image-cropper.stateChanged', currentState );
-
-    // Update AI agent context:
-    agentContext.setCropState( currentState );
-
-    // Analytics:
-    trackEvent( 'crop_changed', { zoom: currentState.zoom, rotation: currentState.rotation } );
+    // Fires every frame during drag — good for live preview.
+    updateLivePreview( currentState );
+  } }
+  onGestureStart={ () => {
+    // User started interacting — snapshot for undo.
+    saveSnapshot( state );
+  } }
+  onGestureEnd={ () => {
+    // User finished interacting — safe to save/sync.
+    autosaveDraft( state );
   } }
 />
 ```
@@ -495,16 +500,149 @@ const adjustedCanvas = await wpMediaAdjust( imageFile, filters );
 const croppedResult = applyToCanvas( adjustedCanvas, imageSize, state );
 ```
 
-### Undo/redo via pipeline
+### Undo/redo with gesture support
 
-The pipeline API supports undo/redo out of the box. See the `UndoRedo` story for a working example. The pattern:
+The `Cropper` component fires `onGestureStart` and `onGestureEnd` callbacks at the boundaries of continuous interactions (pan drags, handle resizes, wheel/pinch zoom). These let you snapshot state before and after each gesture, treating the entire drag as a single undo step.
 
-- Maintain `past` and `future` stacks of pipeline snapshots
-- On each action: push current pipeline to `past`, clear `future`, append operation
-- Undo: pop `past`, push current to `future`, `RESET` + replay previous pipeline
-- Redo: pop `future`, push current to `past`, `RESET` + replay next pipeline
+**Two kinds of undo entries:**
 
-**Canvas interactions (drag, wheel zoom, handle resize)** generate many rapid state changes. To integrate these with undo/redo, use **gesture grouping**: snapshot the state at mousedown and mouseup, treating the entire drag as one undo step. The pipeline API supports this — the missing piece is gesture boundary detection, which is a consumer-side concern. A debounced approach (snapshot after N ms of inactivity) also works for wheel zoom.
+1. **Toolbar operations** (rotate, flip, zoom buttons) — snapshot state before dispatching, then apply the `TransformOperation`.
+2. **Gestures** (drag, resize, wheel zoom) — snapshot state in `onGestureStart`, compare with the current state in `onGestureEnd`, and push the before-state onto the undo stack.
+
+See the `UndoRedo` story for a complete working example. Here is the core pattern:
+
+```tsx
+import { Cropper, useCropperState } from '@wordpress/media-editor';
+import type { CropperState, TransformOperation } from '@wordpress/media-editor';
+import { useState, useCallback, useRef, useEffect } from '@wordpress/element';
+
+function ImageEditorWithUndo( { src }: { src: string } ) {
+  const { state, dispatch, reset } = useCropperState();
+
+  // Keep a ref to the latest state so gesture callbacks never go stale.
+  const stateRef = useRef( state );
+  stateRef.current = state;
+
+  // Undo/redo stacks store full CropperState snapshots.
+  const [ past, setPast ] = useState< CropperState[] >( [] );
+  const [ future, setFuture ] = useState< CropperState[] >( [] );
+
+  // Ref to hold the state snapshot captured at gesture start.
+  const snapshotRef = useRef< CropperState | null >( null );
+
+  // --- Toolbar operations ---
+
+  const applyToolbarOp = useCallback(
+    ( op: TransformOperation ) => {
+      // Snapshot current state before applying.
+      setPast( ( prev ) => [ ...prev, { ...state } ] );
+      setFuture( [] );
+      dispatch( { type: 'APPLY_OPERATION', payload: op } );
+    },
+    [ state, dispatch ]
+  );
+
+  // --- Gesture-based undo ---
+
+  const handleGestureStart = useCallback( () => {
+    // Capture state at the start of the gesture (via ref to avoid stale closure).
+    snapshotRef.current = { ...stateRef.current };
+  }, [] );
+
+  const handleGestureEnd = useCallback( () => {
+    if ( ! snapshotRef.current ) {
+      return;
+    }
+    const before = snapshotRef.current;
+    snapshotRef.current = null;
+
+    // Push the before-state as an undo entry.
+    setPast( ( prev ) => [ ...prev, before ] );
+    setFuture( [] );
+  }, [] );
+
+  // --- Undo / Redo ---
+
+  const undo = useCallback( () => {
+    if ( past.length === 0 ) {
+      return;
+    }
+    const newPast = [ ...past ];
+    const previous = newPast.pop()!;
+    setPast( newPast );
+    setFuture( ( prev ) => [ ...prev, { ...state } ] );
+    dispatch( { type: 'RESET', payload: previous } );
+  }, [ past, state, dispatch ] );
+
+  const redo = useCallback( () => {
+    if ( future.length === 0 ) {
+      return;
+    }
+    const newFuture = [ ...future ];
+    const next = newFuture.pop()!;
+    setPast( ( prev ) => [ ...prev, { ...state } ] );
+    setFuture( newFuture );
+    dispatch( { type: 'RESET', payload: next } );
+  }, [ future, state, dispatch ] );
+
+  // --- Keyboard shortcuts (use refs to avoid stale closures) ---
+
+  const undoRef = useRef( undo );
+  const redoRef = useRef( redo );
+  undoRef.current = undo;
+  redoRef.current = redo;
+
+  useEffect( () => {
+    const handler = ( e: KeyboardEvent ) => {
+      if ( ( e.metaKey || e.ctrlKey ) && e.key === 'z' ) {
+        e.preventDefault();
+        if ( e.shiftKey ) {
+          redoRef.current();
+        } else {
+          undoRef.current();
+        }
+      }
+    };
+    document.addEventListener( 'keydown', handler );
+    return () => document.removeEventListener( 'keydown', handler );
+  }, [] );
+
+  return (
+    <div>
+      <div>
+        <button onClick={ undo } disabled={ past.length === 0 }>
+          Undo ({ past.length })
+        </button>
+        <button onClick={ redo } disabled={ future.length === 0 }>
+          Redo ({ future.length })
+        </button>
+        <button onClick={ () => applyToolbarOp( { type: 'rotate', degrees: 15 } ) }>
+          Rotate +15
+        </button>
+      </div>
+
+      <Cropper
+        src={ src }
+        state={ state }
+        dispatch={ dispatch }
+        freeformCrop
+        onGestureStart={ handleGestureStart }
+        onGestureEnd={ handleGestureEnd }
+      />
+    </div>
+  );
+}
+```
+
+**Key implementation details:**
+
+| Concern | Solution |
+|---------|----------|
+| Stale closures in gesture callbacks | Use `useRef` for state (`stateRef`) and snapshot (`snapshotRef`). The callbacks are stable (`[]` deps) and always read the latest value. |
+| Stale closures in keyboard handler | Use `undoRef` / `redoRef` updated on every render, with the listener registered once (`[]` deps). |
+| Wheel zoom boundaries | The `useInteraction` hook debounces wheel events — it fires `onGestureStart` on the first scroll tick and `onGestureEnd` after 300ms of inactivity, grouping a burst of scroll events into one undo step. |
+| Handle resize settle | `onGestureEnd` fires after the settle animation (crop re-centers). The undo snapshot captures the final settled state. |
+| Pipeline display | For toolbar ops, log the `TransformOperation`. For gestures, compare before/after state and generate a descriptive label (e.g., "gesture: pan, zoom 1.5x"). |
 
 ### Extensible operations (planned)
 
@@ -778,7 +916,7 @@ These features are not built yet but the architecture supports them:
 | Format conversion | `canvasToBlob()` | Already supports MIME type parameter |
 | AI auto-crop | Pipeline API | Agent generates `TransformOperation[]` |
 | AI region editing | `getSourceRegion()` + custom stencil | Source-pixel coords for AI API |
-| Undo/redo | Pipeline | Store operations, replay subsets |
+| Undo/redo | `onGestureStart`/`onGestureEnd` + `RESET` | **Implemented** — see "Undo/redo with gesture support" above |
 | Video frame extraction | `applyToCanvas()` | Extract frame → feed as `CanvasImageSource` |
 | Batch processing | Pipeline + state | `stateFromPipeline()` on multiple images |
 | Remote collaboration | State serialization | Sync `CropperState` via WebSocket |

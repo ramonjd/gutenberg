@@ -654,6 +654,8 @@ export const WithPreview: Story = {
  */
 const UndoRedoComponent = () => {
 	const { state, dispatch, snapRotate90, reset } = useCropperState();
+	const stateRef = useRef( state );
+	stateRef.current = state;
 
 	// State snapshot history for undo/redo.
 	const [ past, setPast ] = useState< any[] >( [] );
@@ -671,14 +673,45 @@ const UndoRedoComponent = () => {
 
 	// Gesture callbacks: snapshot at start.
 	const handleGestureStart = useCallback( () => {
-		snapshotRef.current = { ...state };
-	}, [ state ] );
+		snapshotRef.current = { ...stateRef.current };
+	}, [] );
 
 	const handleGestureEnd = useCallback( () => {
-		if ( snapshotRef.current ) {
-			setPast( ( prev ) => [ ...prev, snapshotRef.current ] );
-			setFuture( [] );
-			snapshotRef.current = null;
+		if ( ! snapshotRef.current ) {
+			return;
+		}
+		const before = snapshotRef.current;
+		const after = stateRef.current;
+		setPast( ( prev ) => [ ...prev, before ] );
+		setFuture( [] );
+		snapshotRef.current = null;
+
+		// Describe what changed for the pipeline display.
+		const changes: string[] = [];
+		if (
+			before.crop.x !== after.crop.x ||
+			before.crop.y !== after.crop.y
+		) {
+			changes.push( 'pan' );
+		}
+		if ( Math.abs( before.zoom - after.zoom ) > 0.01 ) {
+			changes.push( `zoom ${ after.zoom.toFixed( 1 ) }x` );
+		}
+		if (
+			Math.abs( before.cropRect.width - after.cropRect.width ) > 0.001 ||
+			Math.abs( before.cropRect.height - after.cropRect.height ) > 0.001
+		) {
+			changes.push( 'resize' );
+		}
+		if ( changes.length > 0 ) {
+			setPipeline( ( prev ) => [
+				...prev,
+				{
+					type: 'crop',
+					rect: after.cropRect,
+					_label: `gesture: ${ changes.join( ', ' ) }`,
+				} as any,
+			] );
 		}
 	}, [] );
 
@@ -700,6 +733,7 @@ const UndoRedoComponent = () => {
 		const previous = newPast.pop()!;
 		setPast( newPast );
 		setFuture( ( prev ) => [ ...prev, { ...state } ] );
+		setPipeline( ( prev ) => prev.slice( 0, -1 ) );
 		dispatch( { type: 'RESET', payload: previous } );
 	}, [ past, state, dispatch ] );
 
@@ -711,6 +745,14 @@ const UndoRedoComponent = () => {
 		const next = newFuture.pop()!;
 		setPast( ( prev ) => [ ...prev, { ...state } ] );
 		setFuture( newFuture );
+		setPipeline( ( prev ) => [
+			...prev,
+			{
+				type: 'crop',
+				rect: next.cropRect,
+				_label: 'redo',
+			} as any,
+		] );
 		dispatch( { type: 'RESET', payload: next } );
 	}, [ future, state, dispatch ] );
 
@@ -813,30 +855,31 @@ const UndoRedoComponent = () => {
 					{ pipeline.length === 0
 						? '(empty)'
 						: pipeline
-								.map(
-									( op, i ) =>
-										`${ i + 1 }. ${ op.type }${
-											'degrees' in op
-												? ` ${ op.degrees }°`
-												: ''
-										}${
-											'direction' in op
-												? ` ${ op.direction }`
-												: ''
-										}${
-											'factor' in op
-												? ` ${ op.factor }x`
-												: ''
-										}${
-											'rect' in op
-												? ` (${ Math.round(
-														op.rect.width * 100
-												  ) }%×${ Math.round(
-														op.rect.height * 100
-												  ) }%)`
-												: ''
-										}`
-								)
+								.map( ( op, i ) => {
+									const label = ( op as any )._label;
+									if ( label ) {
+										return `${ i + 1 }. ${ label }`;
+									}
+									return `${ i + 1 }. ${ op.type }${
+										'degrees' in op
+											? ` ${ op.degrees }°`
+											: ''
+									}${
+										'direction' in op
+											? ` ${ op.direction }`
+											: ''
+									}${
+										'factor' in op ? ` ${ op.factor }x` : ''
+									}${
+										'rect' in op
+											? ` (${ Math.round(
+													op.rect.width * 100
+											  ) }%×${ Math.round(
+													op.rect.height * 100
+											  ) }%)`
+											: ''
+									}`;
+								} )
 								.join( '\n' ) }
 				</pre>
 				<p style={ { fontSize: 12, color: '#666' } }>

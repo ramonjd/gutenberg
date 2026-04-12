@@ -89,7 +89,8 @@ See [extensibility.md](extensibility.md) for the full developer guide. Summary:
 | Custom export | `createExportCamera()` → `ctx.setTransform()` → post-process |
 | Coordinate transforms | `worldToScreen()` / `screenToWorld()` via camera |
 | Theming | BEM CSS classes (`.wp-media-editor-image-cropper__*`) |
-| State observation | `CropperState` is a plain object, `dispatch` is standard React |
+| State observation | `onStateChange` (every frame), `onGestureStart`/`onGestureEnd` (gesture boundaries) |
+| Undo/redo | Snapshot state at gesture boundaries, `RESET` to restore — see extensibility.md |
 
 ## File map
 
