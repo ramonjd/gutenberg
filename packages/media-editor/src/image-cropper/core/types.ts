@@ -118,6 +118,8 @@ export interface StencilProps {
 	imageSize: Size;
 	/** Callback when the crop rectangle changes (during drag). */
 	onCropChange: ( rect: NormalizedRect ) => void;
+	/** Callback when a resize drag starts (pointerdown on handle). */
+	onResizeStart?: () => void;
 	/** Callback when a resize drag ends (mouseup after handle drag). */
 	onResizeEnd?: () => void;
 	/** Optional fixed aspect ratio (width / height) in pixel space. */

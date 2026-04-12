@@ -93,6 +93,7 @@ type RectangleStencilProps = StencilProps;
  * @param props.containerSize     The container element dimensions in pixels.
  * @param props.imageSize         The rendered image dimensions in pixels.
  * @param props.onCropChange      Callback fired when the crop rect changes.
+ * @param props.onResizeStart     Callback fired when a resize drag starts.
  * @param props.onResizeEnd       Callback fired when a resize drag ends (mouseup).
  * @param props.aspectRatio       Optional fixed aspect ratio (width / height).
  * @param props.freeformCrop      Whether resize handles are shown.
@@ -105,6 +106,7 @@ export function RectangleStencil( {
 	containerSize,
 	imageSize,
 	onCropChange,
+	onResizeStart,
 	onResizeEnd,
 	aspectRatio,
 	freeformCrop = false,
@@ -160,6 +162,7 @@ export function RectangleStencil( {
 			const el = event.currentTarget;
 			el.setPointerCapture( event.pointerId );
 			dragElementRef.current = el;
+			onResizeStart?.();
 			setDragState( {
 				handle,
 				startX: event.clientX,
@@ -167,7 +170,7 @@ export function RectangleStencil( {
 				startRect: { ...cropRect },
 			} );
 		},
-		[ cropRect ]
+		[ cropRect, onResizeStart ]
 	);
 
 	/**

@@ -64,6 +64,10 @@ export interface UseInteractionOptions {
 	keyboardStep?: number;
 	/** Zoom level for double-tap zoom. Defaults to 2. */
 	doubleTapZoom?: number;
+	/** Fires when a continuous gesture begins (pan drag, pinch zoom). */
+	onGestureStart?: () => void;
+	/** Fires when a continuous gesture ends (pointer release). */
+	onGestureEnd?: () => void;
 }
 
 /**
@@ -106,6 +110,8 @@ export function useInteraction(
 	const zoomSpeed = options?.zoomSpeed ?? 0.01;
 	const keyboardStep = options?.keyboardStep ?? 0.05;
 	const doubleTapZoom = options?.doubleTapZoom ?? 2;
+	const onGestureStart = options?.onGestureStart;
+	const onGestureEnd = options?.onGestureEnd;
 
 	const stateRef = useRef( state );
 	stateRef.current = state;
@@ -161,6 +167,7 @@ export function useInteraction(
 			el.setPointerCapture( e.pointerId );
 
 			setIsDragging( true );
+			onGestureStart?.();
 			const currentState = stateRef.current;
 			dragRef.current = {
 				startX: e.clientX,
@@ -210,6 +217,7 @@ export function useInteraction(
 
 			const onPointerUp = () => {
 				setIsDragging( false );
+				onGestureEnd?.();
 				dragRef.current = null;
 				cancelAnimationFrame( rafRef.current );
 				el.removeEventListener( 'pointermove', onPointerMove );
@@ -221,7 +229,7 @@ export function useInteraction(
 			el.addEventListener( 'pointerup', onPointerUp );
 			el.addEventListener( 'lostpointercapture', onPointerUp );
 		},
-		[ containerSize, imageSize, dispatch ]
+		[ containerSize, imageSize, dispatch, onGestureStart, onGestureEnd ]
 	);
 
 	const onWheel = useCallback(
@@ -558,7 +566,7 @@ export function useInteraction(
 
 			touchCleanupRef.current = onTouchEnd;
 		},
-		[ containerSize, imageSize, dispatch, minZoom, maxZoom ]
+		[ containerSize, imageSize, dispatch, minZoom, maxZoom, doubleTapZoom ]
 	);
 
 	const onKeyDown = useCallback(

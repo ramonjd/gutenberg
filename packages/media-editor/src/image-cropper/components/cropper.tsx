@@ -75,6 +75,10 @@ export interface CropperProps {
 	 * Receives the full state — consumers can derive what they need.
 	 */
 	onStateChange?: ( state: CropperState ) => void;
+	/** Fires when a continuous gesture begins (pan drag, handle resize, pinch zoom). */
+	onGestureStart?: () => void;
+	/** Fires when a continuous gesture ends (pointerup, resize settle). */
+	onGestureEnd?: () => void;
 	/** Additional className for the container. */
 	className?: string;
 }
@@ -122,6 +126,8 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 			freeformCrop = false,
 			onImageLoaded,
 			onStateChange,
+			onGestureStart,
+			onGestureEnd,
 			className,
 		}: CropperProps,
 		ref: React.ForwardedRef< HTMLDivElement >
@@ -318,26 +324,15 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 				visualSize,
 				containerSize
 			);
-			// Note: deps intentionally list transform fields, not state/cropRect,
-			// to avoid circular updates during drag.
-		}, [
-			state.image,
-			state.crop.x,
-			state.crop.y,
-			state.zoom,
-			state.rotation,
-			state.flip.horizontal,
-			state.flip.vertical,
-			elementSize,
-			visualSize,
-			containerSize,
-		] );
+		}, [ state, elementSize, visualSize, containerSize ] );
 
 		// Use the interaction hook for mouse, touch, and keyboard events.
 		const { handlers, onWheelNative, isDragging, isZooming } =
 			useInteraction( state, dispatch, containerSize, visualSize, {
 				minZoom,
 				maxZoom,
+				onGestureStart,
+				onGestureEnd,
 			} );
 
 		// Register wheel handler natively with { passive: false } so
@@ -409,11 +404,12 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		const handleResizeEnd = useCallback( () => {
 			setSettling( true );
 			dispatch( { type: 'SETTLE_CROP' } );
+			onGestureEnd?.();
 			clearTimeout( settleTimerRef.current );
 			settleTimerRef.current = setTimeout( () => {
 				setSettling( false );
 			}, 200 );
-		}, [ dispatch ] );
+		}, [ dispatch, onGestureEnd ] );
 
 		const imageTransition =
 			settling || isZooming ? 'transform 150ms linear' : undefined;
@@ -495,6 +491,7 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 					containerSize={ containerSize }
 					imageSize={ visualSize }
 					onCropChange={ handleCropChange }
+					onResizeStart={ onGestureStart }
 					onResizeEnd={ handleResizeEnd }
 					aspectRatio={ aspectRatio }
 					freeformCrop={ freeformCrop }
