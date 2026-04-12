@@ -645,33 +645,53 @@ export const WithPreview: Story = {
 };
 
 /**
- * Undo/redo history integration using the pipeline API.
- * Demonstrates how to build a non-destructive editing workflow
- * where every action is recorded and replayable.
+ * Undo/redo with gesture and toolbar support.
+ *
+ * Toolbar buttons record pipeline operations (step-based, like AI
+ * instructions). Gestures (drag, resize, zoom) are captured via
+ * onGestureStart/onGestureEnd as state snapshots. Both feed the
+ * same undo stack.
  */
 const UndoRedoComponent = () => {
-	const { state, dispatch } = useCropperState();
+	const { state, dispatch, snapRotate90, reset } = useCropperState();
 
-	// Operation history: past and future stacks.
-	const [ past, setPast ] = useState< TransformOperation[][] >( [] );
-	const [ future, setFuture ] = useState< TransformOperation[][] >( [] );
+	// State snapshot history for undo/redo.
+	const [ past, setPast ] = useState< any[] >( [] );
+	const [ future, setFuture ] = useState< any[] >( [] );
+	const snapshotRef = useRef< any >( null );
+
+	// Pipeline log for display (toolbar operations only).
 	const [ pipeline, setPipeline ] = useState< TransformOperation[] >( [] );
 
-	// Record an operation: push current pipeline to past, clear future.
+	// Snapshot before a toolbar action.
+	const snapshot = useCallback( () => {
+		setPast( ( prev ) => [ ...prev, { ...state } ] );
+		setFuture( [] );
+	}, [ state ] );
+
+	// Gesture callbacks: snapshot at start.
+	const handleGestureStart = useCallback( () => {
+		snapshotRef.current = { ...state };
+	}, [ state ] );
+
+	const handleGestureEnd = useCallback( () => {
+		if ( snapshotRef.current ) {
+			setPast( ( prev ) => [ ...prev, snapshotRef.current ] );
+			setFuture( [] );
+			snapshotRef.current = null;
+		}
+	}, [] );
+
+	// Record a toolbar operation (pipeline + undo).
 	const recordOperation = useCallback(
 		( op: TransformOperation ) => {
-			setPast( ( prev ) => [ ...prev, pipeline ] );
-			setFuture( [] );
-			const newPipeline = [ ...pipeline, op ];
-			setPipeline( newPipeline );
-
-			// Apply the operation via dispatch.
+			snapshot();
+			setPipeline( ( prev ) => [ ...prev, op ] );
 			dispatch( { type: 'APPLY_OPERATION', payload: op } );
 		},
-		[ pipeline, dispatch ]
+		[ snapshot, dispatch ]
 	);
 
-	// Undo: pop from past, push current to future, replay.
 	const undo = useCallback( () => {
 		if ( past.length === 0 ) {
 			return;
@@ -679,33 +699,27 @@ const UndoRedoComponent = () => {
 		const newPast = [ ...past ];
 		const previous = newPast.pop()!;
 		setPast( newPast );
-		setFuture( ( prev ) => [ ...prev, pipeline ] );
-		setPipeline( previous );
+		setFuture( ( prev ) => [ ...prev, { ...state } ] );
+		dispatch( { type: 'RESET', payload: previous } );
+	}, [ past, state, dispatch ] );
 
-		// Reset and replay the previous pipeline.
-		dispatch( { type: 'RESET' } );
-		for ( const op of previous ) {
-			dispatch( { type: 'APPLY_OPERATION', payload: op } );
-		}
-	}, [ past, pipeline, dispatch ] );
-
-	// Redo: pop from future, push current to past, replay.
 	const redo = useCallback( () => {
 		if ( future.length === 0 ) {
 			return;
 		}
 		const newFuture = [ ...future ];
 		const next = newFuture.pop()!;
-		setPast( ( prev ) => [ ...prev, pipeline ] );
+		setPast( ( prev ) => [ ...prev, { ...state } ] );
 		setFuture( newFuture );
-		setPipeline( next );
+		dispatch( { type: 'RESET', payload: next } );
+	}, [ future, state, dispatch ] );
 
-		// Reset and replay the next pipeline.
-		dispatch( { type: 'RESET' } );
-		for ( const op of next ) {
-			dispatch( { type: 'APPLY_OPERATION', payload: op } );
-		}
-	}, [ future, pipeline, dispatch ] );
+	const handleReset = useCallback( () => {
+		setPast( [] );
+		setFuture( [] );
+		setPipeline( [] );
+		reset();
+	}, [ reset ] );
 
 	// Keyboard shortcuts.
 	useEffect( () => {
@@ -764,20 +778,14 @@ const UndoRedoComponent = () => {
 						Zoom In
 					</button>
 					<button
-						onClick={ () =>
-							recordOperation( {
-								type: 'crop',
-								rect: {
-									x: 0.1,
-									y: 0.1,
-									width: 0.8,
-									height: 0.8,
-								},
-							} )
-						}
+						onClick={ () => {
+							snapshot();
+							snapRotate90( 1 );
+						} }
 					>
-						Crop 80%
+						Rotate 90
 					</button>
+					<button onClick={ handleReset }>Reset</button>
 				</div>
 			</div>
 
@@ -787,7 +795,10 @@ const UndoRedoComponent = () => {
 					state={ state }
 					dispatch={ dispatch }
 					showDimming
+					showGrid
 					freeformCrop
+					onGestureStart={ handleGestureStart }
+					onGestureEnd={ handleGestureEnd }
 				/>
 			</div>
 
@@ -824,8 +835,9 @@ const UndoRedoComponent = () => {
 								.join( '\n' ) }
 				</pre>
 				<p style={ { fontSize: 12, color: '#666' } }>
-					Tip: Ctrl+Z / Cmd+Z to undo, Ctrl+Shift+Z / Cmd+Shift+Z to
-					redo
+					Drag the image, resize crop handles, or use toolbar buttons
+					— all captured as undo steps. Ctrl+Z / Cmd+Z to undo,
+					Ctrl+Shift+Z / Cmd+Shift+Z to redo.
 				</p>
 			</div>
 		</div>
@@ -1090,147 +1102,4 @@ const InIframeComponent = () => {
 
 export const InIframe: Story = {
 	render: InIframeComponent,
-};
-
-/**
- * Undo/redo with gesture support using state snapshots.
- *
- * Unlike the pipeline-based UndoRedo story (which captures toolbar
- * button clicks), this captures ALL interactions — drag pan, handle
- * resize, zoom, and toolbar actions — via onGestureStart/onGestureEnd
- * callbacks and CropperState snapshots.
- */
-const UndoRedoGesturesComponent = () => {
-	const { state, dispatch, setZoom, snapRotate90, reset } = useCropperState();
-
-	// History stacks: arrays of CropperState snapshots.
-	const [ past, setPast ] = useState< any[] >( [] );
-	const [ future, setFuture ] = useState< any[] >( [] );
-	const snapshotRef = useRef< any >( null );
-
-	// Snapshot state when a gesture starts.
-	const handleGestureStart = useCallback( () => {
-		snapshotRef.current = { ...state };
-	}, [ state ] );
-
-	// Push the snapshot to history when the gesture ends.
-	const handleGestureEnd = useCallback( () => {
-		if ( snapshotRef.current ) {
-			setPast( ( prev ) => [ ...prev, snapshotRef.current ] );
-			setFuture( [] );
-			snapshotRef.current = null;
-		}
-	}, [] );
-
-	// Also snapshot before toolbar actions.
-	const withSnapshot = useCallback(
-		( action: () => void ) => {
-			setPast( ( prev ) => [ ...prev, { ...state } ] );
-			setFuture( [] );
-			action();
-		},
-		[ state ]
-	);
-
-	const undo = useCallback( () => {
-		if ( past.length === 0 ) {
-			return;
-		}
-		const newPast = [ ...past ];
-		const previous = newPast.pop()!;
-		setPast( newPast );
-		setFuture( ( prev ) => [ ...prev, { ...state } ] );
-		dispatch( { type: 'RESET', payload: previous } );
-	}, [ past, state, dispatch ] );
-
-	const redo = useCallback( () => {
-		if ( future.length === 0 ) {
-			return;
-		}
-		const newFuture = [ ...future ];
-		const next = newFuture.pop()!;
-		setPast( ( prev ) => [ ...prev, { ...state } ] );
-		setFuture( newFuture );
-		dispatch( { type: 'RESET', payload: next } );
-	}, [ future, state, dispatch ] );
-
-	// Keyboard shortcuts.
-	useEffect( () => {
-		const handler = ( e: KeyboardEvent ) => {
-			if ( ( e.metaKey || e.ctrlKey ) && e.key === 'z' ) {
-				e.preventDefault();
-				if ( e.shiftKey ) {
-					redo();
-				} else {
-					undo();
-				}
-			}
-		};
-		document.addEventListener( 'keydown', handler );
-		return () => document.removeEventListener( 'keydown', handler );
-	}, [ undo, redo ] );
-
-	return (
-		<div>
-			<div className="image-cropper-story__controls">
-				<div className="image-cropper-story__row">
-					<button onClick={ undo } disabled={ past.length === 0 }>
-						Undo ({ past.length })
-					</button>
-					<button onClick={ redo } disabled={ future.length === 0 }>
-						Redo ({ future.length })
-					</button>
-					<button
-						onClick={ () =>
-							withSnapshot( () => snapRotate90( 1 ) )
-						}
-					>
-						Rotate 90
-					</button>
-					<button
-						onClick={ () =>
-							withSnapshot( () =>
-								setZoom(
-									Math.min( MAX_ZOOM, state.zoom + 0.5 )
-								)
-							)
-						}
-					>
-						Zoom In
-					</button>
-					<button
-						onClick={ () => {
-							setPast( [] );
-							setFuture( [] );
-							reset();
-						} }
-					>
-						Reset
-					</button>
-				</div>
-			</div>
-
-			<p style={ { fontSize: 12, color: '#666', marginBottom: 8 } }>
-				Drag the image, resize crop handles, or use toolbar buttons —
-				all captured as undo steps. Ctrl+Z / Ctrl+Shift+Z to undo/redo.
-			</p>
-
-			<div className="image-cropper-story__container">
-				<Cropper
-					src={ SAMPLE_IMAGE }
-					state={ state }
-					dispatch={ dispatch }
-					showGrid
-					showDimming
-					freeformCrop
-					onGestureStart={ handleGestureStart }
-					onGestureEnd={ handleGestureEnd }
-				/>
-			</div>
-		</div>
-	);
-};
-
-export const UndoRedoGestures: Story = {
-	render: UndoRedoGesturesComponent,
 };
