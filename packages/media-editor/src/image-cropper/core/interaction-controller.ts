@@ -11,6 +11,8 @@ const DOUBLE_TAP_TIME = 300;
 const DOUBLE_TAP_DISTANCE = 30;
 /** Duration of the zoom animation state (ms). */
 const ZOOM_ANIMATION_DURATION = 200;
+/** Delay before single-finger touch commits to pan (ms). Allows a second finger to arrive for pinch. */
+const PAN_COMMIT_DELAY = 80;
 
 /**
  * Get the natural image dimensions from cropper state, falling back to 1x1.
@@ -119,15 +121,30 @@ export class InteractionController {
 
 	/** Active touch state during touch interactions. */
 	private touch: {
+		/** Finger distance at pinch start (0 for single-finger). */
 		startDistance: number;
+		/** Zoom level at gesture start. */
 		startZoom: number;
+		/** Last single-finger X position. */
 		lastTouchX: number;
+		/** Last single-finger Y position. */
 		lastTouchY: number;
+		/** Pan at gesture start. */
 		startCropX: number;
 		startCropY: number;
+		/** True while only one finger is down. Switches to false on pinch. */
 		isSingleTouch: boolean;
+		/** Whether pan dispatches are committed (false during initial delay). */
+		panCommitted: boolean;
+		/** Container rect snapshot for focal-point math. */
 		containerRect?: DOMRect;
+		/** Midpoint of two fingers at pinch start (for combined pan+zoom). */
+		startMidX: number;
+		startMidY: number;
 	} | null = null;
+
+	/** Timer for delaying pan commitment after first finger. */
+	private panCommitTimer: ReturnType< typeof setTimeout > | undefined;
 
 	/** Cleanup function for active touch listeners on document. */
 	private touchCleanup: ( () => void ) | null = null;
@@ -397,8 +414,14 @@ export class InteractionController {
 		const imgSize = this.options.getImageSize();
 
 		if ( e.touches.length === 2 ) {
-			// Two-finger pinch zoom.
+			// Two-finger pinch zoom — either fresh or upgrading from single-finger.
+			clearTimeout( this.panCommitTimer );
 			const distance = getTouchDistance( e.touches[ 0 ], e.touches[ 1 ] );
+			const midX =
+				( e.touches[ 0 ].clientX + e.touches[ 1 ].clientX ) / 2;
+			const midY =
+				( e.touches[ 0 ].clientY + e.touches[ 1 ].clientY ) / 2;
+			const wasAlreadyTracking = !! this.touch;
 			this.touch = {
 				startDistance: distance,
 				startZoom: currentState.zoom,
@@ -407,9 +430,14 @@ export class InteractionController {
 				startCropX: currentState.crop.x,
 				startCropY: currentState.crop.y,
 				isSingleTouch: false,
+				panCommitted: false,
 				containerRect,
+				startMidX: midX,
+				startMidY: midY,
 			};
-			this.options.onGestureStart?.();
+			if ( ! wasAlreadyTracking ) {
+				this.options.onGestureStart?.();
+			}
 		} else if ( e.touches.length === 1 ) {
 			// Double-tap detection: toggle between fit and 2x zoom.
 			const now = Date.now();
@@ -494,7 +522,9 @@ export class InteractionController {
 			// Record this tap for future double-tap detection.
 			this.lastTap = { time: now, x: tapX, y: tapY };
 
-			// Single finger pan.
+			// Single finger: start tracking but delay pan commitment.
+			// If a second finger arrives within PAN_COMMIT_DELAY, we
+			// switch to pinch mode without any pan having occurred.
 			this.touch = {
 				startDistance: 0,
 				startZoom: currentState.zoom,
@@ -503,14 +533,56 @@ export class InteractionController {
 				startCropX: currentState.crop.x,
 				startCropY: currentState.crop.y,
 				isSingleTouch: true,
+				panCommitted: false,
+				startMidX: 0,
+				startMidY: 0,
 			};
-			this.setStatus( { isDragging: true } );
 			this.options.onGestureStart?.();
+			// Commit pan after a short delay — if a second finger arrives
+			// before this fires, panCommitted stays false and no pan occurs.
+			clearTimeout( this.panCommitTimer );
+			this.panCommitTimer = setTimeout( () => {
+				if ( this.touch?.isSingleTouch ) {
+					this.touch.panCommitted = true;
+					this.setStatus( { isDragging: true } );
+				}
+			}, PAN_COMMIT_DELAY );
 		}
 
 		const onTouchMove = ( moveEvent: TouchEvent ) => {
 			const touch = this.touch;
 			if ( ! touch ) {
+				return;
+			}
+
+			// If we're still in single-touch mode but a second finger arrived
+			// (touchstart with 2 fingers transitions touch.isSingleTouch to false),
+			// or if the move itself has 2 touches and we haven't transitioned yet,
+			// upgrade to pinch on the fly.
+			if ( touch.isSingleTouch && moveEvent.touches.length === 2 ) {
+				clearTimeout( this.panCommitTimer );
+				const distance = getTouchDistance(
+					moveEvent.touches[ 0 ],
+					moveEvent.touches[ 1 ]
+				);
+				const s = this.options.getState();
+				const midX =
+					( moveEvent.touches[ 0 ].clientX +
+						moveEvent.touches[ 1 ].clientX ) /
+					2;
+				const midY =
+					( moveEvent.touches[ 0 ].clientY +
+						moveEvent.touches[ 1 ].clientY ) /
+					2;
+				touch.isSingleTouch = false;
+				touch.panCommitted = false;
+				touch.startDistance = distance;
+				touch.startZoom = s.zoom;
+				touch.startCropX = s.crop.x;
+				touch.startCropY = s.crop.y;
+				touch.startMidX = midX;
+				touch.startMidY = midY;
+				this.setStatus( { isDragging: false } );
 				return;
 			}
 
@@ -521,7 +593,8 @@ export class InteractionController {
 				const latestImageSize = this.options.getImageSize();
 
 				if ( ! touch.isSingleTouch && moveEvent.touches.length === 2 ) {
-					// Pinch zoom with focal point at finger midpoint.
+					// Pinch zoom with focal point at finger midpoint,
+					// plus simultaneous pan from midpoint drift.
 					const t0 = moveEvent.touches[ 0 ];
 					const t1 = moveEvent.touches[ 1 ];
 					const currentDistance = getTouchDistance( t0, t1 );
@@ -533,14 +606,8 @@ export class InteractionController {
 
 					const visSize = latestImageSize ?? latestContainerSize;
 					const rect = touch.containerRect;
-					if (
-						visSize.width > 0 &&
-						visSize.height > 0 &&
-						rect &&
-						newZoom !== s.zoom
-					) {
-						// Focal point: midpoint of two fingers,
-						// relative to container center.
+					if ( visSize.width > 0 && visSize.height > 0 && rect ) {
+						// Current midpoint.
 						const mx =
 							( t0.clientX + t1.clientX ) / 2 -
 							rect.left -
@@ -550,13 +617,39 @@ export class InteractionController {
 							rect.top -
 							latestContainerSize.height / 2;
 
-						const zoomRatio = 1 - newZoom / s.zoom;
+						// Pan from midpoint drift (fingers moving together).
+						const startMx =
+							touch.startMidX -
+							rect.left -
+							latestContainerSize.width / 2;
+						const startMy =
+							touch.startMidY -
+							rect.top -
+							latestContainerSize.height / 2;
+						const panDx =
+							visSize.width > 0
+								? ( mx - startMx ) / visSize.width
+								: 0;
+						const panDy =
+							visSize.height > 0
+								? ( my - startMy ) / visSize.height
+								: 0;
+
+						// Focal-point zoom correction.
+						const zoomRatio =
+							s.zoom !== 0 ? 1 - newZoom / s.zoom : 0;
 						const focalNormX = mx / visSize.width;
 						const focalNormY = my / visSize.height;
-						const newCropX =
+						const zoomCropX =
 							s.crop.x + ( focalNormX - s.crop.x ) * zoomRatio;
-						const newCropY =
+						const zoomCropY =
 							s.crop.y + ( focalNormY - s.crop.y ) * zoomRatio;
+
+						// Combined: pan drift + zoom correction.
+						const newCropX =
+							touch.startCropX + panDx + ( zoomCropX - s.crop.x );
+						const newCropY =
+							touch.startCropY + panDy + ( zoomCropY - s.crop.y );
 
 						const { crop: clampedCrop } = restrictPanZoom(
 							{
@@ -567,12 +660,11 @@ export class InteractionController {
 							getImageSizeFromState( s ),
 							s.cropRect
 						);
-						// Atomic zoom+pan dispatch — same as wheel zoom.
 						this.options.dispatch( {
 							type: 'SET_ZOOM_AT_POINT',
 							payload: { zoom: newZoom, crop: clampedCrop },
 						} );
-					} else {
+					} else if ( newZoom !== s.zoom ) {
 						this.options.dispatch( {
 							type: 'SET_ZOOM',
 							payload: newZoom,
@@ -580,9 +672,10 @@ export class InteractionController {
 					}
 				} else if (
 					touch.isSingleTouch &&
+					touch.panCommitted &&
 					moveEvent.touches.length === 1
 				) {
-					// Single finger pan in visual space.
+					// Single finger pan — only after commit delay.
 					const panSize = latestImageSize ?? latestContainerSize;
 					const deltaX =
 						panSize.width > 0
@@ -618,6 +711,7 @@ export class InteractionController {
 		};
 
 		const onTouchEnd = () => {
+			clearTimeout( this.panCommitTimer );
 			const wasSingleTouch = this.touch?.isSingleTouch;
 			this.touch = null;
 			this.touchCleanup = null;
@@ -778,6 +872,7 @@ export class InteractionController {
 		cancelAnimationFrame( this.rafId );
 		clearTimeout( this.zoomTimer );
 		clearTimeout( this.wheelGestureTimer );
+		clearTimeout( this.panCommitTimer );
 		this.touchCleanup?.();
 		this.drag = null;
 		this.touch = null;

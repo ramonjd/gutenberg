@@ -462,7 +462,9 @@ describe( 'InteractionController', () => {
 		} );
 
 		it( 'calls onGestureStart on first wheel, onGestureEnd after debounce', () => {
-			jest.useFakeTimers();
+			jest.useFakeTimers( {
+				doNotFake: [ 'requestAnimationFrame', 'cancelAnimationFrame' ],
+			} );
 			const state = makeState( { zoom: 2 } );
 			const onGestureStart = jest.fn();
 			const onGestureEnd = jest.fn();
@@ -640,7 +642,10 @@ describe( 'InteractionController', () => {
 	} );
 
 	describe( 'touch', () => {
-		it( 'single-finger pan dispatches SET_CROP', () => {
+		it( 'single-finger pan dispatches SET_CROP after commit delay', () => {
+			jest.useFakeTimers( {
+				doNotFake: [ 'requestAnimationFrame', 'cancelAnimationFrame' ],
+			} );
 			const state = makeState( { zoom: 2 } );
 			const { controller } = createController( state );
 			const doc = createMockDocument();
@@ -652,6 +657,9 @@ describe( 'InteractionController', () => {
 				doc
 			);
 
+			// Advance past pan commit delay.
+			jest.advanceTimersByTime( 100 );
+
 			// Simulate touchmove.
 			doc._fire(
 				'touchmove',
@@ -661,6 +669,7 @@ describe( 'InteractionController', () => {
 			expect( dispatchMock ).toHaveBeenCalledWith(
 				expect.objectContaining( { type: 'SET_CROP' } )
 			);
+			jest.useRealTimers();
 		} );
 
 		it( 'calls onGestureStart/onGestureEnd for single-finger pan', () => {
@@ -688,7 +697,10 @@ describe( 'InteractionController', () => {
 			expect( onGestureEnd ).toHaveBeenCalledTimes( 1 );
 		} );
 
-		it( 'reports isDragging for single-finger pan', () => {
+		it( 'reports isDragging for single-finger pan after commit delay', () => {
+			jest.useFakeTimers( {
+				doNotFake: [ 'requestAnimationFrame', 'cancelAnimationFrame' ],
+			} );
 			const state = makeState( { zoom: 2 } );
 			const onStatusChange = jest.fn();
 			const { controller } = createController( state, {
@@ -703,6 +715,14 @@ describe( 'InteractionController', () => {
 				doc
 			);
 
+			// isDragging is not set immediately — pan commit is delayed.
+			expect( onStatusChange ).not.toHaveBeenCalledWith(
+				expect.objectContaining( { isDragging: true } )
+			);
+
+			// Advance past the pan commit delay (80ms).
+			jest.advanceTimersByTime( 100 );
+
 			expect( onStatusChange ).toHaveBeenCalledWith(
 				expect.objectContaining( { isDragging: true } )
 			);
@@ -713,6 +733,7 @@ describe( 'InteractionController', () => {
 			expect( onStatusChange ).toHaveBeenCalledWith(
 				expect.objectContaining( { isDragging: false } )
 			);
+			jest.useRealTimers();
 		} );
 
 		it( 'pinch zoom dispatches SET_ZOOM_AT_POINT (atomic)', () => {
