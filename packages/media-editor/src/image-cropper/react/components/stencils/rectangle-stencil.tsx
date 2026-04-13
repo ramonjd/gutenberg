@@ -12,7 +12,7 @@ import {
 /**
  * Internal dependencies
  */
-import type { StencilProps, NormalizedRect } from '../../core/types';
+import type { StencilProps, NormalizedRect } from '../../../core/types';
 
 /**
  * Handle position identifiers for the 8 resize handles.

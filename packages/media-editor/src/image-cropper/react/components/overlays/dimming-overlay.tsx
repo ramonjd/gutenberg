@@ -1,7 +1,7 @@
 /**
  * Internal dependencies
  */
-import type { NormalizedRect, Size } from '../../core/types';
+import type { NormalizedRect, Size } from '../../../core/types';
 
 /**
  * Props for the DimmingOverlay component.

@@ -7,8 +7,8 @@ import { renderHook } from '@testing-library/react';
  * Internal dependencies
  */
 import { useTransformStyle } from '../use-transform-style';
-import type { CropperState, Size } from '../../core/types';
-import { DEFAULT_STATE } from '../../core/constants';
+import type { CropperState, Size } from '../../../core/types';
+import { DEFAULT_STATE } from '../../../core/constants';
 
 /**
  * Create a mock state with optional overrides.

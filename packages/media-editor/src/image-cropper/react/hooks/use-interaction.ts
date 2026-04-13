@@ -6,9 +6,9 @@ import { useCallback, useRef, useState } from '@wordpress/element';
 /**
  * Internal dependencies
  */
-import type { CropperAction, CropperState, Size } from '../core/types';
-import { MIN_ZOOM, MAX_ZOOM } from '../core/constants';
-import { restrictPanZoom } from '../core/camera';
+import type { CropperAction, CropperState, Size } from '../../core/types';
+import { MIN_ZOOM, MAX_ZOOM } from '../../core/constants';
+import { restrictPanZoom } from '../../core/camera';
 
 /** Time window for detecting a double-tap gesture (ms). */
 const DOUBLE_TAP_TIME = 300;

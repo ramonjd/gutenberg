@@ -10,7 +10,7 @@ import {
 	useCropperState,
 	type UseCropperStateReturn,
 } from '../hooks/use-cropper-state';
-import type { CropperState } from '../core/types';
+import type { CropperState } from '../../core/types';
 
 /**
  * The context value type for the CropperProvider.

@@ -6,8 +6,8 @@ import { useMemo } from '@wordpress/element';
 /**
  * Internal dependencies
  */
-import type { CropperState, Size } from '../core/types';
-import { degreesToRadians } from '../core/math/rotation';
+import type { CropperState, Size } from '../../core/types';
+import { degreesToRadians } from '../../core/math/rotation';
 
 /**
  * Computes a CSS matrix() transform string from the cropper state.

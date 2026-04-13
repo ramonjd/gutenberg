@@ -25,8 +25,8 @@ import type {
 	StencilProps,
 	Size,
 	NormalizedRect,
-} from '../core/types';
-import { getImageFit, getCropBounds } from '../core/camera';
+} from '../../core/types';
+import { getImageFit, getCropBounds } from '../../core/camera';
 import { useInteraction } from '../hooks/use-interaction';
 import { useTransformStyle } from '../hooks/use-transform-style';
 import { RectangleStencil } from './stencils/rectangle-stencil';

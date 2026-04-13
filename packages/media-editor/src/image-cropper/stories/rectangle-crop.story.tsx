@@ -18,8 +18,8 @@ import {
 /**
  * Internal dependencies
  */
-import { Cropper } from '../components/cropper';
-import { useCropperState } from '../hooks/use-cropper-state';
+import { Cropper } from '../react/components/cropper';
+import { useCropperState } from '../react/hooks/use-cropper-state';
 import type { TransformOperation } from '../core/types';
 import {
 	MIN_ZOOM,

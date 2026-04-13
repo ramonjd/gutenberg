@@ -7,7 +7,7 @@ import { renderHook, act } from '@testing-library/react';
  * Internal dependencies
  */
 import { useCropperState } from '../use-cropper-state';
-import { DEFAULT_STATE } from '../../core/constants';
+import { DEFAULT_STATE } from '../../../core/constants';
 
 describe( 'useCropperState', () => {
 	it( 'should initialize with DEFAULT_STATE', () => {

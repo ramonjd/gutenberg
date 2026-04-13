@@ -13,12 +13,12 @@ import type {
 	NormalizedPoint,
 	NormalizedRect,
 	Flip,
-} from '../core/types';
-import { DEFAULT_STATE, MAX_ZOOM } from '../core/constants';
-import { applyOperationToState } from '../core/transforms/pipeline';
-import { normalizeRotation } from '../core/math/rotation';
-import { restrictPanZoom, restrictCropRect } from '../core/camera';
-import { exportCroppedImage } from '../core/export/canvas-renderer';
+} from '../../core/types';
+import { DEFAULT_STATE, MAX_ZOOM } from '../../core/constants';
+import { applyOperationToState } from '../../core/transforms/pipeline';
+import { normalizeRotation } from '../../core/math/rotation';
+import { restrictPanZoom, restrictCropRect } from '../../core/camera';
+import { exportCroppedImage } from '../../core/export/canvas-renderer';
 
 /**
  * The return type of the useCropperState hook.
