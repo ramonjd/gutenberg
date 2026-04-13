@@ -37,7 +37,7 @@ import {
 import { getRotatedBBox, getSourceRegion } from '../core/camera';
 import './style.css';
 
-const SAMPLE_IMAGE = '1-100-grid.webp';
+const SAMPLE_IMAGE = 'image-cropper-demo.png';
 
 /**
  * Resolve an aspect ratio value from the select dropdown.
