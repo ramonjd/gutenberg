@@ -16,7 +16,11 @@ import type {
 } from '../../core/types';
 import { DEFAULT_STATE } from '../../core/constants';
 import { exportCroppedImage } from '../../core/export/canvas-renderer';
-import { cropperReducer, isStateDirty } from '../../core/state';
+import {
+	cropperReducer,
+	enforceContainment,
+	isStateDirty,
+} from '../../core/state';
 
 /**
  * The return type of the useCropperState hook.
@@ -69,7 +73,7 @@ export function useCropperState(
 	const [ state, dispatch ] = useReducer(
 		cropperReducer,
 		initialState,
-		( init ) => ( { ...DEFAULT_STATE, ...init } )
+		( init ) => enforceContainment( { ...DEFAULT_STATE, ...init } )
 	);
 
 	const initialRef = useRef< CropperState >( {

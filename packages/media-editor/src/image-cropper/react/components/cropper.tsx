@@ -312,8 +312,10 @@ export const Cropper = forwardRef< HTMLDivElement, CropperProps >(
 		}, [ aspectRatio, freeformCrop, visualSize, dispatch ] );
 
 		// Compute the crop handle bounds from the actual image footprint.
-		// Only recalculate when transform-relevant fields change, not on
-		// every cropRect change (which would be circular during drag).
+		// Depends on the full state object because getCropBounds reads
+		// crop, zoom, rotation, flip, and image. React Compiler requires
+		// the complete dependency; the computation is lightweight (a few
+		// trig ops + 4 corner transforms).
 		const cropBounds = useMemo( () => {
 			if ( ! state.image || elementSize.width === 0 ) {
 				return undefined;

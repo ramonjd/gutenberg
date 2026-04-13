@@ -639,6 +639,8 @@ export class InteractionController {
 		} );
 		doc.addEventListener( 'touchend', onTouchEnd );
 		doc.addEventListener( 'touchcancel', onTouchEnd );
+
+		this.touchCleanup = onTouchEnd;
 	}
 
 	/**
