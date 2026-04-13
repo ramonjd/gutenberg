@@ -6,3 +6,8 @@ export * from './transforms/pipeline';
 export * from './export/canvas-renderer';
 export * from './state';
 export * from './transform-style';
+export {
+	InteractionController,
+	type InteractionControllerOptions,
+	type InteractionStatus,
+} from './interaction-controller';
