@@ -13,11 +13,13 @@ import {
  * Internal dependencies
  */
 import type { StencilProps, NormalizedRect } from '../../../core/types';
-
-/**
- * Handle position identifiers for the 8 resize handles.
- */
-type HandlePosition = 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se';
+import {
+	computeFreeResizeRect,
+	computeLockedResizeRect,
+	type HandlePosition,
+	type CropBounds,
+	type ResizeDragState,
+} from '../../../core/stencil-math';
 
 /**
  * Corner handle positions only — used when aspect ratio is locked.
@@ -57,24 +59,8 @@ const HANDLE_LABELS: Record< HandlePosition, string > = {
  */
 const KEYBOARD_STEP = 0.02;
 
-/** Minimum crop rect dimension in normalized space (5% of visual area). */
-const MIN_CROP_SIZE = 0.05;
-
 /** Delay before keyboard resize triggers settle (ms). */
 const KEYBOARD_SETTLE_DELAY = 500;
-
-/**
- * Internal drag state for tracking a resize interaction.
- */
-interface DragState {
-	/** Which handle is being dragged. */
-	handle: HandlePosition;
-	/** The mouse position (pixels) when the drag started. */
-	startX: number;
-	startY: number;
-	/** The crop rect (normalized) when the drag started. */
-	startRect: NormalizedRect;
-}
 
 /**
  * Props for the RectangleStencil component.
@@ -118,9 +104,20 @@ export function RectangleStencil( {
 	const boundsMinY = cropBounds?.minY ?? 0;
 	const boundsMaxX = cropBounds?.maxX ?? 1;
 	const boundsMaxY = cropBounds?.maxY ?? 1;
+	const bounds: CropBounds = useMemo(
+		() => ( {
+			minX: boundsMinX,
+			minY: boundsMinY,
+			maxX: boundsMaxX,
+			maxY: boundsMaxY,
+		} ),
+		[ boundsMinX, boundsMinY, boundsMaxX, boundsMaxY ]
+	);
 	const keyboardSettleTimerRef = useRef< ReturnType< typeof setTimeout > >();
 	const dragElementRef = useRef< Element | null >( null );
-	const [ dragState, setDragState ] = useState< DragState | null >( null );
+	const [ dragState, setDragState ] = useState< ResizeDragState | null >(
+		null
+	);
 	const hasLockedRatio = !! ( aspectRatio && aspectRatio > 0 );
 
 	// The normalized aspect ratio: the w/h ratio in normalized space that
@@ -175,168 +172,37 @@ export function RectangleStencil( {
 
 	/**
 	 * Compute the new crop rect for a free (no aspect ratio) resize.
+	 * Delegates to the pure function in core/stencil-math.ts.
 	 */
 	const computeFreeRect = useCallback(
 		(
-			drag: DragState,
+			drag: ResizeDragState,
 			clientX: number,
 			clientY: number
-		): NormalizedRect => {
-			const dx =
-				imageSize.width > 0
-					? ( clientX - drag.startX ) / imageSize.width
-					: 0;
-			const dy =
-				imageSize.height > 0
-					? ( clientY - drag.startY ) / imageSize.height
-					: 0;
-
-			const s = drag.startRect;
-			const handle = drag.handle;
-
-			let edgeTop = s.y;
-			let edgeBottom = s.y + s.height;
-			let edgeLeft = s.x;
-			let edgeRight = s.x + s.width;
-
-			if ( handle === 'n' || handle === 'nw' || handle === 'ne' ) {
-				edgeTop = Math.max(
-					boundsMinY,
-					Math.min( s.y + dy, edgeBottom - MIN_CROP_SIZE )
-				);
-			}
-			if ( handle === 's' || handle === 'sw' || handle === 'se' ) {
-				edgeBottom = Math.max(
-					edgeTop + MIN_CROP_SIZE,
-					Math.min( s.y + s.height + dy, boundsMaxY )
-				);
-			}
-			if ( handle === 'w' || handle === 'nw' || handle === 'sw' ) {
-				edgeLeft = Math.max(
-					boundsMinX,
-					Math.min( s.x + dx, edgeRight - MIN_CROP_SIZE )
-				);
-			}
-			if ( handle === 'e' || handle === 'ne' || handle === 'se' ) {
-				edgeRight = Math.max(
-					edgeLeft + MIN_CROP_SIZE,
-					Math.min( s.x + s.width + dx, boundsMaxX )
-				);
-			}
-
-			return {
-				x: edgeLeft,
-				y: edgeTop,
-				width: edgeRight - edgeLeft,
-				height: edgeBottom - edgeTop,
-			};
-		},
-		[
-			imageSize.width,
-			imageSize.height,
-			boundsMinX,
-			boundsMinY,
-			boundsMaxX,
-			boundsMaxY,
-		]
+		): NormalizedRect =>
+			computeFreeResizeRect( drag, clientX, clientY, imageSize, bounds ),
+		[ imageSize, bounds ]
 	);
 
 	/**
 	 * Compute the new crop rect for a locked-aspect-ratio corner resize.
-	 *
-	 * The opposite corner is the anchor. The dragged corner moves freely
-	 * but the result is clamped to maintain the aspect ratio and stay
-	 * within bounds.
+	 * Delegates to the pure function in core/stencil-math.ts.
 	 */
 	const computeLockedRect = useCallback(
 		(
-			drag: DragState,
+			drag: ResizeDragState,
 			clientX: number,
 			clientY: number
-		): NormalizedRect => {
-			const dx =
-				imageSize.width > 0
-					? ( clientX - drag.startX ) / imageSize.width
-					: 0;
-			const dy =
-				imageSize.height > 0
-					? ( clientY - drag.startY ) / imageSize.height
-					: 0;
-
-			const s = drag.startRect;
-			const handle = drag.handle;
-
-			// Determine the anchor corner (opposite to the dragged corner).
-			const anchorX =
-				handle === 'nw' || handle === 'sw' ? s.x + s.width : s.x;
-			const anchorY =
-				handle === 'nw' || handle === 'ne' ? s.y + s.height : s.y;
-
-			// Direction the crop grows from the anchor (+1 = right/down, -1 = left/up).
-			const dirX = handle === 'nw' || handle === 'sw' ? -1 : 1;
-			const dirY = handle === 'nw' || handle === 'ne' ? -1 : 1;
-
-			// Desired new position of the dragged corner.
-			const draggedX =
-				( handle === 'nw' || handle === 'sw' ? s.x : s.x + s.width ) +
-				dx;
-			const draggedY =
-				( handle === 'nw' || handle === 'ne' ? s.y : s.y + s.height ) +
-				dy;
-
-			// Raw distances from anchor to dragged corner.
-			let distW = ( draggedX - anchorX ) * dirX;
-			let distH = ( draggedY - anchorY ) * dirY;
-
-			// Enforce minimum size.
-			distW = Math.max( distW, MIN_CROP_SIZE );
-			distH = Math.max( distH, MIN_CROP_SIZE );
-
-			// Determine which axis "drives" — whichever the user moved more
-			// (in pixel space) determines the size, the other follows.
-			const pixelDistW = distW * imageSize.width;
-			const pixelDistH = distH * imageSize.height;
-			if ( pixelDistW / pixelDistH > normalizedRatio ) {
-				// Width is the driver — compute height from ratio.
-				distH = distW / normalizedRatio;
-			} else {
-				// Height is the driver — compute width from ratio.
-				distW = distH * normalizedRatio;
-			}
-
-			// Clamp to image coverage bounds. If the rect would exceed,
-			// shrink it (maintaining ratio) to fit.
-			const maxW = dirX > 0 ? boundsMaxX - anchorX : anchorX - boundsMinX;
-			const maxH = dirY > 0 ? boundsMaxY - anchorY : anchorY - boundsMinY;
-
-			if ( distW > maxW ) {
-				distW = maxW;
-				distH = distW / normalizedRatio;
-			}
-			if ( distH > maxH ) {
-				distH = maxH;
-				distW = distH * normalizedRatio;
-			}
-
-			// Enforce minimum after clamping.
-			distW = Math.max( distW, MIN_CROP_SIZE );
-			distH = Math.max( distH, MIN_CROP_SIZE );
-
-			// Compute the final rect position from the anchor.
-			const newX = dirX > 0 ? anchorX : anchorX - distW;
-			const newY = dirY > 0 ? anchorY : anchorY - distH;
-
-			return { x: newX, y: newY, width: distW, height: distH };
-		},
-		[
-			imageSize.width,
-			imageSize.height,
-			normalizedRatio,
-			boundsMinX,
-			boundsMinY,
-			boundsMaxX,
-			boundsMaxY,
-		]
+		): NormalizedRect =>
+			computeLockedResizeRect(
+				drag,
+				clientX,
+				clientY,
+				imageSize,
+				bounds,
+				normalizedRatio
+			),
+		[ imageSize, bounds, normalizedRatio ]
 	);
 
 	/**
@@ -377,7 +243,7 @@ export function RectangleStencil( {
 			if ( hasLockedRatio ) {
 				// For locked aspect ratio, synthesize a drag from the
 				// current rect and apply the delta via computeLockedRect.
-				const syntheticDrag: DragState = {
+				const syntheticDrag: ResizeDragState = {
 					handle,
 					startX: 0,
 					startY: 0,
@@ -394,7 +260,7 @@ export function RectangleStencil( {
 				}, KEYBOARD_SETTLE_DELAY );
 			} else {
 				// For freeform resize, synthesize a drag via computeFreeRect.
-				const syntheticDrag: DragState = {
+				const syntheticDrag: ResizeDragState = {
 					handle,
 					startX: 0,
 					startY: 0,

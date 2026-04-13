@@ -11,3 +11,4 @@ export {
 	type InteractionControllerOptions,
 	type InteractionStatus,
 } from './interaction-controller';
+export * from './stencil-math';
