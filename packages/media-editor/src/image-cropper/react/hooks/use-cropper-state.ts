@@ -76,10 +76,9 @@ export function useCropperState(
 		( init ) => enforceContainment( { ...DEFAULT_STATE, ...init } )
 	);
 
-	const initialRef = useRef< CropperState >( {
-		...DEFAULT_STATE,
-		...initialState,
-	} );
+	const initialRef = useRef< CropperState >(
+		enforceContainment( { ...DEFAULT_STATE, ...initialState } )
+	);
 
 	const setCrop = useCallback(
 		( crop: NormalizedPoint ) => {
@@ -136,11 +135,10 @@ export function useCropperState(
 	const reset = useCallback(
 		( resetState?: Partial< CropperState > ) => {
 			dispatch( { type: 'RESET', payload: resetState } );
-			if ( ! resetState ) {
-				initialRef.current = { ...DEFAULT_STATE };
-			} else {
-				initialRef.current = { ...DEFAULT_STATE, ...resetState };
-			}
+			initialRef.current = enforceContainment( {
+				...DEFAULT_STATE,
+				...resetState,
+			} );
 		},
 		[ dispatch ]
 	);
