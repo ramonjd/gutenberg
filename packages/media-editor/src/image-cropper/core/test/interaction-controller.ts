@@ -784,6 +784,137 @@ describe( 'InteractionController', () => {
 
 			expect( onGestureEnd ).toHaveBeenCalledTimes( 1 );
 		} );
+
+		it( 'late second finger switches from pan to pinch', () => {
+			const state = makeState( { zoom: 2 } );
+			const { controller } = createController( state );
+			const doc = createMockDocument();
+			const rect = createContainerRect();
+
+			// First finger lands alone.
+			controller.handleTouchStart(
+				createTouchEvent( [ { clientX: 200, clientY: 150 } ] ),
+				rect,
+				doc
+			);
+
+			// First move with 1 finger — starts pan.
+			doc._fire(
+				'touchmove',
+				createTouchEvent( [ { clientX: 210, clientY: 155 } ] )
+			);
+			expect( dispatchMock ).toHaveBeenCalledWith(
+				expect.objectContaining( { type: 'SET_CROP' } )
+			);
+			dispatchMock.mockClear();
+
+			// Second finger arrives via touchstart.
+			controller.handleTouchStart(
+				createTouchEvent( [
+					{ clientX: 200, clientY: 150 },
+					{ clientX: 350, clientY: 150 },
+				] ),
+				rect,
+				doc
+			);
+
+			// Move with 2 fingers — should pinch, not pan.
+			doc._fire(
+				'touchmove',
+				createTouchEvent( [
+					{ clientX: 180, clientY: 150 },
+					{ clientX: 370, clientY: 150 },
+				] )
+			);
+
+			expect( dispatchMock ).toHaveBeenCalledWith(
+				expect.objectContaining( { type: 'SET_ZOOM_AT_POINT' } )
+			);
+			// Should NOT have dispatched any more SET_CROP after switching.
+			expect(
+				dispatchMock.mock.calls.filter(
+					( c ) => c[ 0 ].type === 'SET_CROP'
+				)
+			).toHaveLength( 0 );
+		} );
+
+		it( 'mid-move second finger triggers pinch without touchstart', () => {
+			const state = makeState( { zoom: 2 } );
+			const { controller } = createController( state );
+			const doc = createMockDocument();
+			const rect = createContainerRect();
+
+			// First finger lands.
+			controller.handleTouchStart(
+				createTouchEvent( [ { clientX: 200, clientY: 150 } ] ),
+				rect,
+				doc
+			);
+
+			// First touchmove already has 2 fingers (browser may batch).
+			doc._fire(
+				'touchmove',
+				createTouchEvent( [
+					{ clientX: 200, clientY: 150 },
+					{ clientX: 350, clientY: 150 },
+				] )
+			);
+
+			// First 2-finger move initializes pinch state, no dispatch yet.
+			expect( dispatchMock ).not.toHaveBeenCalled();
+
+			// Second 2-finger move dispatches pinch zoom.
+			doc._fire(
+				'touchmove',
+				createTouchEvent( [
+					{ clientX: 180, clientY: 150 },
+					{ clientX: 370, clientY: 150 },
+				] )
+			);
+
+			expect( dispatchMock ).toHaveBeenCalledWith(
+				expect.objectContaining( { type: 'SET_ZOOM_AT_POINT' } )
+			);
+		} );
+
+		it( 'does not switch to pan after pinch finger is lifted', () => {
+			const state = makeState( { zoom: 2 } );
+			const { controller } = createController( state );
+			const doc = createMockDocument();
+			const rect = createContainerRect();
+
+			// Two fingers land simultaneously.
+			controller.handleTouchStart(
+				createTouchEvent( [
+					{ clientX: 200, clientY: 150 },
+					{ clientX: 350, clientY: 150 },
+				] ),
+				rect,
+				doc
+			);
+
+			// Pinch move.
+			doc._fire(
+				'touchmove',
+				createTouchEvent( [
+					{ clientX: 180, clientY: 150 },
+					{ clientX: 370, clientY: 150 },
+				] )
+			);
+
+			dispatchMock.mockClear();
+
+			// One finger lifts — move with 1 touch should NOT pan
+			// because didPinch is true.
+			doc._fire(
+				'touchmove',
+				createTouchEvent( [ { clientX: 250, clientY: 160 } ] )
+			);
+
+			expect( dispatchMock ).not.toHaveBeenCalledWith(
+				expect.objectContaining( { type: 'SET_CROP' } )
+			);
+		} );
 	} );
 
 	describe( 'lazy options', () => {
