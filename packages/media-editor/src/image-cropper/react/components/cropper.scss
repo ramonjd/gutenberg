@@ -27,7 +27,14 @@
 	&__dimming {
 		position: absolute;
 		pointer-events: none;
-		/* Large shadow spread dims everything outside the crop area */
+		/* Large shadow spread dims everything outside the crop area.
+		   Darker at rest for clear crop framing, lighter during drag
+		   so the user can see where they're panning. */
+		box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
+		transition: box-shadow 0.15s ease;
+	}
+
+	&--dragging &__dimming {
 		box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
 	}
 
