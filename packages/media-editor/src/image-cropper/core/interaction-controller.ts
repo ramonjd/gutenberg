@@ -11,8 +11,6 @@ const DOUBLE_TAP_TIME = 300;
 const DOUBLE_TAP_DISTANCE = 30;
 /** Duration of the zoom animation state (ms). */
 const ZOOM_ANIMATION_DURATION = 200;
-/** Delay before single-finger touch commits to pan (ms). Allows a second finger to arrive for pinch. */
-const PAN_COMMIT_DELAY = 80;
 
 /**
  * Get the natural image dimensions from cropper state, falling back to 1x1.
@@ -121,30 +119,26 @@ export class InteractionController {
 
 	/** Active touch state during touch interactions. */
 	private touch: {
-		/** Finger distance at pinch start (0 for single-finger). */
+		/** Finger distance at pinch start (0 until pinch detected). */
 		startDistance: number;
-		/** Zoom level at gesture start. */
+		/** Zoom level when pinch was detected. */
 		startZoom: number;
-		/** Last single-finger X position. */
+		/** First touch X/Y (for single-finger pan delta). */
 		lastTouchX: number;
-		/** Last single-finger Y position. */
 		lastTouchY: number;
-		/** Pan at gesture start. */
+		/** Pan when gesture started. */
 		startCropX: number;
 		startCropY: number;
-		/** True while only one finger is down. Switches to false on pinch. */
-		isSingleTouch: boolean;
-		/** Whether pan dispatches are committed (false during initial delay). */
-		panCommitted: boolean;
 		/** Container rect snapshot for focal-point math. */
 		containerRect?: DOMRect;
-		/** Midpoint of two fingers at pinch start (for combined pan+zoom). */
+		/** Midpoint of two fingers when pinch was detected. */
 		startMidX: number;
 		startMidY: number;
+		/** Whether pinch was ever detected during this gesture. */
+		didPinch: boolean;
+		/** Whether any dispatch has occurred (prevents dispatching before first move). */
+		moved: boolean;
 	} | null = null;
-
-	/** Timer for delaying pan commitment after first finger. */
-	private panCommitTimer: ReturnType< typeof setTimeout > | undefined;
 
 	/** Cleanup function for active touch listeners on document. */
 	private touchCleanup: ( () => void ) | null = null;
@@ -409,36 +403,33 @@ export class InteractionController {
 		containerRect: DOMRect,
 		doc: Document = document
 	): void {
-		const currentState = this.options.getState();
-		const containerSize = this.options.getContainerSize();
-		const imgSize = this.options.getImageSize();
-
-		if ( e.touches.length === 2 ) {
-			// Two-finger pinch zoom — either fresh or upgrading from single-finger.
-			clearTimeout( this.panCommitTimer );
+		// Second finger arriving during an existing gesture — snapshot
+		// pinch start values. onTouchMove will detect 2 touches and
+		// handle pinch automatically.
+		if ( this.touch && e.touches.length === 2 ) {
+			const s = this.options.getState();
 			const distance = getTouchDistance( e.touches[ 0 ], e.touches[ 1 ] );
 			const midX =
 				( e.touches[ 0 ].clientX + e.touches[ 1 ].clientX ) / 2;
 			const midY =
 				( e.touches[ 0 ].clientY + e.touches[ 1 ].clientY ) / 2;
-			const wasAlreadyTracking = !! this.touch;
-			this.touch = {
-				startDistance: distance,
-				startZoom: currentState.zoom,
-				lastTouchX: 0,
-				lastTouchY: 0,
-				startCropX: currentState.crop.x,
-				startCropY: currentState.crop.y,
-				isSingleTouch: false,
-				panCommitted: false,
-				containerRect,
-				startMidX: midX,
-				startMidY: midY,
-			};
-			if ( ! wasAlreadyTracking ) {
-				this.options.onGestureStart?.();
-			}
-		} else if ( e.touches.length === 1 ) {
+			this.touch.didPinch = true;
+			this.touch.startDistance = distance;
+			this.touch.startZoom = s.zoom;
+			this.touch.startCropX = s.crop.x;
+			this.touch.startCropY = s.crop.y;
+			this.touch.startMidX = midX;
+			this.touch.startMidY = midY;
+			this.touch.containerRect = containerRect;
+			this.setStatus( { isDragging: false } );
+			return;
+		}
+
+		const currentState = this.options.getState();
+		const containerSize = this.options.getContainerSize();
+		const imgSize = this.options.getImageSize();
+
+		if ( e.touches.length === 1 ) {
 			// Double-tap detection: toggle between fit and 2x zoom.
 			const now = Date.now();
 			const tapX = e.touches[ 0 ].clientX;
@@ -522,9 +513,8 @@ export class InteractionController {
 			// Record this tap for future double-tap detection.
 			this.lastTap = { time: now, x: tapX, y: tapY };
 
-			// Single finger: start tracking but delay pan commitment.
-			// If a second finger arrives within PAN_COMMIT_DELAY, we
-			// switch to pinch mode without any pan having occurred.
+			// Record touch state. Don't decide pan vs pinch yet —
+			// that happens in onTouchMove based on touches.length.
 			this.touch = {
 				startDistance: 0,
 				startZoom: currentState.zoom,
@@ -532,67 +522,75 @@ export class InteractionController {
 				lastTouchY: e.touches[ 0 ].clientY,
 				startCropX: currentState.crop.x,
 				startCropY: currentState.crop.y,
-				isSingleTouch: true,
-				panCommitted: false,
+				containerRect,
 				startMidX: 0,
 				startMidY: 0,
+				didPinch: false,
+				moved: false,
 			};
 			this.options.onGestureStart?.();
-			// Commit pan after a short delay — if a second finger arrives
-			// before this fires, panCommitted stays false and no pan occurs.
-			clearTimeout( this.panCommitTimer );
-			this.panCommitTimer = setTimeout( () => {
-				if ( this.touch?.isSingleTouch ) {
-					this.touch.panCommitted = true;
-					this.setStatus( { isDragging: true } );
-				}
-			}, PAN_COMMIT_DELAY );
+		} else if ( e.touches.length === 2 ) {
+			// Both fingers landed simultaneously (rare but possible).
+			const distance = getTouchDistance( e.touches[ 0 ], e.touches[ 1 ] );
+			const midX =
+				( e.touches[ 0 ].clientX + e.touches[ 1 ].clientX ) / 2;
+			const midY =
+				( e.touches[ 0 ].clientY + e.touches[ 1 ].clientY ) / 2;
+			this.touch = {
+				startDistance: distance,
+				startZoom: currentState.zoom,
+				lastTouchX: 0,
+				lastTouchY: 0,
+				startCropX: currentState.crop.x,
+				startCropY: currentState.crop.y,
+				containerRect,
+				startMidX: midX,
+				startMidY: midY,
+				didPinch: true,
+				moved: false,
+			};
+			this.options.onGestureStart?.();
 		}
 
+		// All mode decisions happen here based on moveEvent.touches.length.
+		// This eliminates timing sensitivity — it doesn't matter if
+		// fingers land 0ms or 200ms apart.
 		const onTouchMove = ( moveEvent: TouchEvent ) => {
 			const touch = this.touch;
 			if ( ! touch ) {
 				return;
 			}
 
-			// If we're still in single-touch mode but a second finger arrived
-			// (touchstart with 2 fingers transitions touch.isSingleTouch to false),
-			// or if the move itself has 2 touches and we haven't transitioned yet,
-			// upgrade to pinch on the fly.
-			if ( touch.isSingleTouch && moveEvent.touches.length === 2 ) {
-				clearTimeout( this.panCommitTimer );
-				const distance = getTouchDistance(
-					moveEvent.touches[ 0 ],
-					moveEvent.touches[ 1 ]
-				);
-				const s = this.options.getState();
-				const midX =
-					( moveEvent.touches[ 0 ].clientX +
-						moveEvent.touches[ 1 ].clientX ) /
-					2;
-				const midY =
-					( moveEvent.touches[ 0 ].clientY +
-						moveEvent.touches[ 1 ].clientY ) /
-					2;
-				touch.isSingleTouch = false;
-				touch.panCommitted = false;
-				touch.startDistance = distance;
-				touch.startZoom = s.zoom;
-				touch.startCropX = s.crop.x;
-				touch.startCropY = s.crop.y;
-				touch.startMidX = midX;
-				touch.startMidY = midY;
-				this.setStatus( { isDragging: false } );
-				return;
-			}
-
 			cancelAnimationFrame( this.rafId );
 			this.rafId = requestAnimationFrame( () => {
 				const s = this.options.getState();
-				const latestContainerSize = this.options.getContainerSize();
-				const latestImageSize = this.options.getImageSize();
 
-				if ( ! touch.isSingleTouch && moveEvent.touches.length === 2 ) {
+				if ( moveEvent.touches.length === 2 ) {
+					// Two fingers → always pinch, regardless of how gesture
+					// started. Initialize pinch state on first 2-finger move.
+					if ( ! touch.didPinch ) {
+						touch.didPinch = true;
+						touch.startDistance = getTouchDistance(
+							moveEvent.touches[ 0 ],
+							moveEvent.touches[ 1 ]
+						);
+						touch.startZoom = s.zoom;
+						touch.startCropX = s.crop.x;
+						touch.startCropY = s.crop.y;
+						touch.startMidX =
+							( moveEvent.touches[ 0 ].clientX +
+								moveEvent.touches[ 1 ].clientX ) /
+							2;
+						touch.startMidY =
+							( moveEvent.touches[ 0 ].clientY +
+								moveEvent.touches[ 1 ].clientY ) /
+							2;
+						this.setStatus( { isDragging: false } );
+						return;
+					}
+					const latestContainerSize = this.options.getContainerSize();
+					const latestImageSize = this.options.getImageSize();
+
 					// Pinch zoom with focal point at finger midpoint,
 					// plus simultaneous pan from midpoint drift.
 					const t0 = moveEvent.touches[ 0 ];
@@ -671,12 +669,20 @@ export class InteractionController {
 						} );
 					}
 				} else if (
-					touch.isSingleTouch &&
-					touch.panCommitted &&
-					moveEvent.touches.length === 1
+					moveEvent.touches.length === 1 &&
+					! touch.didPinch
 				) {
-					// Single finger pan — only after commit delay.
-					const panSize = latestImageSize ?? latestContainerSize;
+					// One finger and no pinch ever detected → pan.
+					// If fingers went 2→1 (didPinch is true), we do NOT
+					// switch to pan — avoids accidental pan after releasing
+					// one finger from a pinch.
+					if ( ! touch.moved ) {
+						touch.moved = true;
+						this.setStatus( { isDragging: true } );
+					}
+					const panImageSize = this.options.getImageSize();
+					const panContainerSize = this.options.getContainerSize();
+					const panSize = panImageSize ?? panContainerSize;
 					const deltaX =
 						panSize.width > 0
 							? ( moveEvent.touches[ 0 ].clientX -
@@ -711,17 +717,13 @@ export class InteractionController {
 		};
 
 		const onTouchEnd = () => {
-			clearTimeout( this.panCommitTimer );
-			const wasSingleTouch = this.touch?.isSingleTouch;
 			this.touch = null;
 			this.touchCleanup = null;
 			cancelAnimationFrame( this.rafId );
 			doc.removeEventListener( 'touchmove', onTouchMove );
 			doc.removeEventListener( 'touchend', onTouchEnd );
 			doc.removeEventListener( 'touchcancel', onTouchEnd );
-			if ( wasSingleTouch ) {
-				this.setStatus( { isDragging: false } );
-			}
+			this.setStatus( { isDragging: false } );
 			this.options.onGestureEnd?.();
 		};
 
@@ -872,7 +874,6 @@ export class InteractionController {
 		cancelAnimationFrame( this.rafId );
 		clearTimeout( this.zoomTimer );
 		clearTimeout( this.wheelGestureTimer );
-		clearTimeout( this.panCommitTimer );
 		this.touchCleanup?.();
 		this.drag = null;
 		this.touch = null;

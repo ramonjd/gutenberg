@@ -642,10 +642,7 @@ describe( 'InteractionController', () => {
 	} );
 
 	describe( 'touch', () => {
-		it( 'single-finger pan dispatches SET_CROP after commit delay', () => {
-			jest.useFakeTimers( {
-				doNotFake: [ 'requestAnimationFrame', 'cancelAnimationFrame' ],
-			} );
+		it( 'single-finger pan dispatches SET_CROP on first move', () => {
 			const state = makeState( { zoom: 2 } );
 			const { controller } = createController( state );
 			const doc = createMockDocument();
@@ -657,10 +654,7 @@ describe( 'InteractionController', () => {
 				doc
 			);
 
-			// Advance past pan commit delay.
-			jest.advanceTimersByTime( 100 );
-
-			// Simulate touchmove.
+			// Simulate touchmove — pan should start on first move, no delay.
 			doc._fire(
 				'touchmove',
 				createTouchEvent( [ { clientX: 150, clientY: 120 } ] )
@@ -669,7 +663,6 @@ describe( 'InteractionController', () => {
 			expect( dispatchMock ).toHaveBeenCalledWith(
 				expect.objectContaining( { type: 'SET_CROP' } )
 			);
-			jest.useRealTimers();
 		} );
 
 		it( 'calls onGestureStart/onGestureEnd for single-finger pan', () => {
@@ -697,10 +690,7 @@ describe( 'InteractionController', () => {
 			expect( onGestureEnd ).toHaveBeenCalledTimes( 1 );
 		} );
 
-		it( 'reports isDragging for single-finger pan after commit delay', () => {
-			jest.useFakeTimers( {
-				doNotFake: [ 'requestAnimationFrame', 'cancelAnimationFrame' ],
-			} );
+		it( 'reports isDragging on first single-finger move', () => {
 			const state = makeState( { zoom: 2 } );
 			const onStatusChange = jest.fn();
 			const { controller } = createController( state, {
@@ -715,13 +705,16 @@ describe( 'InteractionController', () => {
 				doc
 			);
 
-			// isDragging is not set immediately — pan commit is delayed.
+			// isDragging is not set at touchstart — only on first move.
 			expect( onStatusChange ).not.toHaveBeenCalledWith(
 				expect.objectContaining( { isDragging: true } )
 			);
 
-			// Advance past the pan commit delay (80ms).
-			jest.advanceTimersByTime( 100 );
+			// First move triggers isDragging.
+			doc._fire(
+				'touchmove',
+				createTouchEvent( [ { clientX: 105, clientY: 105 } ] )
+			);
 
 			expect( onStatusChange ).toHaveBeenCalledWith(
 				expect.objectContaining( { isDragging: true } )
@@ -733,7 +726,6 @@ describe( 'InteractionController', () => {
 			expect( onStatusChange ).toHaveBeenCalledWith(
 				expect.objectContaining( { isDragging: false } )
 			);
-			jest.useRealTimers();
 		} );
 
 		it( 'pinch zoom dispatches SET_ZOOM_AT_POINT (atomic)', () => {
