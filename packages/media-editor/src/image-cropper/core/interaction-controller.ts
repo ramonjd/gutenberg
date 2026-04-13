@@ -52,6 +52,10 @@ export interface InteractionStatus {
 
 /**
  * Options for creating an InteractionController.
+ *
+ * Scalar options (minZoom, maxZoom, etc.) are read lazily on each
+ * interaction, so changes to the options object take effect immediately
+ * without recreating the controller.
  */
 export interface InteractionControllerOptions {
 	/** Returns the current cropper state. Called on every interaction. */
@@ -62,15 +66,15 @@ export interface InteractionControllerOptions {
 	getContainerSize: () => Size;
 	/** Returns the rendered image dimensions in pixels, if available. */
 	getImageSize: () => Size | undefined;
-	/** Minimum zoom level. Defaults to MIN_ZOOM. */
+	/** Minimum zoom level. Defaults to MIN_ZOOM. Read lazily. */
 	minZoom?: number;
-	/** Maximum zoom level. Defaults to MAX_ZOOM. */
+	/** Maximum zoom level. Defaults to MAX_ZOOM. Read lazily. */
 	maxZoom?: number;
-	/** Zoom speed multiplier for wheel events. Defaults to 0.01. */
+	/** Zoom speed multiplier for wheel events. Defaults to 0.01. Read lazily. */
 	zoomSpeed?: number;
-	/** Pan step size in normalized coords for keyboard events. Defaults to 0.05. */
+	/** Pan step size in normalized coords for keyboard events. Defaults to 0.05. Read lazily. */
 	keyboardStep?: number;
-	/** Zoom level for double-tap zoom. Defaults to 2. */
+	/** Zoom level for double-tap zoom. Defaults to 2. Read lazily. */
 	doubleTapZoom?: number;
 	/** Fires when a continuous gesture begins (pan drag, pinch zoom). */
 	onGestureStart?: () => void;
@@ -92,15 +96,14 @@ export interface InteractionControllerOptions {
  * Instead it exposes `handlePointerDown`, `handleWheel`, `handleTouchStart`,
  * and `handleKeyDown` methods that the UI layer calls with native DOM events.
  *
+ * Scalar options (minZoom, maxZoom, zoomSpeed, keyboardStep, doubleTapZoom)
+ * are read lazily from `this.options` on each interaction, so the UI layer
+ * can update them without recreating the controller.
+ *
  * Call `destroy()` to clean up timers and pending animation frames.
  */
 export class InteractionController {
 	private readonly options: InteractionControllerOptions;
-	private readonly minZoom: number;
-	private readonly maxZoom: number;
-	private readonly zoomSpeed: number;
-	private readonly keyboardStep: number;
-	private readonly doubleTapZoom: number;
 
 	/** Current drag/zoom status. */
 	private isDragging = false;
@@ -150,11 +153,31 @@ export class InteractionController {
 
 	constructor( options: InteractionControllerOptions ) {
 		this.options = options;
-		this.minZoom = options.minZoom ?? MIN_ZOOM;
-		this.maxZoom = options.maxZoom ?? MAX_ZOOM;
-		this.zoomSpeed = options.zoomSpeed ?? 0.01;
-		this.keyboardStep = options.keyboardStep ?? 0.05;
-		this.doubleTapZoom = options.doubleTapZoom ?? 2;
+	}
+
+	/** Read minZoom lazily so option changes take effect immediately. */
+	private get minZoom(): number {
+		return this.options.minZoom ?? MIN_ZOOM;
+	}
+
+	/** Read maxZoom lazily so option changes take effect immediately. */
+	private get maxZoom(): number {
+		return this.options.maxZoom ?? MAX_ZOOM;
+	}
+
+	/** Read zoomSpeed lazily so option changes take effect immediately. */
+	private get zoomSpeed(): number {
+		return this.options.zoomSpeed ?? 0.01;
+	}
+
+	/** Read keyboardStep lazily so option changes take effect immediately. */
+	private get keyboardStep(): number {
+		return this.options.keyboardStep ?? 0.05;
+	}
+
+	/** Read doubleTapZoom lazily so option changes take effect immediately. */
+	private get doubleTapZoom(): number {
+		return this.options.doubleTapZoom ?? 2;
 	}
 
 	/**
@@ -235,9 +258,9 @@ export class InteractionController {
 			cancelAnimationFrame( this.rafId );
 			this.rafId = requestAnimationFrame( () => {
 				const s = this.options.getState();
-				const imageSize = this.options.getImageSize();
+				const imgSize = this.options.getImageSize();
 				const containerSize = this.options.getContainerSize();
-				const panSize = imageSize ?? containerSize;
+				const panSize = imgSize ?? containerSize;
 				const deltaX =
 					panSize.width > 0
 						? ( pe.clientX - drag.startX ) / panSize.width
@@ -317,48 +340,25 @@ export class InteractionController {
 			return;
 		}
 
-		// Focal-point zoom: keep the point under the cursor stationary
-		// on screen. Without this, zooming always scales from the image
-		// center, which feels wrong when the cursor is at an edge.
-		//
-		// How it works:
-		// 1. Get the cursor position relative to the container center
-		//    (fx, fy) in screen pixels.
-		// 2. Convert to visual-normalized space by dividing by visSize.
-		//    This gives the cursor's position as the image "sees" it.
-		// 3. When zoom changes from z1 to z2, every point on the image
-		//    moves away from / toward the image center by the ratio
-		//    z2/z1. The cursor point would drift by:
-		//      drift = (focalNorm - pan) * (1 - z2/z1)
-		//    where focalNorm is the focal point in normalized space
-		//    and pan is the current image offset.
-		// 4. We add this drift to the pan so the focal point stays put.
-		// 5. restrictPanZoom clamps the result so the image still
-		//    covers the crop — near edges the focal point can't be
-		//    perfectly honored, which is the correct behavior.
+		// Focal-point zoom: keep the point under the cursor stationary.
 		const containerSize = this.options.getContainerSize();
-		const imageSize = this.options.getImageSize();
-		const visSize = imageSize ?? containerSize;
+		const imgSize = this.options.getImageSize();
+		const visSize = imgSize ?? containerSize;
 		const target = e.currentTarget;
 		const rect =
 			target instanceof Element
 				? target.getBoundingClientRect()
 				: undefined;
 		if ( visSize.width > 0 && visSize.height > 0 && rect ) {
-			// Step 1: cursor position relative to container center.
 			const fx = e.clientX - rect.left - containerSize.width / 2;
 			const fy = e.clientY - rect.top - containerSize.height / 2;
 
-			// Step 2-4: compute the pan correction.
-			// zoomRatio = (1 - newZoom/oldZoom) is the fraction of
-			// the focal-to-center offset that becomes drift.
 			const zoomRatio = 1 - newZoom / s.zoom;
 			const focalNormX = fx / visSize.width;
 			const focalNormY = fy / visSize.height;
 			const newCropX = s.crop.x + ( focalNormX - s.crop.x ) * zoomRatio;
 			const newCropY = s.crop.y + ( focalNormY - s.crop.y ) * zoomRatio;
 
-			// Step 5: clamp pan so the image covers the crop.
 			const { crop: clampedCrop } = restrictPanZoom(
 				{ ...s, zoom: newZoom, crop: { x: newCropX, y: newCropY } },
 				getImageSizeFromState( s ),
@@ -369,7 +369,6 @@ export class InteractionController {
 				payload: { zoom: newZoom, crop: clampedCrop },
 			} );
 		} else {
-			// Fallback: uniform zoom (no focal point available).
 			this.options.dispatch( { type: 'SET_ZOOM', payload: newZoom } );
 		}
 	}
@@ -388,7 +387,7 @@ export class InteractionController {
 	handleTouchStart( e: TouchEvent, containerRect: DOMRect ): void {
 		const currentState = this.options.getState();
 		const containerSize = this.options.getContainerSize();
-		const imageSize = this.options.getImageSize();
+		const imgSize = this.options.getImageSize();
 
 		if ( e.touches.length === 2 ) {
 			// Two-finger pinch zoom.
@@ -403,6 +402,7 @@ export class InteractionController {
 				isSingleTouch: false,
 				containerRect,
 			};
+			this.options.onGestureStart?.();
 		} else if ( e.touches.length === 1 ) {
 			// Double-tap detection: toggle between fit and 2x zoom.
 			const now = Date.now();
@@ -430,7 +430,7 @@ export class InteractionController {
 						( this.minZoom + this.doubleTapZoom ) / 2
 							? this.minZoom
 							: this.doubleTapZoom;
-					const visSize = imageSize ?? containerSize;
+					const visSize = imgSize ?? containerSize;
 
 					// Enable zoom animation before dispatching.
 					this.setStatus( { isZooming: true } );
@@ -497,6 +497,8 @@ export class InteractionController {
 				startCropY: currentState.crop.y,
 				isSingleTouch: true,
 			};
+			this.setStatus( { isDragging: true } );
+			this.options.onGestureStart?.();
 		}
 
 		const onTouchMove = ( moveEvent: TouchEvent ) => {
@@ -513,10 +515,6 @@ export class InteractionController {
 
 				if ( ! touch.isSingleTouch && moveEvent.touches.length === 2 ) {
 					// Pinch zoom with focal point at finger midpoint.
-					// Same algorithm as mouse wheel zoom (see comments
-					// there) but uses the midpoint between the two
-					// touch points as the focal point instead of the
-					// cursor position.
 					const t0 = moveEvent.touches[ 0 ];
 					const t1 = moveEvent.touches[ 1 ];
 					const currentDistance = getTouchDistance( t0, t1 );
@@ -545,7 +543,6 @@ export class InteractionController {
 							rect.top -
 							latestContainerSize.height / 2;
 
-						// Same drift correction as mouse wheel.
 						const zoomRatio = 1 - newZoom / s.zoom;
 						const focalNormX = mx / visSize.width;
 						const focalNormY = my / visSize.height;
@@ -554,28 +551,26 @@ export class InteractionController {
 						const newCropY =
 							s.crop.y + ( focalNormY - s.crop.y ) * zoomRatio;
 
-						// Clamp so image covers the crop.
 						const { crop: clampedCrop } = restrictPanZoom(
 							{
 								...s,
 								zoom: newZoom,
-								crop: {
-									x: newCropX,
-									y: newCropY,
-								},
+								crop: { x: newCropX, y: newCropY },
 							},
 							getImageSizeFromState( s ),
 							s.cropRect
 						);
+						// Atomic zoom+pan dispatch — same as wheel zoom.
 						this.options.dispatch( {
-							type: 'SET_CROP',
-							payload: clampedCrop,
+							type: 'SET_ZOOM_AT_POINT',
+							payload: { zoom: newZoom, crop: clampedCrop },
+						} );
+					} else {
+						this.options.dispatch( {
+							type: 'SET_ZOOM',
+							payload: newZoom,
 						} );
 					}
-					this.options.dispatch( {
-						type: 'SET_ZOOM',
-						payload: newZoom,
-					} );
 				} else if (
 					touch.isSingleTouch &&
 					moveEvent.touches.length === 1
@@ -616,12 +611,17 @@ export class InteractionController {
 		};
 
 		const onTouchEnd = () => {
+			const wasSingleTouch = this.touch?.isSingleTouch;
 			this.touch = null;
 			this.touchCleanup = null;
 			cancelAnimationFrame( this.rafId );
 			document.removeEventListener( 'touchmove', onTouchMove );
 			document.removeEventListener( 'touchend', onTouchEnd );
 			document.removeEventListener( 'touchcancel', onTouchEnd );
+			if ( wasSingleTouch ) {
+				this.setStatus( { isDragging: false } );
+			}
+			this.options.onGestureEnd?.();
 		};
 
 		// Clean up any previous touch listeners before registering new ones.

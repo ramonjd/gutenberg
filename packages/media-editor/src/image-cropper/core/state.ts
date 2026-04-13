@@ -209,11 +209,11 @@ export function cropperReducer(
 			);
 
 		case 'RESET':
-			return {
+			return enforceContainment( {
 				...DEFAULT_STATE,
 				image: state.image,
 				...action.payload,
-			};
+			} );
 	}
 }
 
