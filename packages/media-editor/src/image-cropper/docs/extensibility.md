@@ -377,6 +377,170 @@ All styles are in CSS classes with no inline style overrides, so consumers can o
 }
 ```
 
+## Framework integration
+
+The `core/` layer has zero React dependencies. It exports pure functions and a single class (`InteractionController`) that any framework can wrap. The React code under `react/` is one such wrapper — below are two others.
+
+### Vanilla JavaScript
+
+```js
+import {
+  cropperReducer,
+  DEFAULT_STATE,
+  InteractionController,
+  computeTransformStyle,
+  getImageFit,
+  getCropBounds,
+} from '@wordpress/media-editor';
+
+// --- State ------------------------------------------------------------
+let state = { ...DEFAULT_STATE };
+const imageSize = { width: 1600, height: 900 };
+
+function dispatch( action ) {
+  state = cropperReducer( state, action );
+  render( state );
+}
+
+// --- DOM refs ---------------------------------------------------------
+const container = document.getElementById( 'cropper' );
+const img = document.getElementById( 'cropper-image' );
+const overlay = document.getElementById( 'crop-overlay' );
+
+// --- Interaction controller -------------------------------------------
+const controller = new InteractionController( {
+  getState: () => state,
+  dispatch,
+  getContainerSize: () => ( {
+    width: container.clientWidth,
+    height: container.clientHeight,
+  } ),
+  getImageSize: () => imageSize,
+} );
+
+container.addEventListener( 'pointerdown', ( e ) =>
+  controller.handlePointerDown( e, container )
+);
+container.addEventListener( 'wheel', ( e ) => controller.handleWheel( e ), {
+  passive: false,
+} );
+container.addEventListener( 'touchstart', ( e ) =>
+  controller.handleTouchStart( e, container )
+);
+container.addEventListener( 'keydown', ( e ) =>
+  controller.handleKeyDown( e )
+);
+
+// --- Render -----------------------------------------------------------
+function render( s ) {
+  const containerSize = {
+    width: container.clientWidth,
+    height: container.clientHeight,
+  };
+  // Position the image.
+  const style = computeTransformStyle( s, containerSize, imageSize );
+  img.style.transform = style.transform;
+  img.style.width = style.width + 'px';
+  img.style.height = style.height + 'px';
+
+  // Position the crop overlay.
+  const bounds = getCropBounds( s, containerSize, imageSize );
+  overlay.style.left = bounds.x + 'px';
+  overlay.style.top = bounds.y + 'px';
+  overlay.style.width = bounds.width + 'px';
+  overlay.style.height = bounds.height + 'px';
+}
+
+// Initial render.
+render( state );
+
+// Cleanup when done.
+// controller.destroy();
+```
+
+### Vue 3 Composition API
+
+```vue
+<script setup>
+import { reactive, computed, ref, onMounted, onUnmounted } from 'vue';
+import {
+  cropperReducer,
+  DEFAULT_STATE,
+  InteractionController,
+  computeTransformStyle,
+  getCropBounds,
+} from '@wordpress/media-editor';
+
+const props = defineProps( { src: String, imageSize: Object } );
+
+// Reactive state — Vue tracks mutations automatically.
+const state = reactive( { ...DEFAULT_STATE } );
+
+function dispatch( action ) {
+  Object.assign( state, cropperReducer( { ...state }, action ) );
+}
+
+const containerRef = ref( null );
+
+// Computed transform style (recalculates when state changes).
+const containerSize = ref( { width: 0, height: 0 } );
+const transformStyle = computed( () =>
+  computeTransformStyle( state, containerSize.value, props.imageSize )
+);
+const cropBounds = computed( () =>
+  getCropBounds( state, containerSize.value, props.imageSize )
+);
+
+let controller;
+
+onMounted( () => {
+  const el = containerRef.value;
+  containerSize.value = { width: el.clientWidth, height: el.clientHeight };
+
+  controller = new InteractionController( {
+    getState: () => ( { ...state } ),
+    dispatch,
+    getContainerSize: () => containerSize.value,
+    getImageSize: () => props.imageSize,
+  } );
+
+  el.addEventListener( 'pointerdown', ( e ) =>
+    controller.handlePointerDown( e, el )
+  );
+  el.addEventListener( 'wheel', ( e ) => controller.handleWheel( e ), {
+    passive: false,
+  } );
+  el.addEventListener( 'keydown', ( e ) => controller.handleKeyDown( e ) );
+} );
+
+onUnmounted( () => controller?.destroy() );
+</script>
+
+<template>
+  <div ref="containerRef" class="cropper" tabindex="0">
+    <img
+      :src="props.src"
+      :style="{
+        transform: transformStyle.transform,
+        width: transformStyle.width + 'px',
+        height: transformStyle.height + 'px',
+      }"
+    />
+    <div
+      class="crop-overlay"
+      :style="{
+        left: cropBounds.x + 'px',
+        top: cropBounds.y + 'px',
+        width: cropBounds.width + 'px',
+        height: cropBounds.height + 'px',
+      }"
+    />
+  </div>
+</template>
+```
+
+The pattern is the same for any framework: wrap `cropperReducer` in the framework's reactivity primitive (`reactive()` in Vue, `writable()` in Svelte, `signal()` in Solid), create an `InteractionController` on mount, and destroy it on unmount.
+
 ## AI agent integration patterns
 
 ### Driving the cropper from an AI agent

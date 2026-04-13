@@ -91,40 +91,52 @@ See [extensibility.md](extensibility.md) for the full developer guide. Summary:
 | Theming | BEM CSS classes (`.wp-media-editor-image-cropper__*`) |
 | State observation | `onStateChange` (every frame), `onGestureStart`/`onGestureEnd` (gesture boundaries) |
 | Undo/redo | Snapshot state at gesture boundaries, `RESET` to restore — see extensibility.md |
+| Framework-agnostic core | `core/` layer has zero React/DOM deps — use `cropperReducer`, `InteractionController`, `computeTransformStyle` from vanilla JS, Vue, Svelte, etc. |
 
 ## File map
 
 ```
 packages/media-editor/src/image-cropper/
 ├── docs/
-│   ├── architecture.md                  # This file
-│   └── extensibility.md                 # Developer extension guide
-├── src/
-│   ├── index.ts                          # Public API
-│   ├── core/
-│   │   ├── camera.ts                     # Camera matrix, restriction, getImageFit, getCropBounds
-│   │   ├── constants.ts                  # DEFAULT_STATE, MIN_ZOOM, MAX_ZOOM, MAX_ROTATION_OFFSET
-│   │   ├── types.ts                      # CropperState, Camera, StencilProps, TransformOperation
-│   │   ├── math/
-│   │   │   └── rotation.ts               # normalizeRotation, degreesToRadians, radiansToDegrees
-│   │   ├── transforms/
-│   │   │   └── pipeline.ts               # TransformOperation replay, serialize/deserialize
-│   │   └── export/
-│   │       └── canvas-renderer.ts        # createExportCamera → ctx.setTransform → Blob
+│   ├── architecture.md                  ← This file
+│   └── extensibility.md                 ← Developer extension guide
+├── core/                                ← Framework-agnostic (gl-matrix only)
+│   ├── index.ts
+│   ├── camera.ts                        ← Camera matrix, restriction, getImageFit, getCropBounds
+│   ├── constants.ts                     ← DEFAULT_STATE, MIN_ZOOM, MAX_ZOOM
+│   ├── types.ts                         ← CropperState, Camera, StencilProps, TransformOperation
+│   ├── state.ts                         ← cropperReducer, enforceContainment, isStateDirty
+│   ├── transform-style.ts              ← computeTransformStyle → CSS matrix()
+│   ├── interaction-controller.ts        ← InteractionController class (pointer/wheel/touch/keyboard)
+│   ├── stencil-math.ts                 ← computeFreeResizeRect, computeLockedResizeRect
+│   ├── math/
+│   │   └── rotation.ts
+│   ├── transforms/
+│   │   └── pipeline.ts
+│   └── export/
+│       └── canvas-renderer.ts
+├── react/                               ← React adapter (thin wrappers around core)
 │   ├── hooks/
-│   │   ├── use-cropper-state.ts          # Reducer, enforceContainment, SETTLE_CROP, SNAP_ROTATE_90
-│   │   ├── use-interaction.ts            # Mouse/touch/keyboard → dispatch
-│   │   └── use-transform-style.ts        # State → CSS matrix()
-│   ├── components/
-│   │   ├── cropper.tsx                   # Orchestrator — getImageFit, settle animation
-│   │   ├── cropper-provider.tsx          # Context wrapper for state sharing
-│   │   ├── cropper.scss
-│   │   ├── stencils/
-│   │   │   └── rectangle-stencil.tsx     # Resize handles + crop move + settle
-│   │   └── overlays/
-│   │       ├── dimming-overlay.tsx
-│   │       └── grid-overlay.tsx
-│   └── stories/
-│       ├── rectangle-crop.story.tsx
-│       └── style.css
+│   │   ├── index.ts
+│   │   ├── use-cropper-state.ts         ← useReducer(cropperReducer) + convenience setters
+│   │   ├── use-interaction.ts           ← useEffect wrapping InteractionController
+│   │   └── use-transform-style.ts       ← useMemo wrapping computeTransformStyle
+│   └── components/
+│       ├── index.ts
+│       ├── cropper.tsx
+│       ├── cropper-provider.tsx
+│       ├── cropper.scss
+│       ├── stencils/
+│       │   └── rectangle-stencil.tsx
+│       └── overlays/
+│           ├── dimming-overlay.tsx
+│           └── grid-overlay.tsx
+├── stories/
+│   ├── rectangle-crop.story.tsx
+│   └── style.css
+├── schemas/
+│   ├── transform-operation.json
+│   └── cropper-state.json
+├── index.ts                             ← Exports both core/* and react/*
+└── style.scss
 ```
