@@ -12,6 +12,7 @@ import {
 	getCropBounds,
 	getImageFit,
 	getSourceRegion,
+	getSourceRegionPercent,
 } from '../camera';
 import { DEFAULT_STATE } from '../constants';
 import type { CropperState, Size } from '../types';
@@ -484,6 +485,81 @@ describe( 'getSourceRegion', () => {
 		// Rotated AR should be roughly the inverse of default AR.
 		expect( rotatedAR ).toBeCloseTo( 1 / defaultAR, 1 );
 		expect( region.rotation ).toBe( 90 );
+	} );
+} );
+
+describe( 'getSourceRegionPercent', () => {
+	it( 'at default state, returns 0/0/100/100', () => {
+		const state = makeState();
+		const pct = getSourceRegionPercent( state, IMAGE );
+		expect( pct.x ).toBeCloseTo( 0, 0 );
+		expect( pct.y ).toBeCloseTo( 0, 0 );
+		expect( pct.width ).toBeCloseTo( 100, 0 );
+		expect( pct.height ).toBeCloseTo( 100, 0 );
+	} );
+
+	it( 'at zoom=2 centered, returns 25/25/50/50', () => {
+		const state = makeState( { zoom: 2 } );
+		const pct = getSourceRegionPercent( state, IMAGE );
+		expect( pct.width ).toBeCloseTo( 50, 0 );
+		expect( pct.height ).toBeCloseTo( 50, 0 );
+		// Centered: x and y should each be 25%.
+		expect( pct.x ).toBeCloseTo( 25, 0 );
+		expect( pct.y ).toBeCloseTo( 25, 0 );
+	} );
+
+	it( 'percentages sum correctly (x + width ≤ 100, y + height ≤ 100)', () => {
+		const state = makeState( { zoom: 3, crop: { x: 0.1, y: -0.05 } } );
+		const pct = getSourceRegionPercent( state, IMAGE );
+		expect( pct.x + pct.width ).toBeLessThanOrEqual( 100.01 );
+		expect( pct.y + pct.height ).toBeLessThanOrEqual( 100.01 );
+		expect( pct.x ).toBeGreaterThanOrEqual( -0.01 );
+		expect( pct.y ).toBeGreaterThanOrEqual( -0.01 );
+	} );
+
+	it( 'matches getSourceRegion divided by image dimensions', () => {
+		const state = makeState( {
+			zoom: 1.5,
+			crop: { x: 0.05, y: -0.02 },
+			rotation: 15,
+		} );
+		const region = getSourceRegion( state, IMAGE );
+		const pct = getSourceRegionPercent( state, IMAGE );
+		expect( pct.x ).toBeCloseTo( ( region.x / IMAGE.width ) * 100, 5 );
+		expect( pct.y ).toBeCloseTo( ( region.y / IMAGE.height ) * 100, 5 );
+		expect( pct.width ).toBeCloseTo(
+			( region.width / IMAGE.width ) * 100,
+			5
+		);
+		expect( pct.height ).toBeCloseTo(
+			( region.height / IMAGE.height ) * 100,
+			5
+		);
+	} );
+
+	it( 'returns zeros for zero-dimension image', () => {
+		const state = makeState();
+		const pct = getSourceRegionPercent( state, {
+			width: 0,
+			height: 0,
+		} );
+		expect( pct.x ).toBe( 0 );
+		expect( pct.y ).toBe( 0 );
+		expect( pct.width ).toBe( 0 );
+		expect( pct.height ).toBe( 0 );
+	} );
+
+	it( 'with small centered crop rect, percentages reflect visible portion', () => {
+		// 50% crop rect centered → at zoom=1, the crop covers half the
+		// visual area. The percentage region should be roughly 50% of
+		// the image in each axis.
+		const state = makeState( {
+			cropRect: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
+			zoom: 1,
+		} );
+		const pct = getSourceRegionPercent( state, IMAGE );
+		expect( pct.width ).toBeCloseTo( 50, 0 );
+		expect( pct.height ).toBeCloseTo( 50, 0 );
 	} );
 } );
 

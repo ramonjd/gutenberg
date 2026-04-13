@@ -878,3 +878,48 @@ export function getSourceRegion(
 		zoom: state.zoom,
 	};
 }
+
+/**
+ * The selected crop region expressed as percentages of the source image.
+ */
+export interface SourceRegionPercent {
+	/** X offset as a percentage (0–100) of the source image width. */
+	x: number;
+	/** Y offset as a percentage (0–100) of the source image height. */
+	y: number;
+	/** Width as a percentage (0–100) of the source image width. */
+	width: number;
+	/** Height as a percentage (0–100) of the source image height. */
+	height: number;
+}
+
+/**
+ * Get the selected image region as percentages of the source image dimensions.
+ *
+ * Returns `{ x, y, width, height }` where each value is a percentage (0–100)
+ * of the source image's natural width or height. This format is compatible
+ * with the WordPress REST API attachments `/edit` endpoint and CSS-based
+ * crop workflows.
+ *
+ * Internally delegates to `getSourceRegion` and divides by the image
+ * dimensions, so accuracy is identical.
+ *
+ * @param state     The current cropper state.
+ * @param imageSize The natural dimensions of the source image.
+ * @return The crop region as percentages (0–100).
+ */
+export function getSourceRegionPercent(
+	state: CropperState,
+	imageSize: Size
+): SourceRegionPercent {
+	if ( imageSize.width === 0 || imageSize.height === 0 ) {
+		return { x: 0, y: 0, width: 0, height: 0 };
+	}
+	const region = getSourceRegion( state, imageSize );
+	return {
+		x: ( region.x / imageSize.width ) * 100,
+		y: ( region.y / imageSize.height ) * 100,
+		width: ( region.width / imageSize.width ) * 100,
+		height: ( region.height / imageSize.height ) * 100,
+	};
+}
