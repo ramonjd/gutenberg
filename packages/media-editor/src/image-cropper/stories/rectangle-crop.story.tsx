@@ -500,6 +500,8 @@ const WithPreviewComponent = () => {
 		reset,
 	} = useCropperState();
 
+	const [ freeformCrop, setFreeformCrop ] = useState( false );
+	const freeformToggleId = useId();
 	const [ previewSrc, setPreviewSrc ] = useState< string | null >( null );
 	const imageRef = useRef< HTMLImageElement | null >( null );
 
@@ -603,6 +605,17 @@ const WithPreviewComponent = () => {
 				</div>
 
 				<div className="image-cropper-story__row">
+					<label htmlFor={ freeformToggleId }>
+						<input
+							id={ freeformToggleId }
+							type="checkbox"
+							checked={ freeformCrop }
+							onChange={ ( e ) =>
+								setFreeformCrop( e.target.checked )
+							}
+						/>{ ' ' }
+						Freeform crop
+					</label>
 					<button onClick={ () => reset() }>Reset</button>
 				</div>
 			</div>
@@ -619,6 +632,7 @@ const WithPreviewComponent = () => {
 							dispatch={ dispatch }
 							showGrid
 							showDimming
+							freeformCrop={ freeformCrop }
 						/>
 					</div>
 				</div>
