@@ -1,0 +1,244 @@
+/**
+ * Internal dependencies
+ */
+import type { CropperState, CropperAction } from './types';
+import { DEFAULT_STATE, MAX_ZOOM } from './constants';
+import { applyOperationToState } from './transforms/pipeline';
+import { normalizeRotation } from './math/rotation';
+import { restrictPanZoom, restrictCropRect } from './camera';
+
+/**
+ * Enforces containment: restricts the crop rect to fit within the
+ * rotated image, computes minimum zoom, clamps zoom, and restricts
+ * the pan position so the image always covers the crop area.
+ * Called after every relevant state transition.
+ *
+ * @param state The state to enforce containment on.
+ * @return The state with cropRect, zoom, and position restricted.
+ */
+export function enforceContainment( state: CropperState ): CropperState {
+	if ( ! state.image ) {
+		return state;
+	}
+	const imageSize = {
+		width: state.image.naturalWidth,
+		height: state.image.naturalHeight,
+	};
+	const imageAspectRatio = imageSize.width / imageSize.height;
+
+	// 1. First bump zoom so the image can cover the crop rect as-is.
+	//    This ensures that explicit crop rect changes (e.g., fixed-crop
+	//    mode during rotation) get zoom accommodation, not crop shrinkage.
+	const { crop: panAfterZoom, zoom } = restrictPanZoom(
+		state,
+		imageSize,
+		state.cropRect
+	);
+
+	// 2. Now restrict the crop rect at the (possibly bumped) zoom.
+	//    This handles cases where the crop rect is still too large
+	//    (e.g., if zoom hit MAX_ZOOM).
+	const cropRect = restrictCropRect(
+		state.cropRect,
+		zoom,
+		state.rotation,
+		imageAspectRatio
+	);
+
+	// 3. If the crop rect was shrunk, re-restrict pan for the new rect.
+	let crop = panAfterZoom;
+	if ( cropRect !== state.cropRect ) {
+		( { crop } = restrictPanZoom(
+			{ ...state, zoom, cropRect },
+			imageSize,
+			cropRect
+		) );
+	}
+
+	if (
+		crop.x === state.crop.x &&
+		crop.y === state.crop.y &&
+		zoom === state.zoom &&
+		cropRect === state.cropRect
+	) {
+		return state;
+	}
+	return { ...state, crop, zoom, cropRect };
+}
+
+/**
+ * Reducer function for cropper state management.
+ *
+ * Every state transition that could invalidate the containment invariant
+ * (crop, zoom, rotation, cropRect, flip) is followed by enforceContainment
+ * to ensure the image always covers the crop area.
+ *
+ * @param state  The current cropper state.
+ * @param action The action to process.
+ * @return The new cropper state.
+ */
+export function cropperReducer(
+	state: CropperState,
+	action: CropperAction
+): CropperState {
+	// Every action runs through enforceContainment to maintain the invariant:
+	// the image always fully covers the crop area.
+	switch ( action.type ) {
+		case 'SET_IMAGE':
+			return enforceContainment( {
+				...state,
+				image: action.payload,
+			} );
+
+		case 'SET_CROP':
+			return enforceContainment( {
+				...state,
+				crop: action.payload,
+			} );
+
+		case 'SET_ZOOM':
+			return enforceContainment( {
+				...state,
+				zoom: Math.min( MAX_ZOOM, Math.max( 1, action.payload ) ),
+			} );
+
+		case 'SET_ZOOM_AT_POINT':
+			return enforceContainment( {
+				...state,
+				zoom: Math.min( MAX_ZOOM, Math.max( 1, action.payload.zoom ) ),
+				crop: action.payload.crop,
+			} );
+
+		case 'SET_ROTATION':
+			// Rotation: crop stays where it is, pan resets to 0 so the
+			// rotation visually happens around the crop center (which
+			// is at 0.5,0.5 after settle). enforceContainment bumps zoom.
+			return enforceContainment( {
+				...state,
+				rotation: normalizeRotation( action.payload ),
+				crop: { x: 0, y: 0 },
+			} );
+
+		case 'SNAP_ROTATE_90': {
+			// 90° snap: swap crop width↔height so the selection rotates
+			// with the image (Google Photos style). Keep the same center,
+			// reset pan so rotation visually happens around crop center.
+			const dir90 = action.payload.direction;
+			const rot90 = normalizeRotation( state.rotation + dir90 * 90 );
+			const rect = state.cropRect;
+			const cx = rect.x + rect.width / 2;
+			const cy = rect.y + rect.height / 2;
+			return enforceContainment( {
+				...state,
+				rotation: rot90,
+				crop: { x: 0, y: 0 },
+				cropRect: {
+					x: cx - rect.height / 2,
+					y: cy - rect.width / 2,
+					width: rect.height,
+					height: rect.width,
+				},
+			} );
+		}
+
+		case 'SET_FLIP':
+			return enforceContainment( {
+				...state,
+				flip: action.payload,
+			} );
+
+		case 'SET_CROP_RECT':
+			return enforceContainment( {
+				...state,
+				cropRect: action.payload,
+			} );
+
+		case 'SETTLE_CROP': {
+			// After a resize drag ends: expand the crop to fill the
+			// available height (maintaining its aspect ratio), center it,
+			// and adjust zoom/pan so the exact same image content that
+			// was visible inside the old crop is visible in the new one.
+			const rect = state.cropRect;
+			if ( rect.width === 0 || rect.height === 0 || ! state.image ) {
+				return state;
+			}
+
+			// New crop: fill height (or width), maintain aspect ratio, center.
+			const normalizedRatio = rect.width / rect.height;
+			let newH = 1;
+			let newW = normalizedRatio;
+			if ( newW > 1 ) {
+				newW = 1;
+				newH = 1 / normalizedRatio;
+			}
+
+			// Scale factor: how much the crop grew.
+			const s = newH / rect.height;
+
+			// The old crop center in normalized visual space.
+			const oldCx = rect.x + rect.width / 2;
+			const oldCy = rect.y + rect.height / 2;
+
+			// Zoom scales by s so the same image region fills the
+			// larger crop at the same relative size.
+			// Pan: the visible content center was at
+			//   (cropCx - crop.x, cropCy - crop.y)
+			// in visual-normalized space. After centering the crop to
+			// (0.5, 0.5), the pan must place that same content at
+			// the new center. Both pan and zoom scale by s because
+			// the CSS translate is independent of zoom.
+			return enforceContainment( {
+				...state,
+				zoom: state.zoom * s,
+				crop: {
+					x: ( state.crop.x - oldCx + 0.5 ) * s,
+					y: ( state.crop.y - oldCy + 0.5 ) * s,
+				},
+				cropRect: {
+					x: ( 1 - newW ) / 2,
+					y: ( 1 - newH ) / 2,
+					width: newW,
+					height: newH,
+				},
+			} );
+		}
+
+		case 'APPLY_OPERATION':
+			return enforceContainment(
+				applyOperationToState( state, action.payload )
+			);
+
+		case 'RESET':
+			return {
+				...DEFAULT_STATE,
+				image: state.image,
+				...action.payload,
+			};
+	}
+}
+
+/**
+ * Shallow comparison of key cropper state fields to determine if
+ * the state has been modified from an initial snapshot.
+ *
+ * @param current The current cropper state.
+ * @param initial The initial cropper state snapshot.
+ * @return True if any tracked field differs.
+ */
+export function isStateDirty(
+	current: CropperState,
+	initial: CropperState
+): boolean {
+	return (
+		current.crop.x !== initial.crop.x ||
+		current.crop.y !== initial.crop.y ||
+		current.zoom !== initial.zoom ||
+		current.rotation !== initial.rotation ||
+		current.flip.horizontal !== initial.flip.horizontal ||
+		current.flip.vertical !== initial.flip.vertical ||
+		current.cropRect.x !== initial.cropRect.x ||
+		current.cropRect.y !== initial.cropRect.y ||
+		current.cropRect.width !== initial.cropRect.width ||
+		current.cropRect.height !== initial.cropRect.height
+	);
+}
