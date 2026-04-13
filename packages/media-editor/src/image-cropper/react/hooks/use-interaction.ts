@@ -129,8 +129,13 @@ export function useInteraction(
 	}, [] );
 
 	const onTouchStart = useCallback( ( e: React.TouchEvent ) => {
-		const rect = e.currentTarget.getBoundingClientRect();
-		controllerRef.current?.handleTouchStart( e.nativeEvent, rect );
+		const el = e.currentTarget as HTMLElement;
+		const rect = el.getBoundingClientRect();
+		controllerRef.current?.handleTouchStart(
+			e.nativeEvent,
+			rect,
+			el.ownerDocument
+		);
 	}, [] );
 
 	const onKeyDown = useCallback( ( e: React.KeyboardEvent ) => {

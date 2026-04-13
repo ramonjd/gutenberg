@@ -378,13 +378,20 @@ export class InteractionController {
 	 *
 	 * Supports single-finger pan, two-finger pinch zoom, and
 	 * double-tap to toggle between fit and 2x zoom. Registers
-	 * touchmove/touchend/touchcancel on document for the duration
-	 * of the gesture.
+	 * touchmove/touchend/touchcancel on the provided document for the
+	 * duration of the gesture.
 	 *
 	 * @param e             The native TouchEvent.
 	 * @param containerRect The bounding rect of the container element.
+	 * @param doc           The document to register move/end listeners on.
+	 *                      Defaults to globalThis.document. Pass the iframe's
+	 *                      contentDocument when running inside an iframe.
 	 */
-	handleTouchStart( e: TouchEvent, containerRect: DOMRect ): void {
+	handleTouchStart(
+		e: TouchEvent,
+		containerRect: DOMRect,
+		doc: Document = document
+	): void {
 		const currentState = this.options.getState();
 		const containerSize = this.options.getContainerSize();
 		const imgSize = this.options.getImageSize();
@@ -615,9 +622,9 @@ export class InteractionController {
 			this.touch = null;
 			this.touchCleanup = null;
 			cancelAnimationFrame( this.rafId );
-			document.removeEventListener( 'touchmove', onTouchMove );
-			document.removeEventListener( 'touchend', onTouchEnd );
-			document.removeEventListener( 'touchcancel', onTouchEnd );
+			doc.removeEventListener( 'touchmove', onTouchMove );
+			doc.removeEventListener( 'touchend', onTouchEnd );
+			doc.removeEventListener( 'touchcancel', onTouchEnd );
 			if ( wasSingleTouch ) {
 				this.setStatus( { isDragging: false } );
 			}
@@ -627,13 +634,11 @@ export class InteractionController {
 		// Clean up any previous touch listeners before registering new ones.
 		this.touchCleanup?.();
 
-		document.addEventListener( 'touchmove', onTouchMove, {
+		doc.addEventListener( 'touchmove', onTouchMove, {
 			passive: false,
 		} );
-		document.addEventListener( 'touchend', onTouchEnd );
-		document.addEventListener( 'touchcancel', onTouchEnd );
-
-		this.touchCleanup = onTouchEnd;
+		doc.addEventListener( 'touchend', onTouchEnd );
+		doc.addEventListener( 'touchcancel', onTouchEnd );
 	}
 
 	/**

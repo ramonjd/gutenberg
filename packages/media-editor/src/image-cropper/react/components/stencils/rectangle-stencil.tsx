@@ -383,6 +383,7 @@ export function RectangleStencil( {
 						onPointerDown={ ( event ) =>
 							handlePointerDown( pos, event )
 						}
+						onTouchStart={ ( event ) => event.stopPropagation() }
 						onKeyDown={ ( event ) => handleKeyDown( pos, event ) }
 						role="separator"
 						aria-orientation={
