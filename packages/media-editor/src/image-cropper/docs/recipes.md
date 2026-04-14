@@ -1,6 +1,6 @@
-# Extensibility Guide
+# Recipes and Getting Started
 
-`@wordpress/media-editor` is designed to be extended by WordPress themes, plugins, and AI agents. This document covers getting started, the component API, state shape, and all extension points.
+Getting started, the component API, state shape, extension points, and integration patterns.
 
 ## Getting started
 

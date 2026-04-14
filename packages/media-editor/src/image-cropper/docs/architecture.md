@@ -80,7 +80,7 @@ This is both the restriction algorithm AND the test. If the camera says it's cov
 
 ## Extension points
 
-See [extensibility.md](extensibility.md) for the full developer guide. Summary:
+See [recipes.md](recipes.md) for the full developer guide. Summary:
 
 | Extension | Mechanism |
 |-----------|-----------|
@@ -90,53 +90,6 @@ See [extensibility.md](extensibility.md) for the full developer guide. Summary:
 | Coordinate transforms | `worldToScreen()` / `screenToWorld()` via camera |
 | Theming | BEM CSS classes (`.wp-media-editor-image-cropper__*`) |
 | State observation | `onStateChange` (every frame), `onGestureStart`/`onGestureEnd` (gesture boundaries) |
-| Undo/redo | Snapshot state at gesture boundaries, `RESET` to restore — see extensibility.md |
+| Undo/redo | Snapshot state at gesture boundaries, `RESET` to restore — see recipes.md |
 | Framework-agnostic core | `core/` layer has zero React/DOM deps — use `cropperReducer`, `InteractionController`, `computeTransformStyle` from vanilla JS, Vue, Svelte, etc. |
 
-## File map
-
-```
-packages/media-editor/src/image-cropper/
-├── docs/
-│   ├── architecture.md                  ← This file
-│   └── extensibility.md                 ← Developer extension guide
-├── core/                                ← Framework-agnostic (gl-matrix only)
-│   ├── index.ts
-│   ├── camera.ts                        ← Camera matrix, restriction, getImageFit, getCropBounds
-│   ├── constants.ts                     ← DEFAULT_STATE, MIN_ZOOM, MAX_ZOOM
-│   ├── types.ts                         ← CropperState, Camera, StencilProps, TransformOperation
-│   ├── state.ts                         ← cropperReducer, enforceContainment, isStateDirty
-│   ├── transform-style.ts              ← computeTransformStyle → CSS matrix()
-│   ├── interaction-controller.ts        ← InteractionController class (pointer/wheel/touch/keyboard)
-│   ├── stencil-math.ts                 ← computeFreeResizeRect, computeLockedResizeRect
-│   ├── math/
-│   │   └── rotation.ts
-│   ├── transforms/
-│   │   └── pipeline.ts
-│   └── export/
-│       └── canvas-renderer.ts
-├── react/                               ← React adapter (thin wrappers around core)
-│   ├── hooks/
-│   │   ├── index.ts
-│   │   ├── use-cropper-state.ts         ← useReducer(cropperReducer) + convenience setters
-│   │   ├── use-interaction.ts           ← useEffect wrapping InteractionController
-│   │   └── use-transform-style.ts       ← useMemo wrapping computeTransformStyle
-│   └── components/
-│       ├── index.ts
-│       ├── cropper.tsx
-│       ├── cropper-provider.tsx
-│       ├── cropper.scss
-│       ├── stencils/
-│       │   └── rectangle-stencil.tsx
-│       └── overlays/
-│           ├── dimming-overlay.tsx
-│           └── grid-overlay.tsx
-├── stories/
-│   ├── rectangle-crop.story.tsx
-│   └── style.css
-├── schemas/
-│   ├── transform-operation.json
-│   └── cropper-state.json
-├── index.ts                             ← Exports both core/* and react/*
-└── style.scss
-```
