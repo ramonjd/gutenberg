@@ -1,6 +1,113 @@
 # Extensibility Guide
 
-`@wordpress/media-editor` is designed to be extended by WordPress themes, plugins, and AI agents. This document describes the extension points and how to use them.
+`@wordpress/media-editor` is designed to be extended by WordPress themes, plugins, and AI agents. This document covers getting started, the component API, state shape, and all extension points.
+
+## Getting started
+
+### Step 1: Mount a basic cropper
+
+```tsx
+import { Cropper, useCropperState } from '@wordpress/media-editor';
+
+function ImageEditor() {
+  const { state, dispatch } = useCropperState();
+  return (
+    <Cropper
+      src="https://example.com/photo.jpg"
+      state={ state }
+      dispatch={ dispatch }
+      showDimming
+      showGrid
+    />
+  );
+}
+```
+
+The cropper fills its parent container. Wrap it in a sized element:
+
+```tsx
+<div style={ { width: 600, height: 400 } }>
+  <Cropper src={ imageUrl } state={ state } dispatch={ dispatch } />
+</div>
+```
+
+### Step 2: Add controls
+
+`useCropperState` returns convenience setters alongside `state` and `dispatch`:
+
+```tsx
+const {
+  state, dispatch,
+  setZoom, setRotation, setFlip, snapRotate90, setCropRect,
+  applyOperation, reset, isDirty, getCroppedImage,
+} = useCropperState();
+
+// Zoom slider
+<input type="range" min={ 1 } max={ 10 } step={ 0.1 }
+  value={ state.zoom } onChange={ e => setZoom( parseFloat( e.target.value ) ) } />
+
+// Rotation buttons
+<button onClick={ () => snapRotate90( -1 ) }>Rotate left</button>
+<button onClick={ () => snapRotate90( 1 ) }>Rotate right</button>
+
+// Flip
+<button onClick={ () => setFlip( { horizontal: !state.flip.horizontal, vertical: state.flip.vertical } ) }>
+  Flip H
+</button>
+
+// Reset
+<button onClick={ () => reset() } disabled={ !isDirty }>Reset</button>
+```
+
+### Step 3: Export the result
+
+```tsx
+// As a Blob (for upload or further processing):
+const blob = await getCroppedImage( 'image/jpeg', 0.9 );
+
+// As source-pixel coordinates (for server-side processing):
+import { getSourceRegion } from '@wordpress/media-editor';
+const region = getSourceRegion( state, { width: naturalWidth, height: naturalHeight } );
+
+// As percentages (for WP REST API /edit endpoint):
+import { getSourceRegionPercent } from '@wordpress/media-editor';
+const pct = getSourceRegionPercent( state, { width: naturalWidth, height: naturalHeight } );
+```
+
+## Cropper props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `src` | `string` | **required** | Image source URL |
+| `state` | `CropperState` | **required** | Cropper state from `useCropperState` |
+| `dispatch` | `Dispatch<CropperAction>` | **required** | Dispatch function from `useCropperState` |
+| `stencil` | `ComponentType<StencilProps>` | `RectangleStencil` | Pluggable crop area UI component |
+| `showGrid` | `boolean` | `false` | Show rule-of-thirds grid overlay |
+| `showDimming` | `boolean` | `false` | Show dimming overlay outside crop area |
+| `minZoom` | `number` | `1` | Minimum zoom level |
+| `maxZoom` | `number` | `10` | Maximum zoom level |
+| `aspectRatio` | `number` | — | Fixed aspect ratio (width / height). Omit for free ratio. |
+| `freeformCrop` | `boolean` | `false` | Enable resize handles on the crop area |
+| `onImageLoaded` | `(size: Size) => void` | — | Fires when the image finishes loading |
+| `onStateChange` | `(state: CropperState) => void` | — | Fires on every state change (every frame during drag) |
+| `onGestureStart` | `() => void` | — | Fires when a continuous gesture begins (drag, resize, pinch) |
+| `onGestureEnd` | `() => void` | — | Fires when a continuous gesture ends |
+| `className` | `string` | — | Additional CSS class for the container |
+
+## CropperState shape
+
+The state is a plain serializable object. All coordinates use **normalized visual space** where `[0, 1]` maps to the visual (rotated) bounding box of the image at zoom=1.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `image` | `{ src, naturalWidth, naturalHeight } \| null` | Source image info. Null until loaded. |
+| `crop` | `{ x: number, y: number }` | Pan offset in normalized coordinates. `(0, 0)` = centered. |
+| `zoom` | `number` | Zoom level. `1` = fit to container. |
+| `rotation` | `number` | Rotation in degrees, normalized to 0–360. |
+| `flip` | `{ horizontal: boolean, vertical: boolean }` | Flip state. |
+| `cropRect` | `{ x, y, width, height }` | Crop area in normalized coordinates. `(0, 0, 1, 1)` = full image. |
+
+Default state: `crop: (0, 0)`, `zoom: 1`, `rotation: 0`, `flip: (false, false)`, `cropRect: (0, 0, 1, 1)`.
 
 ## Architecture overview
 

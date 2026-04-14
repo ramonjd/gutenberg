@@ -1,4 +1,4 @@
-# Image Cropper Next — Architecture
+# Image Cropper — Architecture
 
 ## Coordinate Spaces
 
