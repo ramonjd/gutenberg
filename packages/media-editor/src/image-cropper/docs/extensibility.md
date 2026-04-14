@@ -1141,22 +1141,22 @@ npx playwright test test/storybook-playwright/specs/media-editor/image-cropper.s
 
 2. **New containment invariant cases**: Add rotation/zoom combinations to the parametric test in `core/test/camera.ts`.
 
-3. **New visual regression stories**: Add a new test case in `test/storybook-playwright/specs/media-editor/image-cropper.spec.ts` using `gotoStoryId` with the Storybook story ID (format: `imagecroppernext-rectanglecrop--story-name`).
+3. **New visual regression stories**: Add a new test case in `test/storybook-playwright/specs/media-editor/image-cropper.spec.ts` using `gotoStoryId` with the Storybook story ID (format: `mediaeditor-imagecropper--story-name`).
 
 ## For AI agents maintaining this codebase
 
 ### Key files and their roles
 
 - **`core/camera.ts`** — All coordinate math. If something renders wrong, start here.
-- **`hooks/use-cropper-state.ts`** — State transitions. If state is wrong after an action, the bug is here.
-- **`hooks/use-interaction.ts`** — Input handling. If mouse/touch/keyboard behaves wrong, look here.
-- **`hooks/use-transform-style.ts`** — CSS transform. If the image appears in the wrong position, check here.
-- **`components/cropper.tsx`** — Orchestrator. Wires everything together.
-- **`components/stencils/rectangle-stencil.tsx`** — Crop handles and move logic.
+- **`core/state.ts`** — Reducer, enforceContainment, isStateDirty. If state is wrong after an action, the bug is here.
+- **`core/interaction-controller.ts`** — Input handling. If mouse/touch/keyboard behaves wrong, look here.
+- **`core/transform-style.ts`** — CSS matrix computation. If the image appears in the wrong position, check here.
+- **`react/components/cropper.tsx`** — React orchestrator. Wires hooks and components together.
+- **`react/components/stencils/rectangle-stencil.tsx`** — Crop handles and resize logic.
 
 ### Critical invariant
 
-> The image must always fully cover the crop area. `enforceContainment()` in `use-cropper-state.ts` maintains this after every state change.
+> The image must always fully cover the crop area. `enforceContainment()` in `core/state.ts` maintains this after every state change.
 
 If you see the image edge inside the crop area, the bug is in `restrictPanZoom()` or `restrictCropRect()` in `camera.ts`.
 

@@ -25,19 +25,18 @@ Styles are compiled as part of `@wordpress/media-editor`'s style build. CSS clas
 
 ## Architecture
 
-Three layers:
+Two layers:
 
-1. **Core** (`core/`) — Zero-dependency pure functions for math, camera, transforms, and export. Fully testable without React.
-2. **Hooks** (`hooks/`) — Thin React bindings over the core layer.
-3. **Components** (`components/`) — Rendering only. Composable via the stencil pattern.
+1. **Core** (`core/`) — Framework-agnostic pure functions for math, camera, state, interaction, transforms, and export. Zero React dependency. Usable from vanilla JS, Vue, Svelte, or any other framework.
+2. **React** (`react/`) — Thin React adapter: hooks wrapping core functions, and components for rendering.
 
 See [docs/architecture.md](docs/architecture.md) for the data flow diagram and design decisions.
 
 ## Internal usage
 
 ```jsx
-import { Cropper } from '../image-cropper/components/cropper';
-import { useCropperState } from '../image-cropper/hooks/use-cropper-state';
+import { Cropper } from '../image-cropper/react/components/cropper';
+import { useCropperState } from '../image-cropper/react/hooks/use-cropper-state';
 
 function ImageEditingPanel() {
 	const { state, dispatch } = useCropperState();
@@ -66,6 +65,5 @@ function ImageEditingPanel() {
 ## Docs
 
 -   [docs/architecture.md](docs/architecture.md) — Data flow and design decisions
--   [docs/extensibility.md](docs/extensibility.md) — Extension points and API reference
+-   [docs/extensibility.md](docs/extensibility.md) — Extension points, API reference, and framework integration examples
 -   [docs/migration.md](docs/migration.md) — Migration from `@wordpress/image-cropper`
--   [docs/planning/](docs/planning/) — Feature summary, UX personas, video roadmap
