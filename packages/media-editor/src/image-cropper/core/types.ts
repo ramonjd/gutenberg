@@ -1,5 +1,18 @@
 import type { mat2d } from 'gl-matrix';
 
+/**
+ * A 2D camera represented as a 2×3 affine transformation matrix (`mat2d`).
+ *
+ * This is not a camera object with properties — it's a raw 6-element matrix
+ * `[a, b, c, d, tx, ty]` that maps normalized world coordinates [0,1] to
+ * screen pixels. It composes pan, rotation, flip, zoom, and contain-fit
+ * into a single transform.
+ *
+ * Use `createCamera()` to build one from `CropperState`, then pass it to
+ * `worldToScreen()` / `screenToWorld()` for coordinate conversion.
+ *
+ * A 3D camera would use `mat4`; this is strictly 2D (no perspective).
+ */
 export type Camera = mat2d;
 
 /**
