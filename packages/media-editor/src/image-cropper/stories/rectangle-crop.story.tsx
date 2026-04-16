@@ -32,7 +32,15 @@ import {
 	canvasToDataURL,
 	downloadCroppedImage,
 } from '../core/export/canvas-renderer';
-import { getRotatedBBox, getSourceRegion } from '../core/camera';
+import {
+	getRotatedBBox,
+	getSourceRegion,
+	createCamera,
+	screenToWorld,
+	getImageFit,
+	getVisibleBounds,
+	restrictPanZoom,
+} from '../core/camera';
 import './style.css';
 
 const SAMPLE_IMAGE = 'image-cropper-demo.jpeg';
@@ -530,4 +538,277 @@ const WithPreviewComponent = () => {
 
 export const WithPreview: Story = {
 	render: WithPreviewComponent,
+};
+
+/**
+ * Debug visualization showing camera internals alongside the cropper.
+ *
+ * Displays the camera matrix, crop corner world-space coordinates,
+ * restriction values, and source region — updated live as you interact.
+ * Use this to debug containment issues or verify the camera and render
+ * paths agree.
+ */
+const CameraDebugComponent = () => {
+	const { state, dispatch, setRotation, setZoom, snapRotate90, reset } =
+		useCropperState();
+
+	const [ containerSize, setContainerSize ] = useState( {
+		width: 0,
+		height: 0,
+	} );
+	const containerRef = useRef< HTMLDivElement >( null );
+
+	// Track container size for camera computations.
+	useEffect( () => {
+		const el = containerRef.current;
+		if ( ! el ) {
+			return;
+		}
+		const ro = new ResizeObserver( ( entries ) => {
+			const { width, height } = entries[ 0 ].contentRect;
+			setContainerSize( { width, height } );
+		} );
+		ro.observe( el );
+		return () => ro.disconnect();
+	}, [] );
+
+	const imageSize = state.image
+		? { width: state.image.naturalWidth, height: state.image.naturalHeight }
+		: { width: 0, height: 0 };
+
+	const hasImage = imageSize.width > 0 && containerSize.width > 0;
+	const { elementSize, visualSize } = hasImage
+		? getImageFit( containerSize, imageSize, state.rotation )
+		: {
+				elementSize: { width: 0, height: 0 },
+				visualSize: { width: 0, height: 0 },
+		  };
+
+	// Camera and restriction.
+	const camera = hasImage
+		? createCamera( state, containerSize, imageSize )
+		: null;
+	const baseCamera = hasImage
+		? createCamera(
+				{ ...state, crop: { x: 0, y: 0 }, zoom: 1 },
+				containerSize,
+				imageSize
+		  )
+		: null;
+	const vb = baseCamera ? getVisibleBounds( baseCamera ) : null;
+
+	// Crop corners in world space (should be inside [0,1] when contained).
+	const cropWorldCorners =
+		camera && vb
+			? [
+					screenToWorld( camera, {
+						x: vb.left + state.cropRect.x * vb.width,
+						y: vb.top + state.cropRect.y * vb.height,
+					} ),
+					screenToWorld( camera, {
+						x:
+							vb.left +
+							( state.cropRect.x + state.cropRect.width ) *
+								vb.width,
+						y:
+							vb.top +
+							( state.cropRect.y + state.cropRect.height ) *
+								vb.height,
+					} ),
+			  ]
+			: null;
+
+	// Restriction result.
+	const restrictionResult = hasImage
+		? restrictPanZoom( state, imageSize, state.cropRect )
+		: null;
+
+	// Source region.
+	const sourceRegion = hasImage ? getSourceRegion( state, imageSize ) : null;
+
+	// Is contained? All crop corners in [0,1].
+	const isContained =
+		cropWorldCorners &&
+		cropWorldCorners[ 0 ].x >= -0.001 &&
+		cropWorldCorners[ 0 ].y >= -0.001 &&
+		cropWorldCorners[ 1 ].x <= 1.001 &&
+		cropWorldCorners[ 1 ].y <= 1.001;
+
+	const baseAngle = Math.round( state.rotation / 90 ) * 90;
+	const fineOffset = state.rotation - baseAngle;
+
+	return (
+		<div>
+			<div className="image-cropper-story__controls">
+				<div className="image-cropper-story__row">
+					<button onClick={ () => snapRotate90( -1 ) }>-90</button>
+					<input
+						className="image-cropper-story__slider"
+						type="range"
+						min={ -MAX_ROTATION_OFFSET }
+						max={ MAX_ROTATION_OFFSET }
+						step="0.5"
+						value={ fineOffset }
+						onChange={ ( e ) =>
+							setRotation(
+								baseAngle + parseFloat( e.target.value )
+							)
+						}
+					/>
+					<button onClick={ () => snapRotate90( 1 ) }>+90</button>
+					<input
+						type="range"
+						min={ MIN_ZOOM }
+						max={ MAX_ZOOM }
+						step="0.1"
+						value={ state.zoom }
+						onChange={ ( e ) =>
+							setZoom( parseFloat( e.target.value ) )
+						}
+					/>
+					<button onClick={ () => reset() }>Reset</button>
+				</div>
+			</div>
+
+			<div
+				style={ { display: 'flex', gap: 16, alignItems: 'flex-start' } }
+			>
+				<div
+					ref={ containerRef }
+					style={ { flex: '1 1 60%', minWidth: 0 } }
+				>
+					<div className="image-cropper-story__container">
+						<Cropper
+							src={ SAMPLE_IMAGE }
+							state={ state }
+							dispatch={ dispatch }
+							showGrid
+							showDimming
+							freeformCrop
+						/>
+					</div>
+				</div>
+
+				<div
+					style={ {
+						flex: '0 0 320px',
+						fontSize: 11,
+						fontFamily: 'monospace',
+						lineHeight: 1.5,
+						overflow: 'auto',
+						maxHeight: 500,
+					} }
+				>
+					<h4 style={ { margin: '0 0 8px' } }>Camera Debug</h4>
+
+					<strong>Containment</strong>
+					<div
+						style={ {
+							padding: '2px 6px',
+							background: isContained ? '#d4edda' : '#f8d7da',
+							borderRadius: 3,
+							marginBottom: 8,
+							display: 'inline-block',
+						} }
+					>
+						{ isContained ? 'COVERED' : 'NOT COVERED' }
+					</div>
+
+					<div>
+						<strong>State</strong>
+						<pre style={ { margin: '4px 0' } }>
+							{ `zoom: ${ state.zoom.toFixed( 3 ) }
+rotation: ${ state.rotation.toFixed( 1 ) }°
+pan: (${ state.crop.x.toFixed( 4 ) }, ${ state.crop.y.toFixed( 4 ) })
+cropRect: (${ state.cropRect.x.toFixed( 3 ) }, ${ state.cropRect.y.toFixed(
+								3
+							) }) ${ state.cropRect.width.toFixed(
+								3
+							) }×${ state.cropRect.height.toFixed( 3 ) }
+flip: h=${ state.flip.horizontal } v=${ state.flip.vertical }` }
+						</pre>
+					</div>
+
+					<div>
+						<strong>Sizes</strong>
+						<pre style={ { margin: '4px 0' } }>
+							{ `container: ${ containerSize.width }×${
+								containerSize.height
+							}
+element: ${ elementSize.width.toFixed( 0 ) }×${ elementSize.height.toFixed(
+								0
+							) }
+visual: ${ visualSize.width.toFixed( 0 ) }×${ visualSize.height.toFixed(
+								0
+							) }` }
+						</pre>
+					</div>
+
+					{ camera && (
+						<div>
+							<strong>Camera matrix</strong>
+							<pre style={ { margin: '4px 0' } }>
+								{ `[${ Array.from( camera )
+									.map( ( v ) => v.toFixed( 2 ) )
+									.join( ', ' ) }]` }
+							</pre>
+						</div>
+					) }
+
+					{ cropWorldCorners && (
+						<div>
+							<strong>Crop corners (world space)</strong>
+							<pre style={ { margin: '4px 0' } }>
+								{ `TL: (${ cropWorldCorners[ 0 ].x.toFixed(
+									4
+								) }, ${ cropWorldCorners[ 0 ].y.toFixed( 4 ) })
+BR: (${ cropWorldCorners[ 1 ].x.toFixed(
+									4
+								) }, ${ cropWorldCorners[ 1 ].y.toFixed(
+									4
+								) })` }
+							</pre>
+							<span style={ { fontSize: 10, color: '#666' } }>
+								Should be within [0,1] when contained
+							</span>
+						</div>
+					) }
+
+					{ restrictionResult && (
+						<div>
+							<strong>Restriction result</strong>
+							<pre style={ { margin: '4px 0' } }>
+								{ `zoom: ${ restrictionResult.zoom.toFixed(
+									3
+								) }
+pan: (${ restrictionResult.crop.x.toFixed(
+									4
+								) }, ${ restrictionResult.crop.y.toFixed(
+									4
+								) })` }
+							</pre>
+						</div>
+					) }
+
+					{ sourceRegion && (
+						<div>
+							<strong>Source region (px)</strong>
+							<pre style={ { margin: '4px 0' } }>
+								{ `x: ${ sourceRegion.x.toFixed(
+									0
+								) }  y: ${ sourceRegion.y.toFixed( 0 ) }
+w: ${ sourceRegion.width.toFixed( 0 ) }  h: ${ sourceRegion.height.toFixed(
+									0
+								) }` }
+							</pre>
+						</div>
+					) }
+				</div>
+			</div>
+		</div>
+	);
+};
+
+export const CameraDebug: Story = {
+	render: CameraDebugComponent,
 };
