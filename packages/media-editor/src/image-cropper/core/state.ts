@@ -112,10 +112,14 @@ export function cropperReducer(
 		case 'SET_ROTATION':
 			// Rotation: crop stays where it is, pan resets to 0 so the
 			// rotation visually happens around the crop center (which
-			// is at 0.5,0.5 after settle). enforceContainment bumps zoom.
+			// is at 0.5,0.5 after settle). Zoom resets to 1 so
+			// enforceContainment sets it to the minimum needed for the
+			// new angle — without this, zoom ratchets up but never back
+			// down as the user rotates toward 0°.
 			return enforceContainment( {
 				...state,
 				rotation: normalizeRotation( action.payload ),
+				zoom: 1,
 				crop: { x: 0, y: 0 },
 			} );
 
