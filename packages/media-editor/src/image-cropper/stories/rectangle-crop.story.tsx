@@ -695,6 +695,27 @@ w: ${ sourceRegion.width.toFixed( 0 ) }  h: ${ sourceRegion.height.toFixed(
 							</pre>
 						</div>
 					) }
+
+					{ sourceRegion &&
+						sourceRegion.width > 0 &&
+						sourceRegion.height > 0 && (
+							<div>
+								<strong>Crop output</strong>
+								<pre style={ { margin: '4px 0' } }>
+									{ `dimensions: ${ Math.round(
+										sourceRegion.width
+									) }×${ Math.round( sourceRegion.height ) }
+aspect ratio: ${ ( sourceRegion.width / sourceRegion.height ).toFixed( 2 ) }
+% of original: ${ (
+										( ( sourceRegion.width *
+											sourceRegion.height ) /
+											( imageSize.width *
+												imageSize.height ) ) *
+										100
+									).toFixed( 1 ) }%` }
+								</pre>
+							</div>
+						) }
 				</div>
 			</div>
 
