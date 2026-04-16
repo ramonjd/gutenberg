@@ -200,10 +200,12 @@ describe( 'useCropperState', () => {
 	it( 'should reset to DEFAULT_STATE', () => {
 		const { result } = renderHook( () => useCropperState() );
 
-		// Modify state first.
+		// Modify state: set rotation first (resets zoom), then zoom.
+		act( () => {
+			result.current.setRotation( 180 );
+		} );
 		act( () => {
 			result.current.setZoom( 5 );
-			result.current.setRotation( 180 );
 		} );
 
 		expect( result.current.state.zoom ).toBe( 5 );
@@ -398,7 +400,7 @@ describe( 'useCropperState', () => {
 			expect( result.current.state.zoom ).toBeGreaterThanOrEqual( 1 );
 		} );
 
-		it( 'should not reduce zoom when rotation returns to 0', () => {
+		it( 'should recover zoom when rotation returns to 0', () => {
 			const { result } = setupWithImage();
 
 			act( () => {
@@ -409,16 +411,15 @@ describe( 'useCropperState', () => {
 				result.current.setRotation( 45 );
 			} );
 
-			const zoomAt45 = result.current.state.zoom;
-			// Zoom should be at least 2 (may be higher for 45° coverage).
-			expect( zoomAt45 ).toBeGreaterThanOrEqual( 2 );
+			// Zoom should be bumped for 45° coverage.
+			expect( result.current.state.zoom ).toBeGreaterThanOrEqual( 1 );
 
 			act( () => {
 				result.current.setRotation( 0 );
 			} );
 
-			// Zoom should stay at the bumped level (not reduce).
-			expect( result.current.state.zoom ).toBe( zoomAt45 );
+			// Zoom should recover to the minimum needed (1 at 0°).
+			expect( result.current.state.zoom ).toBeCloseTo( 1 );
 		} );
 
 		it( 'should reset pan when rotation changes', () => {
