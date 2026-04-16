@@ -86,10 +86,8 @@ See [recipes.md](recipes.md) for the full developer guide. Summary:
 |-----------|-----------|
 | Custom crop area UI | `stencil` prop — any component implementing `StencilProps` |
 | AI agent control | `TransformOperation[]` pipeline — JSON-serializable, replayable |
-| Custom export | `createExportCamera()` → `ctx.setTransform()` → post-process |
-| Coordinate transforms | `worldToScreen()` / `screenToWorld()` via camera |
+| Custom export | `exportCroppedImage()` or `applyToCanvas()` for multi-step pipelines |
 | Theming | BEM CSS classes (`.wp-media-editor-image-cropper__*`) |
 | State observation | `onStateChange` (every frame), `onGestureStart`/`onGestureEnd` (gesture boundaries) |
 | Undo/redo | Snapshot state at gesture boundaries, `RESET` to restore — see recipes.md |
-| Framework-agnostic core | `core/` layer has zero React/DOM deps — use `cropperReducer`, `InteractionController`, `computeTransformStyle` from vanilla JS, Vue, Svelte, etc. |
 

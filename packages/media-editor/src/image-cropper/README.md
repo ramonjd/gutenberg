@@ -31,8 +31,6 @@ function ImageEditor() {
 
 ## API Reference
 
-All exports are available from `@wordpress/media-editor`. The core layer has zero React dependency.
-
 ### React components
 
 #### `Cropper`
@@ -61,14 +59,6 @@ Main cropper component. Fills its parent container.
 
 Context wrapper for deep component trees. Wraps `useCropperState` and provides it to descendants via `useCropper()`.
 
-#### `RectangleStencil`
-
-Default stencil component with 8 resize handles. Used automatically unless overridden via the `stencil` prop.
-
-#### `GridOverlay` / `DimmingOverlay`
-
-Presentational overlays. Used automatically by `Cropper` when `showGrid` / `showDimming` are set.
-
 ### React hooks
 
 #### `useCropperState( initialState?: Partial<CropperState> ): UseCropperStateReturn`
@@ -90,65 +80,7 @@ State management hook. Returns:
 | `isDirty` | `boolean` | Whether state differs from initial |
 | `getCroppedImage` | `(mime?: string, quality?: number) => Promise<Blob \| null>` | Export as Blob |
 
-#### `useInteraction( state, dispatch, containerSize, imageSize?, options? ): UseInteractionReturn`
-
-Interaction hook. Returns event handlers (`onPointerDown`, `onTouchStart`, `onKeyDown`), `onWheelNative`, `isDragging`, `isZooming`. Used internally by `Cropper`.
-
-#### `useTransformStyle( state, containerSize, imageSize ): string`
-
-Returns a CSS `matrix()` transform string. Used internally by `Cropper`.
-
-### Core — State
-
-#### `cropperReducer( state: CropperState, action: CropperAction ): CropperState`
-
-Pure reducer. Every action runs through `enforceContainment` to maintain the invariant: the image always covers the crop area.
-
-Actions: `SET_IMAGE`, `SET_CROP`, `SET_ZOOM`, `SET_ZOOM_AT_POINT`, `SET_ROTATION`, `SNAP_ROTATE_90`, `SET_FLIP`, `SET_CROP_RECT`, `SETTLE_CROP`, `APPLY_OPERATION`, `RESET`.
-
-#### `enforceContainment( state: CropperState ): CropperState`
-
-Bumps zoom, restricts crop rect, and clamps pan to maintain containment. Called automatically by the reducer.
-
-#### `isStateDirty( current: CropperState, initial: CropperState ): boolean`
-
-Shallow field comparison for dirty-state detection.
-
-### Core — Camera and coordinates
-
-#### `createCamera( state, containerSize, imageSize ): Camera`
-
-Builds a `mat2d` matrix composing pan, rotation, flip, zoom, and contain-fit.
-
-#### `worldToScreen( camera, point: NormalizedPoint ): PixelPoint`
-
-Transform a [0,1] normalized point to screen pixels.
-
-#### `screenToWorld( camera, point: PixelPoint ): NormalizedPoint`
-
-Inverse: screen pixels to [0,1] normalized coordinates.
-
-#### `getImageFit( containerSize, imageSize, rotation ): { elementSize, visualSize }`
-
-Contain-fit calculation. Returns the rendered image element size and the visual (rotated) bounding box size.
-
-#### `getCropBounds( state, elementSize, visualSize, containerSize ): { minX, minY, maxX, maxY }`
-
-Computes the allowed crop handle bounds from the actual image footprint.
-
-#### `restrictPanZoom( state, imageSize, cropRect ): { crop, zoom }`
-
-Restricts pan and zoom so the image covers the crop area. Bumps zoom if needed.
-
-#### `restrictCropRect( cropRect, zoom, rotation, imageAspectRatio ): NormalizedRect`
-
-Shrinks the crop rect if it's too large for the current zoom/rotation.
-
-#### `getMinZoomForCover( rotation, imageAspectRatio, cropRect ): number`
-
-Minimum zoom needed for the image to cover the crop area.
-
-### Core — Source region
+### Source region
 
 #### `getSourceRegion( state, imageSize ): SourceRegion`
 
@@ -158,72 +90,25 @@ Converts crop state to source-pixel coordinates: `{ x, y, width, height, rotatio
 
 Same as `getSourceRegion` but returns percentages (0–100): `{ x, y, width, height }`. Compatible with the WordPress REST API attachments `/edit` endpoint.
 
-### Core — Export
-
-#### `loadImage( src: string ): Promise<HTMLImageElement>`
-
-Loads an image with CORS support.
-
-#### `renderToCanvas( image, state ): HTMLCanvasElement`
-
-Renders the image with all transforms applied to a new canvas.
-
-#### `applyToCanvas( source: CanvasImageSource, imageSize, state ): HTMLCanvasElement`
-
-Applies transforms to any `CanvasImageSource` (image, canvas, video frame, offscreen canvas).
+### Export
 
 #### `exportCroppedImage( src, state, mimeType?, quality? ): Promise<Blob>`
 
-End-to-end: load image → render → export as Blob.
+End-to-end: load image, render with transforms, export as Blob.
 
-#### `downloadCroppedImage( src, state, filename?, mimeType?, quality? ): Promise<void>`
+#### `applyToCanvas( source: CanvasImageSource, imageSize, state ): HTMLCanvasElement`
 
-Triggers a browser download of the cropped image.
+Applies transforms to any `CanvasImageSource` (image, canvas, video frame, offscreen canvas). For multi-step editing pipelines.
 
-#### `canvasToBlob( canvas, mimeType?, quality? ): Promise<Blob>`
-
-Canvas → Blob conversion.
-
-#### `canvasToDataURL( canvas, mimeType?, quality? ): string`
-
-Canvas → data URL conversion.
-
-### Core — Pipeline
+### Pipeline
 
 #### `stateFromPipeline( operations: TransformOperation[] ): CropperState`
 
-Replays a sequence of operations from default state. Pure function, no DOM needed.
+Replays a sequence of operations from default state. Pure function, no DOM needed. For headless/server-side processing.
 
 #### `applyOperationToState( state, operation ): CropperState`
 
 Applies a single operation to an existing state.
-
-
-### Core — Transform style
-
-#### `computeTransformStyle( state, imageSize ): string`
-
-Pure function returning a CSS `matrix(a, b, c, d, tx, ty)` string.
-
-### Core — Interaction controller
-
-#### `InteractionController`
-
-Framework-agnostic class for pointer/wheel/touch/keyboard event handling. See [docs/recipes.md](docs/recipes.md) for usage with vanilla JS.
-
-Constructor: `new InteractionController( options: InteractionControllerOptions )`
-
-Methods: `handlePointerDown(e, el)`, `handleWheel(e)`, `handleTouchStart(e, rect, doc?)`, `handleKeyDown(e)`, `destroy()`.
-
-### Core — Stencil math
-
-#### `computeFreeResizeRect( drag, clientX, clientY, imageSize, bounds ): NormalizedRect`
-
-Computes a new crop rect during freeform (no aspect ratio) resize.
-
-#### `computeLockedResizeRect( drag, clientX, clientY, imageSize, bounds, normalizedRatio ): NormalizedRect`
-
-Computes a new crop rect during aspect-ratio-locked resize.
 
 ### Types
 
@@ -238,21 +123,14 @@ Computes a new crop rect during aspect-ratio-locked resize.
 | `NormalizedRect` | `{ x, y, width, height }` in [0,1] space |
 | `Size` | `{ width: number, height: number }` |
 | `Flip` | `{ horizontal: boolean, vertical: boolean }` |
-| `Camera` | `mat2d` (gl-matrix 2D affine matrix) |
 | `SourceRegion` | `{ x, y, width, height, rotation, flip, zoom }` in source pixels |
 | `SourceRegionPercent` | `{ x, y, width, height }` as percentages (0–100) |
-| `InteractionControllerOptions` | Options for `InteractionController` constructor |
-| `InteractionStatus` | `{ isDragging: boolean, isZooming: boolean }` |
 | `AspectRatioPreset` | `{ label: string, value: number }` |
 
 ### Constants
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `MIN_ZOOM` | `1` | Minimum zoom level |
-| `MAX_ZOOM` | `10` | Maximum zoom level |
-| `MAX_ROTATION_OFFSET` | `45` | Maximum fine rotation offset (degrees) |
 | `DEFAULT_STATE` | — | Default `CropperState` |
 | `DEFAULT_ASPECT_RATIOS` | Array | Preset aspect ratios (Free, Original, 1:1, 16:9, etc.) |
 | `ORIGINAL_ASPECT_RATIO` | `-1` | Sentinel value for "use image's original ratio" |
-| `MIN_CROP_SIZE` | `0.05` | Minimum crop dimension (5% of visual area) |

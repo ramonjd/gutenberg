@@ -1,14 +1,32 @@
-export * from './types';
-export * from './constants';
-export * from './camera';
-export * from './math/rotation';
-export * from './transforms/pipeline';
-export * from './export/canvas-renderer';
-export * from './state';
-export * from './transform-style';
+// Types
+export type {
+	CropperState,
+	CropperAction,
+	TransformOperation,
+	NormalizedPoint,
+	NormalizedRect,
+	Size,
+	Flip,
+	StencilProps,
+} from './types';
+
+// Constants
 export {
-	InteractionController,
-	type InteractionControllerOptions,
-	type InteractionStatus,
-} from './interaction-controller';
-export * from './stencil-math';
+	DEFAULT_STATE,
+	DEFAULT_ASPECT_RATIOS,
+	ORIGINAL_ASPECT_RATIO,
+} from './constants';
+export type { AspectRatioPreset } from './constants';
+
+// Source region (pixel and percentage)
+export { getSourceRegion, getSourceRegionPercent } from './camera';
+export type { SourceRegion, SourceRegionPercent } from './camera';
+
+// Pipeline
+export {
+	applyOperationToState,
+	stateFromPipeline,
+} from './transforms/pipeline';
+
+// Export / canvas
+export { exportCroppedImage, applyToCanvas } from './export/canvas-renderer';

@@ -112,7 +112,7 @@ function buildAnnouncement( state: CropperState ): string {
  * The component fills its parent container (100% width and height).
  * Wrap it in a sized container to control its dimensions.
  *
- * @param root0                Component props.
+ * @param root0                Component props implementing CropperProps.
  * @param root0.src            Image source URL.
  * @param root0.state          Cropper state from useCropperState.
  * @param root0.dispatch       Dispatch function from useCropperState.
