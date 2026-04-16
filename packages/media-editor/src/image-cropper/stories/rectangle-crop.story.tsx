@@ -369,23 +369,28 @@ export const WithControls: Story = {
 };
 
 /**
- * Live crop preview showing the final export alongside the cropper.
+ * Debug visualization showing camera internals, export preview, and
+ * image info alongside the cropper.
+ *
+ * Displays the camera matrix, crop corner world-space coordinates,
+ * restriction values, source region, and a live export preview --
+ * updated live as you interact. Use this to debug containment issues
+ * or verify the camera and render paths agree.
  */
-const WithPreviewComponent = () => {
-	const {
-		state,
-		dispatch,
-		setRotation,
-		setFlip,
-		setZoom,
-		snapRotate90,
-		reset,
-	} = useCropperState();
+const DebugComponent = () => {
+	const { state, dispatch, setRotation, setZoom, snapRotate90, reset } =
+		useCropperState();
 
 	const [ freeformCrop, setFreeformCrop ] = useState( false );
 	const freeformToggleId = useId();
 	const [ previewSrc, setPreviewSrc ] = useState< string | null >( null );
 	const imageRef = useRef< HTMLImageElement | null >( null );
+
+	const [ containerSize, setContainerSize ] = useState( {
+		width: 0,
+		height: 0,
+	} );
+	const containerRef = useRef< HTMLDivElement >( null );
 
 	// Load the source image once.
 	useEffect( () => {
@@ -402,161 +407,6 @@ const WithPreviewComponent = () => {
 		const canvas = renderToCanvas( imageRef.current, state );
 		setPreviewSrc( canvasToDataURL( canvas, 'image/jpeg', 0.85 ) );
 	}, [ state ] );
-
-	// The base cardinal angle (nearest 90° step) and the fine offset.
-	const baseAngle = Math.round( state.rotation / 90 ) * 90;
-	const fineOffset = state.rotation - baseAngle;
-
-	const handleRotateLeft = useCallback( () => {
-		snapRotate90( -1 );
-	}, [ snapRotate90 ] );
-
-	const handleRotateRight = useCallback( () => {
-		snapRotate90( 1 );
-	}, [ snapRotate90 ] );
-
-	const handleRotationSlider = useCallback(
-		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setRotation( baseAngle + parseFloat( event.target.value ) );
-		},
-		[ baseAngle, setRotation ]
-	);
-
-	const handleFlipHorizontal = useCallback( () => {
-		setFlip( {
-			horizontal: ! state.flip.horizontal,
-			vertical: state.flip.vertical,
-		} );
-	}, [ state.flip, setFlip ] );
-
-	const handleFlipVertical = useCallback( () => {
-		setFlip( {
-			horizontal: state.flip.horizontal,
-			vertical: ! state.flip.vertical,
-		} );
-	}, [ state.flip, setFlip ] );
-
-	const handleZoomChange = useCallback(
-		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setZoom( parseFloat( event.target.value ) );
-		},
-		[ setZoom ]
-	);
-
-	return (
-		<div>
-			<div className="image-cropper-story__controls">
-				<div className="image-cropper-story__row">
-					<strong>Rotation: { state.rotation }deg</strong>
-					<button onClick={ handleRotateLeft }>-90</button>
-					<button onClick={ handleRotateRight }>+90</button>
-				</div>
-				<input
-					className="image-cropper-story__slider"
-					type="range"
-					min={ -MAX_ROTATION_OFFSET }
-					max={ MAX_ROTATION_OFFSET }
-					step="0.5"
-					value={ fineOffset }
-					onChange={ handleRotationSlider }
-				/>
-
-				<div className="image-cropper-story__row">
-					<strong>
-						Flip: H={ state.flip.horizontal ? 'Yes' : 'No' }, V=
-						{ state.flip.vertical ? 'Yes' : 'No' }
-					</strong>
-					<button onClick={ handleFlipHorizontal }>
-						Flip Horizontal
-					</button>
-					<button onClick={ handleFlipVertical }>
-						Flip Vertical
-					</button>
-				</div>
-
-				<div className="image-cropper-story__row">
-					<strong>Zoom: { state.zoom.toFixed( 2 ) }</strong>
-					<input
-						type="range"
-						min={ MIN_ZOOM }
-						max={ MAX_ZOOM }
-						step="0.1"
-						value={ state.zoom }
-						onChange={ handleZoomChange }
-					/>
-				</div>
-
-				<div className="image-cropper-story__row">
-					<label htmlFor={ freeformToggleId }>
-						<input
-							id={ freeformToggleId }
-							type="checkbox"
-							checked={ freeformCrop }
-							onChange={ ( e ) =>
-								setFreeformCrop( e.target.checked )
-							}
-						/>{ ' ' }
-						Freeform crop
-					</label>
-					<button onClick={ () => reset() }>Reset</button>
-				</div>
-			</div>
-
-			<div
-				style={ { display: 'flex', gap: 24, alignItems: 'flex-start' } }
-			>
-				<div style={ { flex: '1 1 50%', minWidth: 0 } }>
-					<strong>Cropper</strong>
-					<div className="image-cropper-story__container">
-						<Cropper
-							src={ SAMPLE_IMAGE }
-							state={ state }
-							dispatch={ dispatch }
-							showGrid
-							showDimming
-							freeformCrop={ freeformCrop }
-						/>
-					</div>
-				</div>
-
-				<div style={ { flex: '1 1 50%', minWidth: 0 } }>
-					<strong>Export Preview</strong>
-					{ previewSrc ? (
-						<img
-							className="image-cropper-story__export-image"
-							src={ previewSrc }
-							alt="Crop preview"
-						/>
-					) : (
-						<p>Loading...</p>
-					) }
-				</div>
-			</div>
-		</div>
-	);
-};
-
-export const WithPreview: Story = {
-	render: WithPreviewComponent,
-};
-
-/**
- * Debug visualization showing camera internals alongside the cropper.
- *
- * Displays the camera matrix, crop corner world-space coordinates,
- * restriction values, and source region — updated live as you interact.
- * Use this to debug containment issues or verify the camera and render
- * paths agree.
- */
-const CameraDebugComponent = () => {
-	const { state, dispatch, setRotation, setZoom, snapRotate90, reset } =
-		useCropperState();
-
-	const [ containerSize, setContainerSize ] = useState( {
-		width: 0,
-		height: 0,
-	} );
-	const containerRef = useRef< HTMLDivElement >( null );
 
 	// Track container size for camera computations.
 	useEffect( () => {
@@ -637,11 +487,33 @@ const CameraDebugComponent = () => {
 	const baseAngle = Math.round( state.rotation / 90 ) * 90;
 	const fineOffset = state.rotation - baseAngle;
 
+	const handleRotateLeft = useCallback( () => {
+		snapRotate90( -1 );
+	}, [ snapRotate90 ] );
+
+	const handleRotateRight = useCallback( () => {
+		snapRotate90( 1 );
+	}, [ snapRotate90 ] );
+
+	const handleRotationSlider = useCallback(
+		( event: React.ChangeEvent< HTMLInputElement > ) => {
+			setRotation( baseAngle + parseFloat( event.target.value ) );
+		},
+		[ baseAngle, setRotation ]
+	);
+
+	const handleZoomChange = useCallback(
+		( event: React.ChangeEvent< HTMLInputElement > ) => {
+			setZoom( parseFloat( event.target.value ) );
+		},
+		[ setZoom ]
+	);
+
 	return (
 		<div>
 			<div className="image-cropper-story__controls">
 				<div className="image-cropper-story__row">
-					<button onClick={ () => snapRotate90( -1 ) }>-90</button>
+					<button onClick={ handleRotateLeft }>-90</button>
 					<input
 						className="image-cropper-story__slider"
 						type="range"
@@ -649,23 +521,28 @@ const CameraDebugComponent = () => {
 						max={ MAX_ROTATION_OFFSET }
 						step="0.5"
 						value={ fineOffset }
-						onChange={ ( e ) =>
-							setRotation(
-								baseAngle + parseFloat( e.target.value )
-							)
-						}
+						onChange={ handleRotationSlider }
 					/>
-					<button onClick={ () => snapRotate90( 1 ) }>+90</button>
+					<button onClick={ handleRotateRight }>+90</button>
 					<input
 						type="range"
 						min={ MIN_ZOOM }
 						max={ MAX_ZOOM }
 						step="0.1"
 						value={ state.zoom }
-						onChange={ ( e ) =>
-							setZoom( parseFloat( e.target.value ) )
-						}
+						onChange={ handleZoomChange }
 					/>
+					<label htmlFor={ freeformToggleId }>
+						<input
+							id={ freeformToggleId }
+							type="checkbox"
+							checked={ freeformCrop }
+							onChange={ ( e ) =>
+								setFreeformCrop( e.target.checked )
+							}
+						/>{ ' ' }
+						Freeform crop
+					</label>
 					<button onClick={ () => reset() }>Reset</button>
 				</div>
 			</div>
@@ -684,7 +561,7 @@ const CameraDebugComponent = () => {
 							dispatch={ dispatch }
 							showGrid
 							showDimming
-							freeformCrop
+							freeformCrop={ freeformCrop }
 						/>
 					</div>
 				</div>
@@ -699,7 +576,7 @@ const CameraDebugComponent = () => {
 						maxHeight: 500,
 					} }
 				>
-					<h4 style={ { margin: '0 0 8px' } }>Camera Debug</h4>
+					<h4 style={ { margin: '0 0 8px' } }>Debug</h4>
 
 					<strong>Containment</strong>
 					<div
@@ -713,6 +590,21 @@ const CameraDebugComponent = () => {
 					>
 						{ isContained ? 'COVERED' : 'NOT COVERED' }
 					</div>
+
+					{ state.image && (
+						<div>
+							<strong>Image info</strong>
+							<pre style={ { margin: '4px 0' } }>
+								{ `original: ${ state.image.naturalWidth }×${
+									state.image.naturalHeight
+								}
+aspect ratio: ${ (
+									state.image.naturalWidth /
+									state.image.naturalHeight
+								).toFixed( 2 ) }` }
+							</pre>
+						</div>
+					) }
 
 					<div>
 						<strong>State</strong>
@@ -805,10 +697,23 @@ w: ${ sourceRegion.width.toFixed( 0 ) }  h: ${ sourceRegion.height.toFixed(
 					) }
 				</div>
 			</div>
+
+			<div className="image-cropper-story__export-preview">
+				<strong>Export Preview</strong>
+				{ previewSrc ? (
+					<img
+						className="image-cropper-story__export-image"
+						src={ previewSrc }
+						alt="Crop preview"
+					/>
+				) : (
+					<p>Loading...</p>
+				) }
+			</div>
 		</div>
 	);
 };
 
-export const CameraDebug: Story = {
-	render: CameraDebugComponent,
+export const Debug: Story = {
+	render: DebugComponent,
 };
