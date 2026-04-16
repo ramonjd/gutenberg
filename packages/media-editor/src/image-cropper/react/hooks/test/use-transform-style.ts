@@ -19,13 +19,12 @@ function createState( overrides: Partial< CropperState > = {} ): CropperState {
 }
 
 describe( 'useTransformStyle', () => {
-	const containerSize: Size = { width: 500, height: 300 };
 	const imageSize: Size = { width: 400, height: 300 };
 
 	it( 'should return identity-like matrix for default state', () => {
 		const state = createState();
 		const { result } = renderHook( () =>
-			useTransformStyle( state, containerSize, imageSize )
+			useTransformStyle( state, imageSize )
 		);
 
 		// Default: no rotation, no flip, zoom=1, crop=(0,0)
@@ -36,7 +35,7 @@ describe( 'useTransformStyle', () => {
 	it( 'should include translation from crop offset', () => {
 		const state = createState( { crop: { x: 0.5, y: 0.25 } } );
 		const { result } = renderHook( () =>
-			useTransformStyle( state, containerSize, imageSize )
+			useTransformStyle( state, imageSize )
 		);
 
 		// 0.5 * 400 = 200, 0.25 * 300 = 75
@@ -47,7 +46,7 @@ describe( 'useTransformStyle', () => {
 	it( 'should apply rotation=90 producing correct sin/cos values', () => {
 		const state = createState( { rotation: 90 } );
 		const { result } = renderHook( () =>
-			useTransformStyle( state, containerSize, imageSize )
+			useTransformStyle( state, imageSize )
 		);
 
 		// cos(90°)≈0, sin(90°)≈1, no flip, zoom=1
@@ -68,7 +67,7 @@ describe( 'useTransformStyle', () => {
 	it( 'should apply zoom=2 producing scale factor 2 in matrix', () => {
 		const state = createState( { zoom: 2 } );
 		const { result } = renderHook( () =>
-			useTransformStyle( state, containerSize, imageSize )
+			useTransformStyle( state, imageSize )
 		);
 
 		// cos(0)=1, sin(0)=0, no flip, zoom=2
@@ -81,7 +80,7 @@ describe( 'useTransformStyle', () => {
 			flip: { horizontal: true, vertical: false },
 		} );
 		const { result } = renderHook( () =>
-			useTransformStyle( state, containerSize, imageSize )
+			useTransformStyle( state, imageSize )
 		);
 
 		// cos(0)=1, sin(0)=0, sx=-1, sy=1, zoom=1
@@ -94,7 +93,7 @@ describe( 'useTransformStyle', () => {
 			flip: { horizontal: false, vertical: true },
 		} );
 		const { result } = renderHook( () =>
-			useTransformStyle( state, containerSize, imageSize )
+			useTransformStyle( state, imageSize )
 		);
 
 		// cos(0)=1, sin(0)=0, sx=1, sy=-1, zoom=1
@@ -107,7 +106,7 @@ describe( 'useTransformStyle', () => {
 			flip: { horizontal: true, vertical: true },
 		} );
 		const { result } = renderHook( () =>
-			useTransformStyle( state, containerSize, imageSize )
+			useTransformStyle( state, imageSize )
 		);
 
 		// sx=-1, sy=-1, no rotation, zoom=1
@@ -123,7 +122,7 @@ describe( 'useTransformStyle', () => {
 			zoom: 3,
 		} );
 		const { result } = renderHook( () =>
-			useTransformStyle( state, containerSize, imageSize )
+			useTransformStyle( state, imageSize )
 		);
 
 		// tx = 0.1 * 400 = 40, ty = 0.2 * 300 = 60

@@ -15,14 +15,12 @@ import { computeTransformStyle } from '../../core/transform-style';
  *
  * Delegates to the pure `computeTransformStyle` function in core.
  *
- * @param state         The current cropper state.
- * @param containerSize The container dimensions in pixels.
- * @param imageSize     The rendered image dimensions in pixels.
+ * @param state     The current cropper state.
+ * @param imageSize The rendered image dimensions in pixels.
  * @return A CSS transform string.
  */
 export function useTransformStyle(
 	state: CropperState,
-	containerSize: Size,
 	imageSize: Size
 ): string {
 	return useMemo(

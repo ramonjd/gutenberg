@@ -155,33 +155,22 @@ for ( const op of operations ) {
 **Replay from scratch:**
 
 ```typescript
-import { stateFromPipeline, serializePipeline, deserializePipeline } from '@wordpress/media-editor';
+import { stateFromPipeline } from '@wordpress/media-editor';
 
 // Replay a pipeline from initial state:
 const finalState = stateFromPipeline( operations );
 
-// Serialize for storage:
-const json = serializePipeline( operations );
+// Serialize for storage (operations are plain JSON):
+const json = JSON.stringify( operations );
 
-// Deserialize with validation:
-const ops = deserializePipeline( json );
+// Deserialize:
+const ops = JSON.parse( json );
 ```
-
-**JSON Schemas for agent discovery:**
-
-The package includes JSON Schema files that agents can read to discover the API without parsing TypeScript:
-
-- `schemas/transform-operation.json` — describes all operation types and their parameters
-- `schemas/cropper-state.json` — describes the full state shape
-
-These are local schema files within the package directory, not published to schemas.wp.org. They follow standard JSON Schema 2020-12 and can be consumed by any tool that understands JSON Schema (OpenAPI, LLM function calling, etc.).
 
 **Adding new operation types:**
 
 1. Add the operation variant to `TransformOperation` in `core/types.ts`
 2. Handle it in `applyOperationToState()` in `core/transforms/pipeline.ts`
-3. Add serialization/deserialization support in `deserializePipeline()`
-4. Update `schemas/transform-operation.json` with the new operation schema
 
 ### 3. Custom export pipelines
 

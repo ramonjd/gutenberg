@@ -365,11 +365,7 @@ function CropperInner(
 	}, [ onWheelNative ] );
 
 	// Use the transform style hook for the image CSS transform.
-	const transformString = useTransformStyle(
-		state,
-		containerSize,
-		visualSize
-	);
+	const transformString = useTransformStyle( state, visualSize );
 
 	/**
 	 * Handle the image load event.
