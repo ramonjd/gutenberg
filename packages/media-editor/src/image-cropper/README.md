@@ -198,21 +198,6 @@ Replays a sequence of operations from default state. Pure function, no DOM neede
 
 Applies a single operation to an existing state.
 
-#### `createPipeline(): TransformOperation[]`
-
-Creates an empty pipeline array.
-
-#### `addOperation( pipeline, operation ): TransformOperation[]`
-
-Appends an operation (immutable — returns a new array).
-
-#### `serializePipeline( pipeline ): string`
-
-JSON serialization.
-
-#### `deserializePipeline( json: string ): TransformOperation[]`
-
-JSON deserialization with validation.
 
 ### Core — Transform style
 
@@ -224,7 +209,7 @@ Pure function returning a CSS `matrix(a, b, c, d, tx, ty)` string.
 
 #### `InteractionController`
 
-Framework-agnostic class for pointer/wheel/touch/keyboard event handling. See [docs/recipes.md](docs/recipes.md) for usage with vanilla JS and Vue.
+Framework-agnostic class for pointer/wheel/touch/keyboard event handling. See [docs/recipes.md](docs/recipes.md) for usage with vanilla JS.
 
 Constructor: `new InteractionController( options: InteractionControllerOptions )`
 
@@ -251,7 +236,6 @@ Computes a new crop rect during aspect-ratio-locked resize.
 | `TransformOperation` | `{ type: 'crop' \| 'rotate' \| 'flip' \| 'zoom', ... }` |
 | `NormalizedPoint` | `{ x: number, y: number }` in [0,1] space |
 | `NormalizedRect` | `{ x, y, width, height }` in [0,1] space |
-| `PixelPoint` / `PixelRect` | Same shapes in pixel space |
 | `Size` | `{ width: number, height: number }` |
 | `Flip` | `{ horizontal: boolean, vertical: boolean }` |
 | `Camera` | `mat2d` (gl-matrix 2D affine matrix) |
@@ -269,7 +253,6 @@ Computes a new crop rect during aspect-ratio-locked resize.
 | `MAX_ZOOM` | `10` | Maximum zoom level |
 | `MAX_ROTATION_OFFSET` | `45` | Maximum fine rotation offset (degrees) |
 | `DEFAULT_STATE` | — | Default `CropperState` |
-| `DEFAULT_CROP_RECT` | `{ x: 0, y: 0, width: 1, height: 1 }` | Full image |
 | `DEFAULT_ASPECT_RATIOS` | Array | Preset aspect ratios (Free, Original, 1:1, 16:9, etc.) |
 | `ORIGINAL_ASPECT_RATIO` | `-1` | Sentinel value for "use image's original ratio" |
 | `MIN_CROP_SIZE` | `0.05` | Minimum crop dimension (5% of visual area) |

@@ -24,13 +24,3 @@ export function normalizeRotation( degrees: number ): number {
 export function degreesToRadians( degrees: number ): number {
 	return ( degrees * Math.PI ) / 180;
 }
-
-/**
- * Converts an angle from radians to degrees.
- *
- * @param radians The angle in radians.
- * @return The angle in degrees.
- */
-export function radiansToDegrees( radians: number ): number {
-	return ( radians * 180 ) / Math.PI;
-}

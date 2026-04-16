@@ -3,9 +3,6 @@ import {
 	worldToScreen,
 	screenToWorld,
 	getVisibleBounds,
-	cropRectToScreenBounds,
-	clampNormalized,
-	getMinZoomForCover,
 	restrictPanZoom,
 	restrictCropRect,
 	createExportCamera,
@@ -100,93 +97,6 @@ describe( 'createCamera', () => {
 		const p1 = worldToScreen( cam1, { x: 0.5, y: 0.5 } );
 		const p2 = worldToScreen( cam2, { x: 0.5, y: 0.5 } );
 		expect( p2.x ).toBeGreaterThan( p1.x );
-	} );
-} );
-
-describe( 'getVisibleBounds', () => {
-	it( 'returns container-centered bounds at identity state', () => {
-		const state = makeState();
-		const camera = createCamera( state, CONTAINER, IMAGE );
-		const bounds = getVisibleBounds( camera );
-		expect( bounds.width ).toBeGreaterThan( 0 );
-		expect( bounds.height ).toBeGreaterThan( 0 );
-		expect( bounds.left + bounds.width / 2 ).toBeCloseTo(
-			CONTAINER.width / 2,
-			0
-		);
-		expect( bounds.top + bounds.height / 2 ).toBeCloseTo(
-			CONTAINER.height / 2,
-			0
-		);
-	} );
-
-	it( 'zoom=2 doubles the visible bounds dimensions', () => {
-		const cam1 = createCamera( makeState(), CONTAINER, IMAGE );
-		const cam2 = createCamera( makeState( { zoom: 2 } ), CONTAINER, IMAGE );
-		const b1 = getVisibleBounds( cam1 );
-		const b2 = getVisibleBounds( cam2 );
-		expect( b2.width ).toBeCloseTo( b1.width * 2, 0 );
-		expect( b2.height ).toBeCloseTo( b1.height * 2, 0 );
-	} );
-} );
-
-describe( 'cropRectToScreenBounds', () => {
-	it( 'full crop rect at identity matches visible bounds', () => {
-		const state = makeState();
-		const camera = createCamera( state, CONTAINER, IMAGE );
-		const cropBounds = cropRectToScreenBounds( camera, state.cropRect );
-		const imageBounds = getVisibleBounds( camera );
-		expect( cropBounds.left ).toBeCloseTo( imageBounds.left, 0 );
-		expect( cropBounds.top ).toBeCloseTo( imageBounds.top, 0 );
-		expect( cropBounds.width ).toBeCloseTo( imageBounds.width, 0 );
-		expect( cropBounds.height ).toBeCloseTo( imageBounds.height, 0 );
-	} );
-
-	it( 'half crop rect has half the dimensions', () => {
-		const state = makeState();
-		const camera = createCamera( state, CONTAINER, IMAGE );
-		const halfRect = { x: 0.25, y: 0.25, width: 0.5, height: 0.5 };
-		const fullBounds = getVisibleBounds( camera );
-		const halfBounds = cropRectToScreenBounds( camera, halfRect );
-		expect( halfBounds.width ).toBeCloseTo( fullBounds.width * 0.5, 0 );
-		expect( halfBounds.height ).toBeCloseTo( fullBounds.height * 0.5, 0 );
-	} );
-} );
-
-describe( 'clampNormalized', () => {
-	it( 'clamps below 0 to 0', () => {
-		expect( clampNormalized( -0.5 ) ).toBe( 0 );
-	} );
-	it( 'clamps above 1 to 1', () => {
-		expect( clampNormalized( 1.5 ) ).toBe( 1 );
-	} );
-	it( 'preserves values in range', () => {
-		expect( clampNormalized( 0.5 ) ).toBe( 0.5 );
-	} );
-} );
-
-describe( 'getMinZoomForCover', () => {
-	it( 'returns 1 for full crop rect on square image', () => {
-		const rect = { x: 0, y: 0, width: 1, height: 1 };
-		expect( getMinZoomForCover( 0, 1, rect ) ).toBeCloseTo( 1 );
-	} );
-	it( 'requires zoom > 1 for a rotated image', () => {
-		const rect = { x: 0, y: 0, width: 1, height: 1 };
-		expect( getMinZoomForCover( 45, 1, rect ) ).toBeGreaterThan( 1 );
-	} );
-	it( 'returns 1 for full crop rect at 90° on landscape image', () => {
-		// At 90° rotation the contain-fit already accounts for the rotated
-		// bounding box, so zoom=1 should exactly cover the full visual area.
-		const rect = { x: 0, y: 0, width: 1, height: 1 };
-		expect( getMinZoomForCover( 90, 16 / 9, rect ) ).toBeCloseTo( 1 );
-	} );
-	it( 'returns 1 for full crop rect at 90° on portrait image', () => {
-		const rect = { x: 0, y: 0, width: 1, height: 1 };
-		expect( getMinZoomForCover( 90, 9 / 16, rect ) ).toBeCloseTo( 1 );
-	} );
-	it( 'returns 1 for full crop rect at 270° on landscape image', () => {
-		const rect = { x: 0, y: 0, width: 1, height: 1 };
-		expect( getMinZoomForCover( 270, 16 / 9, rect ) ).toBeCloseTo( 1 );
 	} );
 } );
 

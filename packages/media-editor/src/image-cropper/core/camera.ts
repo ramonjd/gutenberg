@@ -278,36 +278,6 @@ export function getVisibleBounds( camera: Camera ): VisualBounds {
 }
 
 /**
- * Returns the axis-aligned bounding box of a crop rectangle in screen (pixel) space.
- *
- * @param camera   The camera matrix from createCamera.
- * @param cropRect The crop rectangle in normalized coordinates.
- * @return The screen-space bounding box of the crop rectangle.
- */
-export function cropRectToScreenBounds(
-	camera: Camera,
-	cropRect: NormalizedRect
-): VisualBounds {
-	const { x, y, width, height } = cropRect;
-	return aabb( camera, [
-		[ x, y ],
-		[ x + width, y ],
-		[ x + width, y + height ],
-		[ x, y + height ],
-	] );
-}
-
-/**
- * Clamps a value to the normalized [0, 1] range.
- *
- * @param value The value to clamp.
- * @return The clamped value.
- */
-export function clampNormalized( value: number ): number {
-	return Math.min( 1, Math.max( 0, value ) );
-}
-
-/**
  * Compute the visual (rotated) bounding-box dimensions in pixel-proportional
  * units where the unrotated image is `a × 1` (renderedW = a, renderedH = 1).
  *
@@ -345,7 +315,7 @@ function getVisualDimensions(
  * @param cropRect         The crop rectangle in normalized coordinates.
  * @return The minimum zoom factor (always >= 1).
  */
-export function getMinZoomForCover(
+function getMinZoomForCover(
 	rotation: number,
 	imageAspectRatio: number,
 	cropRect: NormalizedRect

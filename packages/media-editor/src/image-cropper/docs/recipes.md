@@ -1,6 +1,6 @@
 # Recipes and Getting Started
 
-Getting started, the component API, state shape, extension points, and integration patterns.
+Getting started, extension points, and integration patterns.
 
 ## Getting started
 
@@ -73,41 +73,6 @@ const region = getSourceRegion( state, { width: naturalWidth, height: naturalHei
 import { getSourceRegionPercent } from '@wordpress/media-editor';
 const pct = getSourceRegionPercent( state, { width: naturalWidth, height: naturalHeight } );
 ```
-
-## Cropper props
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `src` | `string` | **required** | Image source URL |
-| `state` | `CropperState` | **required** | Cropper state from `useCropperState` |
-| `dispatch` | `Dispatch<CropperAction>` | **required** | Dispatch function from `useCropperState` |
-| `stencil` | `ComponentType<StencilProps>` | `RectangleStencil` | Pluggable crop area UI component |
-| `showGrid` | `boolean` | `false` | Show rule-of-thirds grid overlay |
-| `showDimming` | `boolean` | `false` | Show dimming overlay outside crop area |
-| `minZoom` | `number` | `1` | Minimum zoom level |
-| `maxZoom` | `number` | `10` | Maximum zoom level |
-| `aspectRatio` | `number` | — | Fixed aspect ratio (width / height). Omit for free ratio. |
-| `freeformCrop` | `boolean` | `false` | Enable resize handles on the crop area |
-| `onImageLoaded` | `(size: Size) => void` | — | Fires when the image finishes loading |
-| `onStateChange` | `(state: CropperState) => void` | — | Fires on every state change (every frame during drag) |
-| `onGestureStart` | `() => void` | — | Fires when a continuous gesture begins (drag, resize, pinch) |
-| `onGestureEnd` | `() => void` | — | Fires when a continuous gesture ends |
-| `className` | `string` | — | Additional CSS class for the container |
-
-## CropperState shape
-
-The state is a plain serializable object. All coordinates use **normalized visual space** where `[0, 1]` maps to the visual (rotated) bounding box of the image at zoom=1.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `image` | `{ src, naturalWidth, naturalHeight } \| null` | Source image info. Null until loaded. |
-| `crop` | `{ x: number, y: number }` | Pan offset in normalized coordinates. `(0, 0)` = centered. |
-| `zoom` | `number` | Zoom level. `1` = fit to container. |
-| `rotation` | `number` | Rotation in degrees, normalized to 0–360. |
-| `flip` | `{ horizontal: boolean, vertical: boolean }` | Flip state. |
-| `cropRect` | `{ x, y, width, height }` | Crop area in normalized coordinates. `(0, 0, 1, 1)` = full image. |
-
-Default state: `crop: (0, 0)`, `zoom: 1`, `rotation: 0`, `flip: (false, false)`, `cropRect: (0, 0, 1, 1)`.
 
 ## Architecture overview
 
@@ -486,7 +451,7 @@ All styles are in CSS classes with no inline style overrides, so consumers can o
 
 ## Framework integration
 
-The `core/` layer has zero React dependencies. It exports pure functions and a single class (`InteractionController`) that any framework can wrap. The React code under `react/` is one such wrapper — below are two others.
+The `core/` layer has zero React dependencies. It exports pure functions and a single class (`InteractionController`) that any framework can wrap. The React code under `react/` is one such wrapper — below is another.
 
 ### Vanilla JavaScript
 
@@ -564,89 +529,6 @@ render( state );
 // Cleanup when done.
 // controller.destroy();
 ```
-
-### Vue 3 Composition API
-
-```vue
-<script setup>
-import { reactive, computed, ref, onMounted, onUnmounted } from 'vue';
-import {
-  cropperReducer,
-  DEFAULT_STATE,
-  InteractionController,
-  computeTransformStyle,
-  getCropBounds,
-} from '@wordpress/media-editor';
-
-const props = defineProps( { src: String, imageSize: Object } );
-
-// Reactive state — Vue tracks mutations automatically.
-const state = reactive( { ...DEFAULT_STATE } );
-
-function dispatch( action ) {
-  Object.assign( state, cropperReducer( { ...state }, action ) );
-}
-
-const containerRef = ref( null );
-
-// Computed transform style (recalculates when state changes).
-const containerSize = ref( { width: 0, height: 0 } );
-const transformStyle = computed( () =>
-  computeTransformStyle( state, containerSize.value, props.imageSize )
-);
-const cropBounds = computed( () =>
-  getCropBounds( state, containerSize.value, props.imageSize )
-);
-
-let controller;
-
-onMounted( () => {
-  const el = containerRef.value;
-  containerSize.value = { width: el.clientWidth, height: el.clientHeight };
-
-  controller = new InteractionController( {
-    getState: () => ( { ...state } ),
-    dispatch,
-    getContainerSize: () => containerSize.value,
-    getImageSize: () => props.imageSize,
-  } );
-
-  el.addEventListener( 'pointerdown', ( e ) =>
-    controller.handlePointerDown( e, el )
-  );
-  el.addEventListener( 'wheel', ( e ) => controller.handleWheel( e ), {
-    passive: false,
-  } );
-  el.addEventListener( 'keydown', ( e ) => controller.handleKeyDown( e ) );
-} );
-
-onUnmounted( () => controller?.destroy() );
-</script>
-
-<template>
-  <div ref="containerRef" class="cropper" tabindex="0">
-    <img
-      :src="props.src"
-      :style="{
-        transform: transformStyle.transform,
-        width: transformStyle.width + 'px',
-        height: transformStyle.height + 'px',
-      }"
-    />
-    <div
-      class="crop-overlay"
-      :style="{
-        left: cropBounds.x + 'px',
-        top: cropBounds.y + 'px',
-        width: cropBounds.width + 'px',
-        height: cropBounds.height + 'px',
-      }"
-    />
-  </div>
-</template>
-```
-
-The pattern is the same for any framework: wrap `cropperReducer` in the framework's reactivity primitive (`reactive()` in Vue, `writable()` in Svelte, `signal()` in Solid), create an `InteractionController` on mount, and destroy it on unmount.
 
 ## AI agent integration patterns
 
@@ -747,28 +629,6 @@ const savedCropState = { ...state };
 
 // Restore when coming back:
 const { state, dispatch } = useCropperState( savedCropState );
-```
-
-### Integration with WordPress media processing library
-
-When the WordPress 7 client-side media processing library is available:
-
-```typescript
-// 1. User crops in the Cropper
-// 2. Get the source region for server/client processing:
-const region = getSourceRegion( state, imageSize );
-
-// 3. Pass to the media processing library:
-const processed = await wpMediaProcess( imageFile, {
-  crop: region,
-  filters: userSelectedFilters,
-  format: 'webp',
-  quality: 0.85,
-} );
-
-// 4. Or apply crop to an already-processed canvas:
-const adjustedCanvas = await wpMediaAdjust( imageFile, filters );
-const croppedResult = applyToCanvas( adjustedCanvas, imageSize, state );
 ```
 
 ### Undo/redo with gesture support
@@ -915,10 +775,6 @@ function ImageEditorWithUndo( { src }: { src: string } ) {
 | Handle resize settle | `onGestureEnd` fires after the settle animation (crop re-centers). The undo snapshot captures the final settled state. |
 | Pipeline display | For toolbar ops, log the `TransformOperation`. For gestures, compare before/after state and generate a descriptive label (e.g., "gesture: pan, zoom 1.5x"). |
 
-### Extensible operations (planned)
-
-The `TransformOperation` type currently supports crop, rotate, flip, and zoom. For future operations (brightness, contrast, filters), the pipeline can be extended by adding new variants to the type and handlers in `applyOperationToState()`. External code can also wrap the pipeline with custom pre/post processing steps.
-
 ## Accessibility
 
 The cropper is keyboard-accessible and screen-reader friendly:
@@ -1063,136 +919,6 @@ This enables:
 - Crop history per attachment
 - "Reset to original" using stored metadata
 - Multiple crops per registered size (future)
-
-### Multi-size cropping (future)
-
-WordPress generates multiple sizes from one upload. The cropper could let users define per-size crops:
-
-```typescript
-// Future API concept:
-const crops = {
-  thumbnail: { cropRect: { x: 0.2, y: 0.1, width: 0.6, height: 0.8 }, rotation: 0 },
-  medium:    { cropRect: { x: 0, y: 0, width: 1, height: 1 }, rotation: 5 },
-  featured:  { cropRect: { x: 0.1, y: 0, width: 0.8, height: 0.5 }, rotation: 0 },
-};
-
-// Each size stores its own CropperState, all from the same source image.
-// getSourceRegion() + server-side processing generates each size independently.
-```
-
-### AI plugin integration
-
-AI plugins (Jetpack AI, third-party) can add features using the existing extension points:
-
-```typescript
-// An AI plugin adds an "Auto straighten" button:
-wp.hooks.addFilter( 'imageEditing.toolbarControls', 'jetpack-ai', ( controls, state ) => {
-  return [
-    ...controls,
-    {
-      label: 'Auto straighten',
-      onClick: async () => {
-        const region = getSourceRegion( state, imageSize );
-        const result = await jetpackAI.analyzeStraighten( region );
-        // result.rotation = 2.3 (degrees to correct)
-        applyOperation( { type: 'rotate', degrees: result.rotation } );
-      },
-    },
-  ];
-} );
-
-// An AI plugin adds "Smart crop" that detects the subject:
-wp.hooks.addFilter( 'imageEditing.toolbarControls', 'jetpack-ai', ( controls, state ) => {
-  return [
-    ...controls,
-    {
-      label: 'Smart crop',
-      onClick: async () => {
-        const suggestion = await jetpackAI.suggestCrop( attachment.url );
-        // suggestion = { x: 0.1, y: 0.05, width: 0.8, height: 0.9 }
-        applyOperation( { type: 'crop', rect: suggestion } );
-      },
-    },
-  ];
-} );
-```
-
-### Remembering preferences per block type
-
-Store the last-used aspect ratio per block type so the cropper opens with the right preset:
-
-```typescript
-// When the user selects an aspect ratio:
-wp.data.dispatch( 'core/preferences' ).set(
-  'image-editing',
-  `lastAspectRatio/${ blockName }`,
-  selectedRatio
-);
-
-// When opening the cropper:
-const lastRatio = wp.data.select( 'core/preferences' ).get(
-  'image-editing',
-  `lastAspectRatio/${ blockName }`
-);
-
-<Cropper aspectRatio={ lastRatio ?? undefined } ... />
-```
-
-Cover blocks remember 16:9, avatar blocks remember 1:1, and the user never has to re-select.
-
-## Lazy loading
-
-The package is tree-shakeable and can be lazy-loaded via standard React patterns. This is recommended for WordPress integrations where the cropper is not always visible (e.g., only shown when the user clicks "Edit image"):
-
-```tsx
-import { lazy, Suspense } from 'react';
-
-// The entire cropper bundle (including gl-matrix) is only loaded
-// when the user opens the image editor.
-const ImageEditor = lazy( () => import( './ImageEditor' ) );
-
-function MediaPanel( { showEditor } ) {
-  if ( ! showEditor ) {
-    return <button>Edit image</button>;
-  }
-  return (
-    <Suspense fallback={ <Spinner /> }>
-      <ImageEditor src={ imageUrl } />
-    </Suspense>
-  );
-}
-```
-
-In the lazy-loaded module:
-
-```tsx
-// ImageEditor.tsx — only loaded on demand
-import { Cropper, useCropperState } from '@wordpress/media-editor';
-
-export default function ImageEditor( { src } ) {
-  const { state, dispatch } = useCropperState();
-  return <Cropper src={ src } state={ state } dispatch={ dispatch } />;
-}
-```
-
-This is a consumer-side pattern — no changes needed in the package. The package is ~8KB gzipped (mostly gl-matrix) and all exports are tree-shakeable. If you only import `stateFromPipeline` for headless processing, the React components and gl-matrix won't be bundled.
-
-## Future extension areas
-
-These features are not built yet but the architecture supports them:
-
-| Feature | Extension point | Approach |
-|---------|----------------|----------|
-| Image filters/effects | `applyToCanvas()` | Process canvas, then apply crop |
-| Format conversion | `canvasToBlob()` | Already supports MIME type parameter |
-| AI auto-crop | Pipeline API | Agent generates `TransformOperation[]` |
-| AI region editing | `getSourceRegion()` + custom stencil | Source-pixel coords for AI API |
-| Undo/redo | `onGestureStart`/`onGestureEnd` + `RESET` | **Implemented** — see "Undo/redo with gesture support" above |
-| Video frame extraction | `applyToCanvas()` | Extract frame → feed as `CanvasImageSource` |
-| Batch processing | Pipeline + state | `stateFromPipeline()` on multiple images |
-| Remote collaboration | State serialization | Sync `CropperState` via WebSocket |
-| Custom overlays | Stencil system | Compose multiple stencils or overlay components |
-| WP media processing | `getSourceRegion()` + `applyToCanvas()` | Bridge to WordPress 7 media library |
 
 ## Testing
 

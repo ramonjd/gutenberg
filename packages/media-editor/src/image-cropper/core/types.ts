@@ -11,28 +11,10 @@ export interface NormalizedPoint {
 }
 
 /**
- * A point in pixel coordinates.
- */
-export interface PixelPoint {
-	x: number;
-	y: number;
-}
-
-/**
  * A rectangle with normalized coordinates (0-1 range).
  * Origin is the top-left corner of the image.
  */
 export interface NormalizedRect {
-	x: number;
-	y: number;
-	width: number;
-	height: number;
-}
-
-/**
- * A rectangle in pixel coordinates.
- */
-export interface PixelRect {
 	x: number;
 	y: number;
 	width: number;

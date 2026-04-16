@@ -12,19 +12,19 @@ export const MAX_ZOOM = 10;
  */
 export const MAX_ROTATION_OFFSET = 45;
 
-export const DEFAULT_CROP_RECT: NormalizedRect = {
+const DEFAULT_CROP_RECT: NormalizedRect = {
 	x: 0,
 	y: 0,
 	width: 1,
 	height: 1,
 };
 
-export const DEFAULT_FLIP: Flip = {
+const DEFAULT_FLIP: Flip = {
 	horizontal: false,
 	vertical: false,
 };
 
-export const DEFAULT_CROP: { x: number; y: number } = {
+const DEFAULT_CROP: { x: number; y: number } = {
 	x: 0,
 	y: 0,
 };

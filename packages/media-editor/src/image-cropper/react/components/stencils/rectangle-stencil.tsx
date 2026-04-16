@@ -8,6 +8,7 @@ import {
 	useMemo,
 	useRef,
 } from '@wordpress/element';
+import { __ } from '@wordpress/i18n';
 
 /**
  * Internal dependencies
@@ -41,18 +42,31 @@ const ALL_POSITIONS: HandlePosition[] = [
 ];
 
 /**
- * Descriptive labels for resize handles, used as aria-label values.
+ * Get the translated aria-label for a resize handle position.
+ *
+ * @param pos The handle position identifier.
+ * @return The translated label string.
  */
-const HANDLE_LABELS: Record< HandlePosition, string > = {
-	n: 'Resize top edge',
-	s: 'Resize bottom edge',
-	e: 'Resize right edge',
-	w: 'Resize left edge',
-	nw: 'Resize top-left corner',
-	ne: 'Resize top-right corner',
-	sw: 'Resize bottom-left corner',
-	se: 'Resize bottom-right corner',
-};
+function getHandleLabel( pos: HandlePosition ): string {
+	switch ( pos ) {
+		case 'n':
+			return __( 'Resize top edge' );
+		case 's':
+			return __( 'Resize bottom edge' );
+		case 'e':
+			return __( 'Resize right edge' );
+		case 'w':
+			return __( 'Resize left edge' );
+		case 'nw':
+			return __( 'Resize top-left corner' );
+		case 'ne':
+			return __( 'Resize top-right corner' );
+		case 'sw':
+			return __( 'Resize bottom-left corner' );
+		case 'se':
+			return __( 'Resize bottom-right corner' );
+	}
+}
 
 /**
  * Step size for keyboard-driven handle resize, in normalized coordinates.
@@ -391,7 +405,7 @@ export function RectangleStencil( {
 								? 'horizontal'
 								: 'vertical'
 						}
-						aria-label={ HANDLE_LABELS[ pos ] }
+						aria-label={ getHandleLabel( pos ) }
 						tabIndex={ 0 }
 					/>
 				) ) }
