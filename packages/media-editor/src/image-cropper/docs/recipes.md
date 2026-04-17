@@ -802,17 +802,17 @@ npx tsc --project packages/media-editor/src/image-cropper/tsconfig.json --noEmit
 
 ### Running visual regression tests (storybook-playwright)
 
-Visual regression tests use Playwright to screenshot Storybook stories and compare against baseline images. The spec is at `test/storybook-playwright/specs/media-editor/image-cropper.spec.ts`.
+Visual regression tests use Playwright to screenshot Storybook stories and compare against baseline images. The spec is at `test/storybook-playwright/specs/image-cropper.spec.ts`.
 
 ```bash
 # Start Storybook first (port 50241)
 npm run storybook
 
 # Run the visual regression tests
-npx playwright test test/storybook-playwright/specs/media-editor/image-cropper.spec.ts
+npx playwright test test/storybook-playwright/specs/image-cropper.spec.ts
 
 # Update screenshots after intentional visual changes
-npx playwright test test/storybook-playwright/specs/media-editor/image-cropper.spec.ts --update-snapshots
+npx playwright test test/storybook-playwright/specs/image-cropper.spec.ts --update-snapshots
 ```
 
 ### What the tests cover
@@ -829,7 +829,7 @@ npx playwright test test/storybook-playwright/specs/media-editor/image-cropper.s
 - Tests `restrictPanZoom` and `restrictCropRect` boundary enforcement
 - Run after any changes to camera restriction logic
 
-**Visual regression** (`test/storybook-playwright/specs/media-editor/image-cropper.spec.ts`):
+**Visual regression** (`test/storybook-playwright/specs/image-cropper.spec.ts`):
 - Screenshots the Default and WithControls stories
 - Catches unintended visual changes to the cropper UI
 
@@ -839,5 +839,5 @@ npx playwright test test/storybook-playwright/specs/media-editor/image-cropper.s
 
 2. **New containment invariant cases**: Add rotation/zoom combinations to the parametric test in `core/test/camera.ts`.
 
-3. **New visual regression stories**: Add a new test case in `test/storybook-playwright/specs/media-editor/image-cropper.spec.ts` using `gotoStoryId` with the Storybook story ID (format: `mediaeditor-imagecropper--story-name`).
+3. **New visual regression stories**: Add a new test case in `test/storybook-playwright/specs/image-cropper.spec.ts` using `gotoStoryId` with the Storybook story ID (format: `mediaeditor-imagecropper--story-name`).
 

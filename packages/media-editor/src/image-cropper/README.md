@@ -51,7 +51,7 @@ Main cropper component. Fills its parent container.
 | `dispatch` | `Dispatch<CropperAction>` | **required** | Dispatch from `useCropperState` |
 | `stencil` | `ComponentType<StencilProps>` | `RectangleStencil` | Custom crop area UI |
 | `showGrid` | `boolean` | `false` | Rule-of-thirds grid overlay |
-| `showDimming` | `boolean` | `false` | Dimming overlay outside crop |
+| `showDimming` | `boolean` | `true` | Dimming overlay outside crop |
 | `minZoom` | `number` | `1` | Minimum zoom level |
 | `maxZoom` | `number` | `10` | Maximum zoom level |
 | `aspectRatio` | `number` | — | Fixed aspect ratio (width/height) |
