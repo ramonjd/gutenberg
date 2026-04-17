@@ -176,19 +176,63 @@ export function cropperReducer(
 			// would mirror the image but the crop would stay in its
 			// current normalized position, which would frame different
 			// content than the user selected.
+			//
+			// The flip in the camera matrix is applied BEFORE rotation,
+			// so a "horizontal" flip from the user's perspective (screen
+			// space) corresponds to a reflection along the image's own
+			// x-axis, which is rotated by θ on screen. To preserve
+			// framing, we reflect the pan vector across the same rotated
+			// axis. The reflection matrix for flipping along the x-axis
+			// after rotation θ is:
+			//
+			//   [-cos(2θ)  -sin(2θ)]
+			//   [-sin(2θ)   cos(2θ)]
+			//
+			// and for flipping along the y-axis after rotation θ:
+			//
+			//   [ cos(2θ)   sin(2θ)]
+			//   [ sin(2θ)  -cos(2θ)]
+			//
+			// Two flips compose; combining them gives the combined
+			// reflection matrix below.
 			const oldFlip = state.flip;
 			const newFlip = action.payload;
 			const flippedH = oldFlip.horizontal !== newFlip.horizontal;
 			const flippedV = oldFlip.vertical !== newFlip.vertical;
 			const rect = state.cropRect;
 
+			let panX = state.crop.x;
+			let panY = state.crop.y;
+
+			if ( flippedH !== flippedV ) {
+				// Only one axis flipped: reflect pan across the
+				// corresponding rotated axis.
+				const twoTheta = 2 * degreesToRadians( state.rotation );
+				const c = Math.cos( twoTheta );
+				const s = Math.sin( twoTheta );
+				if ( flippedH ) {
+					// Reflect across the image's y-axis (vertical line).
+					const nx = -c * panX - s * panY;
+					const ny = -s * panX + c * panY;
+					panX = nx;
+					panY = ny;
+				} else {
+					// Reflect across the image's x-axis (horizontal line).
+					const nx = c * panX + s * panY;
+					const ny = s * panX - c * panY;
+					panX = nx;
+					panY = ny;
+				}
+			} else if ( flippedH && flippedV ) {
+				// Both axes flipped: equivalent to 180° rotation of pan.
+				panX = -panX;
+				panY = -panY;
+			}
+
 			return enforceContainment( {
 				...state,
 				flip: newFlip,
-				crop: {
-					x: flippedH ? -state.crop.x : state.crop.x,
-					y: flippedV ? -state.crop.y : state.crop.y,
-				},
+				crop: { x: panX, y: panY },
 				cropRect: {
 					x: flippedH ? 1 - rect.x - rect.width : rect.x,
 					y: flippedV ? 1 - rect.y - rect.height : rect.y,
