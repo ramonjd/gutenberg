@@ -96,70 +96,82 @@ export function cropperReducer(
 				crop: action.payload,
 			} );
 
-		case 'SET_ZOOM':
+		case 'SET_ZOOM': {
+			// Explicit zoom action: update baseZoom so rotation relaxation
+			// returns to this level, not the pre-zoom default.
+			const z = Math.min( MAX_ZOOM, Math.max( 1, action.payload ) );
 			return enforceContainment( {
 				...state,
-				zoom: Math.min( MAX_ZOOM, Math.max( 1, action.payload ) ),
+				zoom: z,
+				baseZoom: z,
 			} );
+		}
 
-		case 'SET_ZOOM_AT_POINT':
+		case 'SET_ZOOM_AT_POINT': {
+			const z = Math.min( MAX_ZOOM, Math.max( 1, action.payload.zoom ) );
 			return enforceContainment( {
 				...state,
-				zoom: Math.min( MAX_ZOOM, Math.max( 1, action.payload.zoom ) ),
+				zoom: z,
+				baseZoom: z,
 				crop: action.payload.crop,
 			} );
+		}
 
 		case 'SET_ROTATION': {
-			// Rotate the pan vector by the rotation delta so the user's
-			// framed content stays framed. This matches the SNAP_ROTATE_90
-			// behavior but for arbitrary angles.
+			// Rotate pan around the crop-rect center so the visible
+			// content in the stencil stays framed. Image's world origin
+			// is at visual-normalized (0.5 + pan.x, 0.5 + pan.y). We
+			// rotate that around crop center (cropCx, cropCy) and
+			// solve for the new pan:
+			//   pan' = (cropC - 0.5) + R(Δθ) * (pan - (cropC - 0.5))
 			//
-			// Zoom is preserved. enforceContainment may bump it up to
-			// cover the rotated crop, but we don't reset it — resetting
-			// would jarringly reframe the user's selection on every tick
-			// of a rotation slider. The trade-off: zoom can ratchet up
-			// across a rotation session; the user can zoom back out
-			// explicitly if they want.
+			// Zoom relaxes to baseZoom (the user's explicit zoom)
+			// before containment. enforceContainment may still bump it
+			// up to cover the rotated crop, but only up to what this
+			// rotation needs — so rotating back toward 0° drops zoom
+			// back to baseZoom.
 			const newRotation = normalizeRotation( action.payload );
 			const deltaRad = degreesToRadians( newRotation - state.rotation );
 			const cos = Math.cos( deltaRad );
 			const sin = Math.sin( deltaRad );
-			const { x: px, y: py } = state.crop;
+			const cropCx = state.cropRect.x + state.cropRect.width / 2;
+			const cropCy = state.cropRect.y + state.cropRect.height / 2;
+			const ox = cropCx - 0.5;
+			const oy = cropCy - 0.5;
+			const dx = state.crop.x - ox;
+			const dy = state.crop.y - oy;
 			return enforceContainment( {
 				...state,
 				rotation: newRotation,
+				zoom: state.baseZoom,
 				crop: {
-					x: px * cos - py * sin,
-					y: px * sin + py * cos,
+					x: ox + cos * dx - sin * dy,
+					y: oy + sin * dx + cos * dy,
 				},
 			} );
 		}
 
 		case 'SNAP_ROTATE_90': {
-			// 90° snap: rotate the crop selection and pan around the
-			// crop rect's center so the same image content stays selected.
-			//
-			// The crop rect rotates 90° around its own center: width and
-			// height swap, and the top-left corner moves accordingly.
-			// The pan offset (which positions the image in visual space)
-			// also rotates 90° around the crop center so the user's
-			// selected content stays put.
+			// 90° snap: the crop rect rotates 90° around its own center
+			// (width/height swap), and the pan rotates 90° around the
+			// pan-space origin. The combination keeps the same image
+			// slice framed — just viewed through a rotated window.
 			const dir90 = action.payload.direction;
 			const rot90 = normalizeRotation( state.rotation + dir90 * 90 );
 			const rect = state.cropRect;
 			const cx = rect.x + rect.width / 2;
 			const cy = rect.y + rect.height / 2;
 
-			// Rotate pan vector 90° around origin. For direction=1 (CW):
-			//   (px, py) → (-py, px)
-			// For direction=-1 (CCW):
-			//   (px, py) → (py, -px)
+			// Rotate pan vector 90° around origin.
+			//   CW  (dir=+1): (px, py) → (-py, px)
+			//   CCW (dir=-1): (px, py) → (py, -px)
 			const newPanX = dir90 === 1 ? -state.crop.y : state.crop.y;
 			const newPanY = dir90 === 1 ? state.crop.x : -state.crop.x;
 
 			return enforceContainment( {
 				...state,
 				rotation: rot90,
+				zoom: state.baseZoom,
 				crop: { x: newPanX, y: newPanY },
 				cropRect: {
 					x: cx - rect.height / 2,
@@ -242,11 +254,15 @@ export function cropperReducer(
 			} );
 		}
 
-		case 'SET_CROP_RECT':
-			return enforceContainment( {
+		case 'SET_CROP_RECT': {
+			// Committing a crop rect commits whatever zoom it needs.
+			// baseZoom follows so a later rotation won't relax below this.
+			const next = enforceContainment( {
 				...state,
 				cropRect: action.payload,
 			} );
+			return next === state ? state : { ...next, baseZoom: next.zoom };
+		}
 
 		case 'SETTLE_CROP': {
 			// After a resize drag ends: expand the crop to fill the
@@ -282,9 +298,12 @@ export function cropperReducer(
 			// (0.5, 0.5), the pan must place that same content at
 			// the new center. Both pan and zoom scale by s because
 			// the CSS translate is independent of zoom.
+			// baseZoom scales by the same factor as zoom so rotation
+			// relaxation returns to the settled zoom.
 			return enforceContainment( {
 				...state,
 				zoom: state.zoom * s,
+				baseZoom: state.baseZoom * s,
 				crop: {
 					x: ( state.crop.x - oldCx + 0.5 ) * s,
 					y: ( state.crop.y - oldCy + 0.5 ) * s,
@@ -303,12 +322,18 @@ export function cropperReducer(
 				applyOperationToState( state, action.payload )
 			);
 
-		case 'RESET':
-			return enforceContainment( {
+		case 'RESET': {
+			const merged = {
 				...DEFAULT_STATE,
 				image: state.image,
 				...action.payload,
-			} );
+			};
+			// Keep baseZoom in sync with zoom unless the caller provided it.
+			if ( action.payload?.baseZoom === undefined ) {
+				merged.baseZoom = merged.zoom;
+			}
+			return enforceContainment( merged );
+		}
 	}
 }
 

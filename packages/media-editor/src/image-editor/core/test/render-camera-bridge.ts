@@ -224,14 +224,20 @@ function pointViaCameraPath(
 }
 
 describe( 'Render–Camera bridge: stencil positioning', () => {
-	const ROTATIONS = [ 0, 15, 30, 45, 90, 180, 270 ];
+	// Stencil positioning uses the snapped rotation for layout (see
+	// getImageFit), which matches the camera path at 90° multiples but
+	// diverges during fine rotation (±15°, ±30°, etc.). The CSS stencil
+	// stays put while the image visibly rotates behind it — this is the
+	// fixed-stencil layout. Only the snap-multiple angles are expected
+	// to have exact agreement between the two paths.
+	const SNAP_ROTATIONS = [ 0, 90, 180, 270 ];
 	const CROP_RECTS = [
 		{ x: 0, y: 0, width: 1, height: 1 },
 		{ x: 0.1, y: 0.1, width: 0.8, height: 0.8 },
 		{ x: 0.25, y: 0.3, width: 0.5, height: 0.4 },
 	];
 
-	for ( const rotation of ROTATIONS ) {
+	for ( const rotation of SNAP_ROTATIONS ) {
 		for ( const cropRect of CROP_RECTS ) {
 			const label = `rotation=${ rotation }° crop=${ cropRect.width }×${ cropRect.height }`;
 			it( `stencil corners agree at ${ label }`, () => {
@@ -318,10 +324,14 @@ describe( 'Render–Camera bridge: image point projection', () => {
 } );
 
 describe( 'Render–Camera bridge: visual size consistency', () => {
-	it( 'getImageFit visualSize matches getVisibleBounds dimensions', () => {
-		const ROTATIONS = [ 0, 15, 30, 45, 60, 90, 135, 180, 270 ];
+	it( 'getImageFit visualSize matches getVisibleBounds dimensions at snap angles', () => {
+		// At fine rotation (15°, 30°, etc.) the image footprint AABB
+		// inflates beyond the snapped visual box, so visualSize (which
+		// snaps) and getVisibleBounds (which sees actual rotated corners)
+		// diverge by design. They must still agree at snap multiples.
+		const SNAP_ROTATIONS = [ 0, 90, 180, 270 ];
 
-		for ( const rotation of ROTATIONS ) {
+		for ( const rotation of SNAP_ROTATIONS ) {
 			const state = makeState( { rotation } );
 			const { visualSize } = getImageFit( CONTAINER, IMAGE, rotation );
 			const baseCamera = createCamera(

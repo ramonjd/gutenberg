@@ -45,6 +45,7 @@ export function applyOperationToState(
 			return {
 				...state,
 				zoom: op.factor,
+				baseZoom: op.factor,
 			};
 	}
 }

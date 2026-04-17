@@ -73,6 +73,13 @@ export interface CropperState {
 	crop: NormalizedPoint;
 	/** Zoom level. 1 = no zoom. */
 	zoom: number;
+	/**
+	 * The zoom the user explicitly requested. When rotation forces
+	 * the effective `zoom` higher to cover the rotated crop rect,
+	 * `baseZoom` stays at the user's level so rotating back toward 0°
+	 * returns `zoom` to `baseZoom` instead of ratcheting up.
+	 */
+	baseZoom: number;
 	/** Rotation in degrees, normalized to 0-360. */
 	rotation: number;
 	/** Flip state. */

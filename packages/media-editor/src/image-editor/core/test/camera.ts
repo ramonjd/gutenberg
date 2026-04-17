@@ -239,8 +239,17 @@ describe( 'containment invariant (property-based)', () => {
 		const camera = createCamera( state, container, imageSize );
 
 		// Build base camera (zero pan, zoom=1) for stencil positioning.
+		// The stencil is laid out at the nearest 90° rotation (matching
+		// `getImageFit` in production), so build the base camera with
+		// that snap rotation for consistent stencil corners.
+		const snapRotation = Math.round( state.rotation / 90 ) * 90;
 		const baseCamera = createCamera(
-			{ ...state, crop: { x: 0, y: 0 }, zoom: 1 },
+			{
+				...state,
+				crop: { x: 0, y: 0 },
+				zoom: 1,
+				rotation: snapRotation,
+			},
 			container,
 			imageSize
 		);

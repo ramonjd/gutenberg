@@ -75,10 +75,15 @@ export function getImageFit(
 			visualSize: { width: 0, height: 0 },
 		};
 	}
+	// Snap rotation to the nearest 90° multiple for layout sizing.
+	// This keeps the stencil a stable size through fine ±45° rotation
+	// (no inflation at 15°/30° etc.) while still swapping aspect at
+	// 90°/180°/270° so the snap rotate preserves the framed content.
+	const snapRotation = Math.round( rotation / 90 ) * 90;
 	const naturalBBox = getRotatedBBox(
 		imageSize.width,
 		imageSize.height,
-		rotation
+		snapRotation
 	);
 	const fitScale = Math.min(
 		containerSize.width / naturalBBox.width,
@@ -86,7 +91,7 @@ export function getImageFit(
 	);
 	const renderedW = imageSize.width * fitScale;
 	const renderedH = imageSize.height * fitScale;
-	const visualSize = getRotatedBBox( renderedW, renderedH, rotation );
+	const visualSize = getRotatedBBox( renderedW, renderedH, snapRotation );
 	return {
 		elementSize: { width: renderedW, height: renderedH },
 		visualSize,
@@ -123,11 +128,17 @@ export function createCamera(
 		return m;
 	}
 
-	// Rotated bounding box of the natural image.
+	// Use the nearest 90° multiple for layout sizing so the stencil
+	// and visual bounds are stable through fine rotation. The actual
+	// `state.rotation` is still used for the rotation component of
+	// the matrix below.
+	const snapRotation = Math.round( state.rotation / 90 ) * 90;
+
+	// Rotated bounding box of the natural image (at snap angle).
 	const naturalBBox = getRotatedBBox(
 		imageSize.width,
 		imageSize.height,
-		state.rotation
+		snapRotation
 	);
 
 	// "Contain" fit: scale rotated bounding box to fit within container.
@@ -140,11 +151,11 @@ export function createCamera(
 	const renderedW = imageSize.width * fitScale;
 	const renderedH = imageSize.height * fitScale;
 
-	// Visual (rotated) image footprint in pixels.
+	// Visual (rotated) image footprint in pixels (at snap angle).
 	const { width: visualW, height: visualH } = getRotatedBBox(
 		renderedW,
 		renderedH,
-		state.rotation
+		snapRotation
 	);
 
 	// Build matrix left-to-right (outermost first).
@@ -555,11 +566,18 @@ export function restrictPanZoom(
 	);
 
 	// Build a base camera (zero pan, zoom=1) to get stencil positions.
-	// The stencil is positioned in the visual bounding box at zoom=1 —
-	// it's anchored in the container and doesn't scale with zoom.
-	// CSS zoom only affects the <img> element, not the stencil.
+	// The stencil is anchored to the container and laid out using the
+	// nearest 90° rotation (matching `getImageFit`), so it's stable
+	// through fine rotation. CSS zoom only affects the <img> element,
+	// not the stencil.
+	const snapRotation = Math.round( state.rotation / 90 ) * 90;
 	const baseCamera = createCamera(
-		{ ...candidateState, crop: { x: 0, y: 0 }, zoom: 1 },
+		{
+			...candidateState,
+			crop: { x: 0, y: 0 },
+			zoom: 1,
+			rotation: snapRotation,
+		},
 		CANONICAL_CONTAINER,
 		imageSize
 	);

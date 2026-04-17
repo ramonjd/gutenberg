@@ -850,7 +850,11 @@ describe( 'useCropperState', () => {
 
 			// 'image' is intentionally excluded — it's set once on load
 			// and doesn't represent a user edit.
-			const excludedFields = [ 'image' ];
+			// 'image' is set once on load.
+			// 'baseZoom' mirrors zoom intent but is redundant for dirty
+			// tracking — if it differs from initial, `zoom` and/or
+			// `rotation` will also differ.
+			const excludedFields = [ 'image', 'baseZoom' ];
 
 			const stateKeys = flattenKeys(
 				DEFAULT_STATE as unknown as Record< string, unknown >
