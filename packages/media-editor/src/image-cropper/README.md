@@ -34,6 +34,7 @@ If you're using the cropper components without the rest of the media editor, you
 
 -   [docs/architecture.md](docs/architecture.md) — Data flow, coordinate spaces, and design decisions
 -   [docs/recipes.md](docs/recipes.md) — Getting started walkthrough, extension points, and integration patterns
+-   [docs/roadmap.md](docs/roadmap.md) — Planned follow-up work and phases
 
 ## API Reference
 
@@ -71,10 +72,12 @@ Context wrapper for deep component trees. Wraps `useCropperState` and provides i
 
 State management hook. Returns:
 
+Prefer the convenience setters (`setCrop`, `setZoom`, etc.) for most use cases. `dispatch` is exposed as an escape hatch but may be hidden in a future version — see [docs/roadmap.md](docs/roadmap.md).
+
 | Field | Type | Description |
 |-------|------|-------------|
 | `state` | `CropperState` | Current state |
-| `dispatch` | `Dispatch<CropperAction>` | Raw reducer dispatch |
+| `dispatch` | `Dispatch<CropperAction>` | Raw reducer dispatch (escape hatch — prefer setters) |
 | `setCrop` | `(crop: NormalizedPoint) => void` | Set pan offset |
 | `setZoom` | `(zoom: number) => void` | Set zoom (clamped 1–10) |
 | `setRotation` | `(degrees: number) => void` | Set rotation (normalized 0–360) |
