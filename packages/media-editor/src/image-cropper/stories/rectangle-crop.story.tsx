@@ -45,6 +45,19 @@ import './style.css';
 
 const SAMPLE_IMAGE = 'image-cropper-demo.jpeg';
 
+const IMAGE_CREDIT = (
+	<p style={ { fontSize: 10, color: '#aaa', margin: '4px 0 0' } }>
+		{ '"A fashionable melange of English words (1887)" ' }
+		<a
+			href="http://publicdomainreview.org/2013/01/23/a-fashionable-melange-of-english-words-1887"
+			style={ { color: '#bbb' } }
+		>
+			publicdomainreview.org
+		</a>
+		{ ' by See-ming Lee (SML) is licensed under CC BY 2.0.' }
+	</p>
+);
+
 /**
  * Resolve an aspect ratio value from the select dropdown.
  * 0 = free (no lock), ORIGINAL_ASPECT_RATIO (-1) = image's natural ratio.
@@ -83,13 +96,16 @@ const DefaultComponent = () => {
 	const { state, dispatch } = useCropperState();
 
 	return (
-		<div className="image-cropper-story__container">
-			<Cropper
-				src={ SAMPLE_IMAGE }
-				state={ state }
-				dispatch={ dispatch }
-				showDimming
-			/>
+		<div>
+			<div className="image-cropper-story__container">
+				<Cropper
+					src={ SAMPLE_IMAGE }
+					state={ state }
+					dispatch={ dispatch }
+					showDimming
+				/>
+			</div>
+			{ IMAGE_CREDIT }
 		</div>
 	);
 };
@@ -337,6 +353,7 @@ const WithControlsComponent = () => {
 					) }
 				/>
 			</div>
+			{ IMAGE_CREDIT }
 
 			<div style={ { marginTop: 16 } }>
 				<strong>Current State:</strong>
@@ -564,6 +581,7 @@ const DebugComponent = () => {
 							freeformCrop={ freeformCrop }
 						/>
 					</div>
+					{ IMAGE_CREDIT }
 				</div>
 
 				<div
