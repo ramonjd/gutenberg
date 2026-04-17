@@ -4,7 +4,7 @@
 import type { CropperState, CropperAction } from './types';
 import { DEFAULT_STATE, MAX_ZOOM } from './constants';
 import { applyOperationToState } from './transforms/pipeline';
-import { normalizeRotation } from './math/rotation';
+import { normalizeRotation, degreesToRadians } from './math/rotation';
 import { restrictPanZoom, restrictCropRect } from './camera';
 
 /**
@@ -109,33 +109,58 @@ export function cropperReducer(
 				crop: action.payload.crop,
 			} );
 
-		case 'SET_ROTATION':
-			// Rotation: crop stays where it is, pan resets to 0 so the
-			// rotation visually happens around the crop center (which
-			// is at 0.5,0.5 after settle). Zoom resets to 1 so
-			// enforceContainment sets it to the minimum needed for the
-			// new angle — without this, zoom ratchets up but never back
-			// down as the user rotates toward 0°.
+		case 'SET_ROTATION': {
+			// Rotate the pan vector by the rotation delta so the user's
+			// framed content stays framed. This matches the SNAP_ROTATE_90
+			// behavior but for arbitrary angles.
+			//
+			// Zoom is preserved. enforceContainment may bump it up to
+			// cover the rotated crop, but we don't reset it — resetting
+			// would jarringly reframe the user's selection on every tick
+			// of a rotation slider. The trade-off: zoom can ratchet up
+			// across a rotation session; the user can zoom back out
+			// explicitly if they want.
+			const newRotation = normalizeRotation( action.payload );
+			const deltaRad = degreesToRadians( newRotation - state.rotation );
+			const cos = Math.cos( deltaRad );
+			const sin = Math.sin( deltaRad );
+			const { x: px, y: py } = state.crop;
 			return enforceContainment( {
 				...state,
-				rotation: normalizeRotation( action.payload ),
-				zoom: 1,
-				crop: { x: 0, y: 0 },
+				rotation: newRotation,
+				crop: {
+					x: px * cos - py * sin,
+					y: px * sin + py * cos,
+				},
 			} );
+		}
 
 		case 'SNAP_ROTATE_90': {
-			// 90° snap: swap crop width↔height so the selection rotates
-			// with the image (Google Photos style). Keep the same center,
-			// reset pan so rotation visually happens around crop center.
+			// 90° snap: rotate the crop selection and pan around the
+			// crop rect's center so the same image content stays selected.
+			//
+			// The crop rect rotates 90° around its own center: width and
+			// height swap, and the top-left corner moves accordingly.
+			// The pan offset (which positions the image in visual space)
+			// also rotates 90° around the crop center so the user's
+			// selected content stays put.
 			const dir90 = action.payload.direction;
 			const rot90 = normalizeRotation( state.rotation + dir90 * 90 );
 			const rect = state.cropRect;
 			const cx = rect.x + rect.width / 2;
 			const cy = rect.y + rect.height / 2;
+
+			// Rotate pan vector 90° around origin. For direction=1 (CW):
+			//   (px, py) → (-py, px)
+			// For direction=-1 (CCW):
+			//   (px, py) → (py, -px)
+			const newPanX = dir90 === 1 ? -state.crop.y : state.crop.y;
+			const newPanY = dir90 === 1 ? state.crop.x : -state.crop.x;
+
 			return enforceContainment( {
 				...state,
 				rotation: rot90,
-				crop: { x: 0, y: 0 },
+				crop: { x: newPanX, y: newPanY },
 				cropRect: {
 					x: cx - rect.height / 2,
 					y: cy - rect.width / 2,
@@ -145,11 +170,33 @@ export function cropperReducer(
 			} );
 		}
 
-		case 'SET_FLIP':
+		case 'SET_FLIP': {
+			// Mirror the crop rect and pan so the same image content
+			// stays selected after the flip. Without this, the flip
+			// would mirror the image but the crop would stay in its
+			// current normalized position, which would frame different
+			// content than the user selected.
+			const oldFlip = state.flip;
+			const newFlip = action.payload;
+			const flippedH = oldFlip.horizontal !== newFlip.horizontal;
+			const flippedV = oldFlip.vertical !== newFlip.vertical;
+			const rect = state.cropRect;
+
 			return enforceContainment( {
 				...state,
-				flip: action.payload,
+				flip: newFlip,
+				crop: {
+					x: flippedH ? -state.crop.x : state.crop.x,
+					y: flippedV ? -state.crop.y : state.crop.y,
+				},
+				cropRect: {
+					x: flippedH ? 1 - rect.x - rect.width : rect.x,
+					y: flippedV ? 1 - rect.y - rect.height : rect.y,
+					width: rect.width,
+					height: rect.height,
+				},
 			} );
+		}
 
 		case 'SET_CROP_RECT':
 			return enforceContainment( {

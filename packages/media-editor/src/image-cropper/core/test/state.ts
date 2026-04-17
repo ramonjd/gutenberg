@@ -466,4 +466,200 @@ describe( 'cropperReducer — SNAP_ROTATE_90', () => {
 		// Rotation should advance by 90.
 		expect( rotated.rotation ).toBe( 90 );
 	} );
+
+	it( 'rotates pan 90° CW so framed content stays framed', () => {
+		const state = makeState( {
+			zoom: 2,
+			crop: { x: 0.1, y: 0.2 },
+		} );
+
+		const rotated = cropperReducer( state, {
+			type: 'SNAP_ROTATE_90',
+			payload: { direction: 1 },
+		} );
+
+		// CW rotation: (px, py) → (-py, px)
+		expect( rotated.crop.x ).toBeCloseTo( -0.2, 5 );
+		expect( rotated.crop.y ).toBeCloseTo( 0.1, 5 );
+	} );
+
+	it( 'rotates pan 90° CCW in the other direction', () => {
+		const state = makeState( {
+			zoom: 2,
+			crop: { x: 0.1, y: 0.2 },
+		} );
+
+		const rotated = cropperReducer( state, {
+			type: 'SNAP_ROTATE_90',
+			payload: { direction: -1 },
+		} );
+
+		// CCW rotation: (px, py) → (py, -px)
+		expect( rotated.crop.x ).toBeCloseTo( 0.2, 5 );
+		expect( rotated.crop.y ).toBeCloseTo( -0.1, 5 );
+	} );
+
+	it( 'four CW 90° rotations return pan to the original position', () => {
+		const state = makeState( {
+			zoom: 2,
+			crop: { x: 0.15, y: -0.08 },
+		} );
+		let result = state;
+		for ( let i = 0; i < 4; i++ ) {
+			result = cropperReducer( result, {
+				type: 'SNAP_ROTATE_90',
+				payload: { direction: 1 },
+			} );
+		}
+		expect( result.crop.x ).toBeCloseTo( state.crop.x, 5 );
+		expect( result.crop.y ).toBeCloseTo( state.crop.y, 5 );
+	} );
+} );
+
+describe( 'cropperReducer — SET_FLIP', () => {
+	it( 'mirrors cropRect horizontally on horizontal flip', () => {
+		const state = makeState( {
+			cropRect: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
+		} );
+
+		const flipped = cropperReducer( state, {
+			type: 'SET_FLIP',
+			payload: { horizontal: true, vertical: false },
+		} );
+
+		// x mirrors: newX = 1 - oldX - width
+		expect( flipped.cropRect.x ).toBeCloseTo( 0.6, 5 );
+		expect( flipped.cropRect.y ).toBe( 0.2 );
+		expect( flipped.cropRect.width ).toBe( 0.3 );
+		expect( flipped.cropRect.height ).toBe( 0.4 );
+	} );
+
+	it( 'mirrors cropRect vertically on vertical flip', () => {
+		const state = makeState( {
+			cropRect: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
+		} );
+
+		const flipped = cropperReducer( state, {
+			type: 'SET_FLIP',
+			payload: { horizontal: false, vertical: true },
+		} );
+
+		expect( flipped.cropRect.x ).toBe( 0.1 );
+		expect( flipped.cropRect.y ).toBeCloseTo( 0.4, 5 );
+		expect( flipped.cropRect.width ).toBe( 0.3 );
+		expect( flipped.cropRect.height ).toBe( 0.4 );
+	} );
+
+	it( 'mirrors pan horizontally on horizontal flip', () => {
+		const state = makeState( {
+			zoom: 2,
+			crop: { x: 0.15, y: 0.07 },
+		} );
+
+		const flipped = cropperReducer( state, {
+			type: 'SET_FLIP',
+			payload: { horizontal: true, vertical: false },
+		} );
+
+		expect( flipped.crop.x ).toBeCloseTo( -0.15, 5 );
+		expect( flipped.crop.y ).toBeCloseTo( 0.07, 5 );
+	} );
+
+	it( 'is its own inverse — two flips return to the original', () => {
+		const state = makeState( {
+			zoom: 2,
+			crop: { x: 0.1, y: -0.05 },
+			cropRect: { x: 0.2, y: 0.3, width: 0.5, height: 0.4 },
+		} );
+
+		const once = cropperReducer( state, {
+			type: 'SET_FLIP',
+			payload: { horizontal: true, vertical: true },
+		} );
+		const twice = cropperReducer( once, {
+			type: 'SET_FLIP',
+			payload: { horizontal: false, vertical: false },
+		} );
+
+		expect( twice.crop.x ).toBeCloseTo( state.crop.x, 5 );
+		expect( twice.crop.y ).toBeCloseTo( state.crop.y, 5 );
+		expect( twice.cropRect.x ).toBeCloseTo( state.cropRect.x, 5 );
+		expect( twice.cropRect.y ).toBeCloseTo( state.cropRect.y, 5 );
+	} );
+
+	it( 'does nothing to cropRect or pan when flip state is unchanged', () => {
+		const state = makeState( {
+			zoom: 2,
+			crop: { x: 0.1, y: 0.2 },
+			cropRect: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
+			flip: { horizontal: true, vertical: false },
+		} );
+
+		const result = cropperReducer( state, {
+			type: 'SET_FLIP',
+			payload: { horizontal: true, vertical: false },
+		} );
+
+		expect( result.crop.x ).toBeCloseTo( 0.1, 5 );
+		expect( result.crop.y ).toBeCloseTo( 0.2, 5 );
+		expect( result.cropRect.x ).toBe( 0.1 );
+	} );
+} );
+
+describe( 'cropperReducer — SET_ROTATION', () => {
+	it( 'rotates pan by the angle delta', () => {
+		const state = makeState( {
+			zoom: 2,
+			crop: { x: 0.1, y: 0 },
+			rotation: 0,
+		} );
+
+		// 90° rotation via SET_ROTATION: same math as SNAP_ROTATE_90
+		// pan: (0.1, 0) → (0, 0.1) after 90° CCW in standard math
+		// (positive rotation in our sin/cos convention)
+		const rotated = cropperReducer( state, {
+			type: 'SET_ROTATION',
+			payload: 90,
+		} );
+
+		// delta = 90°; cos(90°)=0, sin(90°)=1
+		// newX = px*0 - py*1 = 0
+		// newY = px*1 + py*0 = 0.1
+		expect( rotated.crop.x ).toBeCloseTo( 0, 5 );
+		expect( rotated.crop.y ).toBeCloseTo( 0.1, 5 );
+	} );
+
+	it( 'preserves zoom (no reset)', () => {
+		const state = makeState( { zoom: 3, rotation: 0 } );
+		const rotated = cropperReducer( state, {
+			type: 'SET_ROTATION',
+			payload: 30,
+		} );
+		expect( rotated.zoom ).toBeGreaterThanOrEqual( 3 );
+	} );
+
+	it( 'small rotation ticks accumulate without drift', () => {
+		// Simulate a slider going 0° → 45° in 9 ticks of 5°.
+		// The final pan should equal a single 45° rotation.
+		const state = makeState( {
+			zoom: 2,
+			crop: { x: 0.1, y: 0 },
+		} );
+
+		let stepwise = state;
+		for ( let i = 1; i <= 9; i++ ) {
+			stepwise = cropperReducer( stepwise, {
+				type: 'SET_ROTATION',
+				payload: i * 5,
+			} );
+		}
+
+		const direct = cropperReducer( state, {
+			type: 'SET_ROTATION',
+			payload: 45,
+		} );
+
+		expect( stepwise.crop.x ).toBeCloseTo( direct.crop.x, 3 );
+		expect( stepwise.crop.y ).toBeCloseTo( direct.crop.y, 3 );
+	} );
 } );
