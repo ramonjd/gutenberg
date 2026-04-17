@@ -1,13 +1,7 @@
 /**
  * WordPress dependencies
  */
-import {
-	useState,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-} from '@wordpress/element';
+import { useCallback, useMemo, useRef } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
 /**
@@ -128,11 +122,29 @@ export function RectangleStencil( {
 		[ boundsMinX, boundsMinY, boundsMaxX, boundsMaxY ]
 	);
 	const keyboardSettleTimerRef = useRef< ReturnType< typeof setTimeout > >();
-	const dragElementRef = useRef< Element | null >( null );
-	const [ dragState, setDragState ] = useState< ResizeDragState | null >(
-		null
-	);
 	const hasLockedRatio = !! ( aspectRatio && aspectRatio > 0 );
+
+	// Latest callbacks for the drag listeners. The drag closure in
+	// handlePointerDown reads from this ref so it always sees current
+	// props without having to re-attach listeners mid-drag. Previously,
+	// drag listeners lived in a useEffect that re-ran whenever `bounds`
+	// changed (every SET_CROP_RECT dispatch), creating a window where
+	// pointerup could be missed and the crop would never settle.
+	const latestHandlersRef = useRef< {
+		hasLockedRatio: boolean;
+		computeLockedRect: (
+			drag: ResizeDragState,
+			clientX: number,
+			clientY: number
+		) => NormalizedRect;
+		computeFreeRect: (
+			drag: ResizeDragState,
+			clientX: number,
+			clientY: number
+		) => NormalizedRect;
+		onCropChange: ( rect: NormalizedRect ) => void;
+		onResizeEnd?: () => void;
+	} | null >( null );
 
 	// The normalized aspect ratio: the w/h ratio in normalized space that
 	// produces the desired pixel aspect ratio.
@@ -155,7 +167,9 @@ export function RectangleStencil( {
 	const height = cropRect.height * imageSize.height;
 
 	/**
-	 * Start a resize drag on a handle (pointer — works across iframes).
+	 * Start a resize drag on a handle. Registers pointer listeners
+	 * synchronously so no events are missed between capture and the
+	 * next React commit.
 	 */
 	const handlePointerDown = useCallback(
 		( handle: HandlePosition, event: React.PointerEvent ) => {
@@ -172,14 +186,45 @@ export function RectangleStencil( {
 			// Capture pointer so drag works across iframe boundaries.
 			const el = event.currentTarget;
 			el.setPointerCapture( event.pointerId );
-			dragElementRef.current = el;
-			onResizeStart?.();
-			setDragState( {
+
+			const drag: ResizeDragState = {
 				handle,
 				startX: event.clientX,
 				startY: event.clientY,
 				startRect: { ...cropRect },
-			} );
+			};
+
+			const onMove = ( e: Event ) => {
+				const pe = e as PointerEvent;
+				const h = latestHandlersRef.current;
+				if ( ! h ) {
+					return;
+				}
+				const newRect = h.hasLockedRatio
+					? h.computeLockedRect( drag, pe.clientX, pe.clientY )
+					: h.computeFreeRect( drag, pe.clientX, pe.clientY );
+				h.onCropChange( newRect );
+			};
+
+			// Guard against duplicate firing: pointerup and
+			// lostpointercapture both fire on normal release.
+			let ended = false;
+			const onEnd = () => {
+				if ( ended ) {
+					return;
+				}
+				ended = true;
+				el.removeEventListener( 'pointermove', onMove );
+				el.removeEventListener( 'pointerup', onEnd );
+				el.removeEventListener( 'lostpointercapture', onEnd );
+				latestHandlersRef.current?.onResizeEnd?.();
+			};
+
+			el.addEventListener( 'pointermove', onMove );
+			el.addEventListener( 'pointerup', onEnd );
+			el.addEventListener( 'lostpointercapture', onEnd );
+
+			onResizeStart?.();
 		},
 		[ cropRect, onResizeStart ]
 	);
@@ -218,6 +263,14 @@ export function RectangleStencil( {
 			),
 		[ imageSize, bounds, normalizedRatio ]
 	);
+
+	latestHandlersRef.current = {
+		hasLockedRatio,
+		computeLockedRect,
+		computeFreeRect,
+		onCropChange,
+		onResizeEnd,
+	};
 
 	/**
 	 * Handle keyboard arrow keys on a resize handle.
@@ -302,62 +355,6 @@ export function RectangleStencil( {
 			onResizeEnd,
 		]
 	);
-
-	// Handle resize drag events.
-	useEffect( () => {
-		if ( ! dragState ) {
-			return;
-		}
-
-		const handleMouseMove = ( event: MouseEvent ) => {
-			const newRect = hasLockedRatio
-				? computeLockedRect( dragState, event.clientX, event.clientY )
-				: computeFreeRect( dragState, event.clientX, event.clientY );
-			onCropChange( newRect );
-		};
-
-		const handleMouseUp = () => {
-			setDragState( null );
-			onResizeEnd?.();
-		};
-
-		// Pointer events on the captured element handle both mouse and
-		// touch, and work across iframe boundaries.
-		const el = dragElementRef.current;
-		if ( el ) {
-			el.addEventListener(
-				'pointermove',
-				handleMouseMove as EventListener
-			);
-			el.addEventListener( 'pointerup', handleMouseUp );
-			el.addEventListener( 'lostpointercapture', handleMouseUp );
-		} else {
-			// Fallback for tests where the element ref isn't set.
-			document.addEventListener( 'mousemove', handleMouseMove );
-			document.addEventListener( 'mouseup', handleMouseUp );
-		}
-
-		return () => {
-			if ( el ) {
-				el.removeEventListener(
-					'pointermove',
-					handleMouseMove as EventListener
-				);
-				el.removeEventListener( 'pointerup', handleMouseUp );
-				el.removeEventListener( 'lostpointercapture', handleMouseUp );
-			} else {
-				document.removeEventListener( 'mousemove', handleMouseMove );
-				document.removeEventListener( 'mouseup', handleMouseUp );
-			}
-		};
-	}, [
-		dragState,
-		hasLockedRatio,
-		computeLockedRect,
-		computeFreeRect,
-		onCropChange,
-		onResizeEnd,
-	] );
 
 	if ( containerSize.width === 0 || containerSize.height === 0 ) {
 		return null;
