@@ -1,6 +1,6 @@
-# Image Cropper
+# Image Editor
 
-A modular image cropper inside `@wordpress/media-editor`. Two layers: a framework-agnostic **core** (pure functions, `gl-matrix` only) and a thin **React** adapter.
+A modular image editor inside `@wordpress/media-editor`. Two layers: a framework-agnostic **core** (pure functions, `gl-matrix` only) and a thin **React** adapter.
 
 ## Quick start
 
@@ -28,7 +28,7 @@ function ImageEditor() {
 
 The cropper's styles are compiled as part of `@wordpress/media-editor`'s SCSS build and output to `build-style/style.css`. Consumers that already load `@wordpress/media-editor`'s stylesheet (e.g. via `wp_enqueue_style( 'wp-media-editor' )` in WordPress or `import '@wordpress/media-editor/build-style/style.css'` in JS bundles) will automatically get the cropper styles.
 
-If you're using the cropper components without the rest of the media editor, you still need to load the package's stylesheet — the cropper will not render correctly without it. All CSS classes use the `wp-media-editor-image-cropper` prefix, so themes can override styles with equal or higher specificity.
+If you're using the cropper components without the rest of the media editor, you still need to load the package's stylesheet — the cropper will not render correctly without it. All CSS classes use the `wp-media-editor-image-editor` prefix, so themes can override styles with equal or higher specificity.
 
 ## Docs
 

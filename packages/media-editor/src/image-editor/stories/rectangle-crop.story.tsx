@@ -43,7 +43,7 @@ import {
 } from '../core/camera';
 import './style.css';
 
-const SAMPLE_IMAGE = 'image-cropper-demo.jpeg';
+const SAMPLE_IMAGE = 'image-editor-demo.jpeg';
 
 const IMAGE_CREDIT = (
 	<p style={ { fontSize: 10, color: '#aaa', margin: '4px 0 0' } }>
@@ -80,7 +80,7 @@ function resolveAspectRatio(
 }
 
 const meta: Meta< typeof Cropper > = {
-	title: 'MediaEditor/ImageCropper',
+	title: 'MediaEditor/ImageEditor',
 	component: Cropper,
 	tags: [ 'status-experimental' ],
 };
@@ -97,7 +97,7 @@ const DefaultComponent = () => {
 
 	return (
 		<div>
-			<div className="image-cropper-story__container">
+			<div className="image-editor-story__container">
 				<Cropper
 					src={ SAMPLE_IMAGE }
 					state={ state }
@@ -235,14 +235,14 @@ const WithControlsComponent = () => {
 
 	return (
 		<div>
-			<div className="image-cropper-story__controls">
-				<div className="image-cropper-story__row">
+			<div className="image-editor-story__controls">
+				<div className="image-editor-story__row">
 					<strong>Rotation: { state.rotation }deg</strong>
 					<button onClick={ handleRotateLeft }>-90</button>
 					<button onClick={ handleRotateRight }>+90</button>
 				</div>
 				<input
-					className="image-cropper-story__slider"
+					className="image-editor-story__slider"
 					type="range"
 					min={ -MAX_ROTATION_OFFSET }
 					max={ MAX_ROTATION_OFFSET }
@@ -251,7 +251,7 @@ const WithControlsComponent = () => {
 					onChange={ handleRotationSlider }
 				/>
 
-				<div className="image-cropper-story__row">
+				<div className="image-editor-story__row">
 					<strong>
 						Flip: H={ state.flip.horizontal ? 'Yes' : 'No' }, V=
 						{ state.flip.vertical ? 'Yes' : 'No' }
@@ -264,7 +264,7 @@ const WithControlsComponent = () => {
 					</button>
 				</div>
 
-				<div className="image-cropper-story__row">
+				<div className="image-editor-story__row">
 					<strong>Zoom: { state.zoom.toFixed( 2 ) }</strong>
 					<input
 						type="range"
@@ -276,7 +276,7 @@ const WithControlsComponent = () => {
 					/>
 				</div>
 
-				<div className="image-cropper-story__row">
+				<div className="image-editor-story__row">
 					<strong>Aspect Ratio:</strong>
 					<select
 						value={ aspectRatioValue }
@@ -293,7 +293,7 @@ const WithControlsComponent = () => {
 					</select>
 				</div>
 
-				<div className="image-cropper-story__row">
+				<div className="image-editor-story__row">
 					{ /* eslint-disable-next-line jsx-a11y/label-has-associated-control -- checkbox is nested */ }
 					<label>
 						<input
@@ -307,7 +307,7 @@ const WithControlsComponent = () => {
 					</label>
 				</div>
 
-				<div className="image-cropper-story__row">
+				<div className="image-editor-story__row">
 					<button onClick={ handleReset }>Reset</button>
 					<select
 						value={ exportFormat }
@@ -339,7 +339,7 @@ const WithControlsComponent = () => {
 				</div>
 			</div>
 
-			<div className="image-cropper-story__container">
+			<div className="image-editor-story__container">
 				<Cropper
 					src={ SAMPLE_IMAGE }
 					state={ state }
@@ -357,7 +357,7 @@ const WithControlsComponent = () => {
 
 			<div style={ { marginTop: 16 } }>
 				<strong>Current State:</strong>
-				<pre className="image-cropper-story__state">
+				<pre className="image-editor-story__state">
 					{ JSON.stringify(
 						{
 							rotation: state.rotation,
@@ -528,11 +528,11 @@ const DebugComponent = () => {
 
 	return (
 		<div>
-			<div className="image-cropper-story__controls">
-				<div className="image-cropper-story__row">
+			<div className="image-editor-story__controls">
+				<div className="image-editor-story__row">
 					<button onClick={ handleRotateLeft }>-90</button>
 					<input
-						className="image-cropper-story__slider"
+						className="image-editor-story__slider"
 						type="range"
 						min={ -MAX_ROTATION_OFFSET }
 						max={ MAX_ROTATION_OFFSET }
@@ -571,7 +571,7 @@ const DebugComponent = () => {
 					ref={ containerRef }
 					style={ { flex: '1 1 60%', minWidth: 0 } }
 				>
-					<div className="image-cropper-story__container">
+					<div className="image-editor-story__container">
 						<Cropper
 							src={ SAMPLE_IMAGE }
 							state={ state }
@@ -737,11 +737,11 @@ aspect ratio: ${ ( sourceRegion.width / sourceRegion.height ).toFixed( 2 ) }
 				</div>
 			</div>
 
-			<div className="image-cropper-story__export-preview">
+			<div className="image-editor-story__export-preview">
 				<strong>Export Preview</strong>
 				{ previewSrc ? (
 					<img
-						className="image-cropper-story__export-image"
+						className="image-editor-story__export-image"
 						src={ previewSrc }
 						alt="Crop preview"
 					/>

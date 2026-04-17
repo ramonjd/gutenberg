@@ -19,7 +19,7 @@ async function readImageMatrix(
 	page: import('@playwright/test').Page
 ): Promise< number[] | null > {
 	const transform = await page
-		.locator( '.wp-media-editor-image-cropper__image' )
+		.locator( '.wp-media-editor-image-editor__image' )
 		.evaluate( ( el ) => window.getComputedStyle( el ).transform );
 	const match = transform.match( /matrix\(([^)]+)\)/ );
 	if ( ! match ) {
@@ -28,12 +28,12 @@ async function readImageMatrix(
 	return match[ 1 ].split( ',' ).map( ( v ) => parseFloat( v.trim() ) );
 }
 
-test.describe( 'MediaEditor ImageCropper', () => {
+test.describe( 'MediaEditor ImageEditor', () => {
 	test( 'default crop should render correctly', async ( { page } ) => {
-		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
-		await page.waitForSelector( '.wp-media-editor-image-cropper' );
+		await gotoStoryId( page, 'mediaeditor-imageeditor--default' );
+		await page.waitForSelector( '.wp-media-editor-image-editor' );
 		await expect(
-			page.locator( '.wp-media-editor-image-cropper__image' )
+			page.locator( '.wp-media-editor-image-editor__image' )
 		).toBeVisible();
 		expect(
 			await page.screenshot( { animations: 'disabled' } )
@@ -41,10 +41,10 @@ test.describe( 'MediaEditor ImageCropper', () => {
 	} );
 
 	test( 'with controls should render correctly', async ( { page } ) => {
-		await gotoStoryId( page, 'mediaeditor-imagecropper--with-controls' );
-		await page.waitForSelector( '.wp-media-editor-image-cropper' );
+		await gotoStoryId( page, 'mediaeditor-imageeditor--with-controls' );
+		await page.waitForSelector( '.wp-media-editor-image-editor' );
 		await expect(
-			page.locator( '.wp-media-editor-image-cropper__image' )
+			page.locator( '.wp-media-editor-image-editor__image' )
 		).toBeVisible();
 		expect(
 			await page.screenshot( { animations: 'disabled' } )
@@ -52,15 +52,15 @@ test.describe( 'MediaEditor ImageCropper', () => {
 	} );
 
 	test( 'wheel zoom changes image scale', async ( { page } ) => {
-		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
-		await page.waitForSelector( '.wp-media-editor-image-cropper__image' );
+		await gotoStoryId( page, 'mediaeditor-imageeditor--default' );
+		await page.waitForSelector( '.wp-media-editor-image-editor__image' );
 
 		const before = await readImageMatrix( page );
 		expect( before ).not.toBeNull();
 
 		// Wheel up (negative deltaY) zooms in.
 		const box = await page
-			.locator( '.wp-media-editor-image-cropper' )
+			.locator( '.wp-media-editor-image-editor' )
 			.boundingBox();
 		if ( ! box ) {
 			throw new Error( 'Cropper container has no bounding box' );
@@ -76,11 +76,11 @@ test.describe( 'MediaEditor ImageCropper', () => {
 	} );
 
 	test( 'keyboard arrow key pans the image', async ( { page } ) => {
-		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
-		await page.waitForSelector( '.wp-media-editor-image-cropper__image' );
+		await gotoStoryId( page, 'mediaeditor-imageeditor--default' );
+		await page.waitForSelector( '.wp-media-editor-image-editor__image' );
 
 		// Zoom in first so there's room to pan.
-		const container = page.locator( '.wp-media-editor-image-cropper' );
+		const container = page.locator( '.wp-media-editor-image-editor' );
 		await container.hover();
 		await page.mouse.wheel( 0, -500 );
 
@@ -99,13 +99,13 @@ test.describe( 'MediaEditor ImageCropper', () => {
 	} );
 
 	test( 'keyboard R rotates the image', async ( { page } ) => {
-		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
-		await page.waitForSelector( '.wp-media-editor-image-cropper__image' );
+		await gotoStoryId( page, 'mediaeditor-imageeditor--default' );
+		await page.waitForSelector( '.wp-media-editor-image-editor__image' );
 
 		const before = await readImageMatrix( page );
 		expect( before ).not.toBeNull();
 
-		const container = page.locator( '.wp-media-editor-image-cropper' );
+		const container = page.locator( '.wp-media-editor-image-editor' );
 		await container.focus();
 		await page.keyboard.press( 'r' );
 
@@ -120,11 +120,11 @@ test.describe( 'MediaEditor ImageCropper', () => {
 	} );
 
 	test( 'pointer drag pans the image', async ( { page } ) => {
-		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
-		await page.waitForSelector( '.wp-media-editor-image-cropper__image' );
+		await gotoStoryId( page, 'mediaeditor-imageeditor--default' );
+		await page.waitForSelector( '.wp-media-editor-image-editor__image' );
 
 		// Zoom in so there's room to pan.
-		const container = page.locator( '.wp-media-editor-image-cropper' );
+		const container = page.locator( '.wp-media-editor-image-editor' );
 		await container.hover();
 		await page.mouse.wheel( 0, -500 );
 
@@ -156,15 +156,15 @@ test.describe( 'MediaEditor ImageCropper', () => {
 	test( 'freeform resize handle drag shrinks the crop area', async ( {
 		page,
 	} ) => {
-		await gotoStoryId( page, 'mediaeditor-imagecropper--debug' );
-		await page.waitForSelector( '.wp-media-editor-image-cropper__image' );
+		await gotoStoryId( page, 'mediaeditor-imageeditor--debug' );
+		await page.waitForSelector( '.wp-media-editor-image-editor__image' );
 
 		// Enable freeform mode to show resize handles.
 		await page.getByLabel( 'Freeform crop' ).check();
 
 		// The south-east corner handle is visible only in freeform mode.
 		const handle = page.locator(
-			'.wp-media-editor-image-cropper__handle--se'
+			'.wp-media-editor-image-editor__handle--se'
 		);
 		await expect( handle ).toBeVisible();
 
@@ -172,7 +172,7 @@ test.describe( 'MediaEditor ImageCropper', () => {
 		// and after the drag. The stencil is absolutely positioned; its
 		// bounding box reflects the current crop rect in screen pixels.
 		const stencil = page.locator(
-			'.wp-media-editor-image-cropper__stencil'
+			'.wp-media-editor-image-editor__stencil'
 		);
 		const before = await stencil.boundingBox();
 		if ( ! before ) {

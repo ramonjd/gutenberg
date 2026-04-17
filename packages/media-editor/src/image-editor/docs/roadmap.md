@@ -1,6 +1,6 @@
 # Roadmap
 
-Follow-up work and future phases for the image cropper. These are not blockers for the MVP — they're captured here so we don't lose track.
+Follow-up work and future phases for the image editor. These are not blockers for the MVP — they're captured here so we don't lose track.
 
 ## Phase 1 — API refinements
 
@@ -37,7 +37,7 @@ The `core/` layer (cropperReducer, InteractionController, computeTransformStyle,
 
 **Trigger to promote:** A concrete use case emerges (Vue integration, vanilla JS integration, server-side pipeline). At that point, decide whether to add these to the public barrel.
 
-**Alternative:** Split into `@wordpress/image-cropper-core` and `@wordpress/image-cropper-react` as separate packages when there's real demand.
+**Alternative:** Split into `@wordpress/image-editor-core` and `@wordpress/image-editor-react` as separate packages when there's real demand.
 
 ## Phase 3 — Media editor expansion
 
@@ -67,8 +67,8 @@ These are consumer-side features built on the existing pipeline API. No core cha
 
 The cropper currently lives inside `@wordpress/media-editor` as an internal module. Options for broader distribution:
 
-- **Subpath export:** `@wordpress/media-editor/image-cropper` — explicit subpath for consumers who only want the cropper.
-- **Separate package:** `@wordpress/image-cropper-next` (or similar) — ships independently.
+- **Subpath export:** `@wordpress/media-editor/image-editor` — explicit subpath for consumers who only want the cropper.
+- **Separate package:** `@wordpress/image-editor-next` (or similar) — ships independently.
 - **Keep internal:** The cropper stays internal; only the media editor's top-level components are public.
 
 Defer this decision until the API is stable and we have real consumers.

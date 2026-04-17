@@ -1,4 +1,4 @@
-.image-cropper-story__container {
+.image-editor-story__container {
 	width: 100%;
 	max-width: 600px;
 	aspect-ratio: 3 / 2;
@@ -6,7 +6,7 @@
 	position: relative;
 }
 
-.image-cropper-story__resizable {
+.image-editor-story__resizable {
 	width: 400px;
 	height: 300px;
 	border: 1px solid #ccc;
@@ -15,7 +15,7 @@
 	position: relative;
 }
 
-.image-cropper-story__controls {
+.image-editor-story__controls {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
@@ -23,28 +23,28 @@
 	max-width: 100%;
 }
 
-.image-cropper-story__row {
+.image-editor-story__row {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
 	align-items: center;
 }
 
-.image-cropper-story__slider {
+.image-editor-story__slider {
 	width: 100%;
 	/* Override parent touch-action: none so the browser handles
 	   slider dragging natively. */
 	touch-action: auto;
 }
 
-.image-cropper-story__json {
+.image-editor-story__json {
 	width: 100%;
 	min-height: 80px;
 	font-family: monospace;
 	font-size: 12px;
 }
 
-.image-cropper-story__state {
+.image-editor-story__state {
 	font-family: monospace;
 	font-size: 11px;
 	background: #f5f5f5;
@@ -55,12 +55,12 @@
 	overflow: auto;
 }
 
-.image-cropper-story__vertex-count {
+.image-editor-story__vertex-count {
 	font-variant-numeric: tabular-nums;
 	min-width: 120px;
 }
 
-.image-cropper-story__instructions {
+.image-editor-story__instructions {
 	background: #f9f9f9;
 	border: 1px solid #e0e0e0;
 	border-radius: 4px;
@@ -69,19 +69,19 @@
 	line-height: 1.5;
 }
 
-.image-cropper-story__instructions p {
+.image-editor-story__instructions p {
 	margin: 0 0 4px;
 }
 
-.image-cropper-story__instructions p:last-child {
+.image-editor-story__instructions p:last-child {
 	margin-bottom: 0;
 }
 
-.image-cropper-story__export-preview {
+.image-editor-story__export-preview {
 	margin-top: 16px;
 }
 
-.image-cropper-story__export-image {
+.image-editor-story__export-image {
 	display: block;
 	margin-top: 8px;
 	max-width: 100%;

@@ -3,8 +3,8 @@ export { MediaEditorProvider } from './components/media-editor-provider';
 export { default as MediaPreview } from './components/media-preview';
 export { default as MediaForm } from './components/media-form';
 
-// Image cropper
-export * from './image-cropper';
+// Image editor
+export * from './image-editor';
 
 // Types
 export type {

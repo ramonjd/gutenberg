@@ -358,23 +358,23 @@ The `Cropper` component provides two notification mechanisms:
 The component uses BEM-style CSS classes that themes can override:
 
 ```
-.wp-media-editor-image-cropper                -- Container (cursor: grab)
-.wp-media-editor-image-cropper--dragging      -- Applied during image pan drag (cursor: grabbing)
-.wp-media-editor-image-cropper__image         -- The image element
-.wp-media-editor-image-cropper__stencil       -- Crop area container (pointer-events: none)
-.wp-media-editor-image-cropper__stencil-rect  -- Crop border rectangle
-.wp-media-editor-image-cropper__handle        -- Resize handle (all, pointer-events: auto)
-.wp-media-editor-image-cropper__handle--n     -- North handle (cursor: ns-resize)
-.wp-media-editor-image-cropper__handle--s     -- South handle (cursor: ns-resize)
-.wp-media-editor-image-cropper__handle--e     -- East handle (cursor: ew-resize)
-.wp-media-editor-image-cropper__handle--w     -- West handle (cursor: ew-resize)
-.wp-media-editor-image-cropper__handle--nw    -- North-west handle (cursor: nwse-resize)
-.wp-media-editor-image-cropper__handle--ne    -- North-east handle (cursor: nesw-resize)
-.wp-media-editor-image-cropper__handle--sw    -- South-west handle (cursor: nesw-resize)
-.wp-media-editor-image-cropper__handle--se    -- South-east handle (cursor: nwse-resize)
-.wp-media-editor-image-cropper__dimming       -- Dimming overlay outside crop area
-.wp-media-editor-image-cropper__grid          -- Grid overlay container
-.wp-media-editor-image-cropper__grid-line     -- Individual grid line
+.wp-media-editor-image-editor                -- Container (cursor: grab)
+.wp-media-editor-image-editor--dragging      -- Applied during image pan drag (cursor: grabbing)
+.wp-media-editor-image-editor__image         -- The image element
+.wp-media-editor-image-editor__stencil       -- Crop area container (pointer-events: none)
+.wp-media-editor-image-editor__stencil-rect  -- Crop border rectangle
+.wp-media-editor-image-editor__handle        -- Resize handle (all, pointer-events: auto)
+.wp-media-editor-image-editor__handle--n     -- North handle (cursor: ns-resize)
+.wp-media-editor-image-editor__handle--s     -- South handle (cursor: ns-resize)
+.wp-media-editor-image-editor__handle--e     -- East handle (cursor: ew-resize)
+.wp-media-editor-image-editor__handle--w     -- West handle (cursor: ew-resize)
+.wp-media-editor-image-editor__handle--nw    -- North-west handle (cursor: nwse-resize)
+.wp-media-editor-image-editor__handle--ne    -- North-east handle (cursor: nesw-resize)
+.wp-media-editor-image-editor__handle--sw    -- South-west handle (cursor: nesw-resize)
+.wp-media-editor-image-editor__handle--se    -- South-east handle (cursor: nwse-resize)
+.wp-media-editor-image-editor__dimming       -- Dimming overlay outside crop area
+.wp-media-editor-image-editor__grid          -- Grid overlay container
+.wp-media-editor-image-editor__grid-line     -- Individual grid line
 ```
 
 All styles are in CSS classes with no inline style overrides, so consumers can override anything with equal or higher specificity.
@@ -382,11 +382,11 @@ All styles are in CSS classes with no inline style overrides, so consumers can o
 **Override handles and dimming:**
 
 ```css
-.wp-media-editor-image-cropper__handle {
+.wp-media-editor-image-editor__handle {
   background: var(--wp--preset--color--primary);
   border-radius: 50%;
 }
-.wp-media-editor-image-cropper__dimming {
+.wp-media-editor-image-editor__dimming {
   background: rgba(0, 0, 0, 0.6);
 }
 ```
@@ -395,14 +395,14 @@ All styles are in CSS classes with no inline style overrides, so consumers can o
 
 ```css
 /* Use crosshair instead of grab */
-.wp-media-editor-image-cropper {
+.wp-media-editor-image-editor {
   cursor: crosshair;
 }
-.wp-media-editor-image-cropper--dragging {
+.wp-media-editor-image-editor--dragging {
   cursor: move;
 }
 /* Custom handle cursor */
-.wp-media-editor-image-cropper__handle {
+.wp-media-editor-image-editor__handle {
   cursor: pointer;
 }
 ```
@@ -411,10 +411,10 @@ All styles are in CSS classes with no inline style overrides, so consumers can o
 
 ```css
 /* Only show corner handles, hide edge handles */
-.wp-media-editor-image-cropper__handle--n,
-.wp-media-editor-image-cropper__handle--s,
-.wp-media-editor-image-cropper__handle--e,
-.wp-media-editor-image-cropper__handle--w {
+.wp-media-editor-image-editor__handle--n,
+.wp-media-editor-image-editor__handle--s,
+.wp-media-editor-image-editor__handle--e,
+.wp-media-editor-image-editor__handle--w {
   display: none;
 }
 ```
@@ -790,29 +790,29 @@ This enables:
 ### Running unit tests
 
 ```bash
-# All media-editor/image-cropper unit tests
-npx wp-scripts test-unit-js --testPathPattern="media-editor/image-cropper"
+# All media-editor/image-editor unit tests
+npx wp-scripts test-unit-js --testPathPattern="media-editor/image-editor"
 
 # Specific test file (e.g., camera tests only)
-npx wp-scripts test-unit-js --testPathPattern="media-editor/image-cropper" --testNamePattern="camera"
+npx wp-scripts test-unit-js --testPathPattern="media-editor/image-editor" --testNamePattern="camera"
 
 # TypeScript type checking (no emit)
-npx tsc --project packages/media-editor/src/image-cropper/tsconfig.json --noEmit
+npx tsc --project packages/media-editor/src/image-editor/tsconfig.json --noEmit
 ```
 
 ### Running visual regression tests (storybook-playwright)
 
-Visual regression tests use Playwright to screenshot Storybook stories and compare against baseline images. The spec is at `test/storybook-playwright/specs/image-cropper.spec.ts`.
+Visual regression tests use Playwright to screenshot Storybook stories and compare against baseline images. The spec is at `test/storybook-playwright/specs/image-editor.spec.ts`.
 
 ```bash
 # Start Storybook first (port 50241)
 npm run storybook
 
 # Run the visual regression tests
-npx playwright test test/storybook-playwright/specs/image-cropper.spec.ts
+npx playwright test test/storybook-playwright/specs/image-editor.spec.ts
 
 # Update screenshots after intentional visual changes
-npx playwright test test/storybook-playwright/specs/image-cropper.spec.ts --update-snapshots
+npx playwright test test/storybook-playwright/specs/image-editor.spec.ts --update-snapshots
 ```
 
 ### What the tests cover
@@ -829,7 +829,7 @@ npx playwright test test/storybook-playwright/specs/image-cropper.spec.ts --upda
 - Tests `restrictPanZoom` and `restrictCropRect` boundary enforcement
 - Run after any changes to camera restriction logic
 
-**Visual regression** (`test/storybook-playwright/specs/image-cropper.spec.ts`):
+**Visual regression** (`test/storybook-playwright/specs/image-editor.spec.ts`):
 - Screenshots the Default and WithControls stories
 - Catches unintended visual changes to the cropper UI
 
@@ -839,5 +839,5 @@ npx playwright test test/storybook-playwright/specs/image-cropper.spec.ts --upda
 
 2. **New containment invariant cases**: Add rotation/zoom combinations to the parametric test in `core/test/camera.ts`.
 
-3. **New visual regression stories**: Add a new test case in `test/storybook-playwright/specs/image-cropper.spec.ts` using `gotoStoryId` with the Storybook story ID (format: `mediaeditor-imagecropper--story-name`).
+3. **New visual regression stories**: Add a new test case in `test/storybook-playwright/specs/image-editor.spec.ts` using `gotoStoryId` with the Storybook story ID (format: `mediaeditor-imagecropper--story-name`).
 

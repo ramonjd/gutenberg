@@ -467,8 +467,8 @@ function CropperInner(
 		<div
 			ref={ setContainerRef }
 			className={ clsx(
-				'wp-media-editor-image-cropper',
-				isDragging && 'wp-media-editor-image-cropper--dragging',
+				'wp-media-editor-image-editor',
+				isDragging && 'wp-media-editor-image-editor--dragging',
 				className
 			) }
 			tabIndex={ 0 }
@@ -478,7 +478,7 @@ function CropperInner(
 		>
 			{ /* The image layer */ }
 			<img
-				className="wp-media-editor-image-cropper__image"
+				className="wp-media-editor-image-editor__image"
 				src={ src }
 				alt=""
 				onLoad={ handleImageLoad }
@@ -522,7 +522,7 @@ function CropperInner(
 			<div
 				aria-live="polite"
 				aria-atomic="true"
-				className="wp-media-editor-image-cropper__aria-live"
+				className="wp-media-editor-image-editor__aria-live"
 				style={ {
 					position: 'absolute',
 					width: 1,
