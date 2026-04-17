@@ -8,6 +8,26 @@ import { expect, test } from '@playwright/test';
  */
 import { gotoStoryId } from '../utils';
 
+/**
+ * Read the CSS matrix() transform from the image element and parse
+ * its six values.
+ *
+ * @param page Playwright page.
+ * @return Array of six numbers from the matrix, or null if not set.
+ */
+async function readImageMatrix(
+	page: import('@playwright/test').Page
+): Promise< number[] | null > {
+	const transform = await page
+		.locator( '.wp-media-editor-image-cropper__image' )
+		.evaluate( ( el ) => window.getComputedStyle( el ).transform );
+	const match = transform.match( /matrix\(([^)]+)\)/ );
+	if ( ! match ) {
+		return null;
+	}
+	return match[ 1 ].split( ',' ).map( ( v ) => parseFloat( v.trim() ) );
+}
+
 test.describe( 'MediaEditor ImageCropper', () => {
 	test( 'default crop should render correctly', async ( { page } ) => {
 		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
@@ -29,5 +49,107 @@ test.describe( 'MediaEditor ImageCropper', () => {
 		expect(
 			await page.screenshot( { animations: 'disabled' } )
 		).toMatchSnapshot();
+	} );
+
+	test( 'wheel zoom changes image scale', async ( { page } ) => {
+		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
+		await page.waitForSelector( '.wp-media-editor-image-cropper__image' );
+
+		const before = await readImageMatrix( page );
+		expect( before ).not.toBeNull();
+
+		// Wheel up (negative deltaY) zooms in.
+		const box = await page
+			.locator( '.wp-media-editor-image-cropper' )
+			.boundingBox();
+		if ( ! box ) {
+			throw new Error( 'Cropper container has no bounding box' );
+		}
+		await page.mouse.move( box.x + box.width / 2, box.y + box.height / 2 );
+		await page.mouse.wheel( 0, -500 );
+
+		const after = await readImageMatrix( page );
+		expect( after ).not.toBeNull();
+
+		// The scale component (matrix[0]) should increase after wheel up.
+		expect( after![ 0 ] ).toBeGreaterThan( before![ 0 ] );
+	} );
+
+	test( 'keyboard arrow key pans the image', async ( { page } ) => {
+		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
+		await page.waitForSelector( '.wp-media-editor-image-cropper__image' );
+
+		// Zoom in first so there's room to pan.
+		const container = page.locator( '.wp-media-editor-image-cropper' );
+		await container.hover();
+		await page.mouse.wheel( 0, -500 );
+
+		const before = await readImageMatrix( page );
+		expect( before ).not.toBeNull();
+
+		// Focus the cropper container and press ArrowRight.
+		await container.focus();
+		await page.keyboard.press( 'ArrowRight' );
+
+		const after = await readImageMatrix( page );
+		expect( after ).not.toBeNull();
+
+		// Translation X (matrix[4]) should change after arrow key pan.
+		expect( after![ 4 ] ).not.toBeCloseTo( before![ 4 ], 1 );
+	} );
+
+	test( 'keyboard R rotates the image', async ( { page } ) => {
+		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
+		await page.waitForSelector( '.wp-media-editor-image-cropper__image' );
+
+		const before = await readImageMatrix( page );
+		expect( before ).not.toBeNull();
+
+		const container = page.locator( '.wp-media-editor-image-cropper' );
+		await container.focus();
+		await page.keyboard.press( 'r' );
+
+		const after = await readImageMatrix( page );
+		expect( after ).not.toBeNull();
+
+		// After 90° rotation, the matrix [a, b, c, d] should change from
+		// roughly [z, 0, 0, z] (no rotation) to [0, z, -z, 0].
+		// Specifically, the 'b' component (matrix[1]) should go from ~0
+		// to roughly ±z.
+		expect( Math.abs( after![ 1 ] ) ).toBeGreaterThan( 0.5 );
+	} );
+
+	test( 'pointer drag pans the image', async ( { page } ) => {
+		await gotoStoryId( page, 'mediaeditor-imagecropper--default' );
+		await page.waitForSelector( '.wp-media-editor-image-cropper__image' );
+
+		// Zoom in so there's room to pan.
+		const container = page.locator( '.wp-media-editor-image-cropper' );
+		await container.hover();
+		await page.mouse.wheel( 0, -500 );
+
+		const before = await readImageMatrix( page );
+		expect( before ).not.toBeNull();
+
+		// Drag from center of container by +50, +30 pixels.
+		const box = await container.boundingBox();
+		if ( ! box ) {
+			throw new Error( 'Cropper container has no bounding box' );
+		}
+		const cx = box.x + box.width / 2;
+		const cy = box.y + box.height / 2;
+
+		await page.mouse.move( cx, cy );
+		await page.mouse.down();
+		await page.mouse.move( cx + 50, cy + 30, { steps: 5 } );
+		await page.mouse.up();
+
+		const after = await readImageMatrix( page );
+		expect( after ).not.toBeNull();
+
+		// After dragging right and down, translation should move in those
+		// directions (matrix[4] increases, matrix[5] increases).
+		expect( after![ 4 ] ).toBeGreaterThan( before![ 4 ] );
+		expect( after![ 5 ] ).toBeGreaterThan( before![ 5 ] );
 	} );
 } );

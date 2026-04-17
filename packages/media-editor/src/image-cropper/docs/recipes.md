@@ -174,28 +174,28 @@ const ops = JSON.parse( json );
 
 ### 3. Custom export pipelines
 
-The export system converts cropper state to canvas output. You can build custom export pipelines for image processing, format conversion, or AI preprocessing.
+The export system converts cropper state to canvas output. Use `applyToCanvas()` to chain custom processing with the cropper transforms.
 
 ```typescript
-import { createExportCamera, loadImage } from '@wordpress/media-editor';
+import { applyToCanvas } from '@wordpress/media-editor';
 
-// Get the export camera matrix:
-const camera = createExportCamera( state, imageSize, outputSize );
+// 1. Apply your own processing first (brightness, filters, etc.):
+const processedCanvas = applyBrightness( sourceImage, { brightness: 1.2 } );
 
-// Apply to a canvas context (the matrix maps image pixels → output pixels):
-const canvas = document.createElement( 'canvas' );
-canvas.width = outputSize.width;
-canvas.height = outputSize.height;
-const ctx = canvas.getContext( '2d' );
-ctx.setTransform( camera[0], camera[1], camera[2], camera[3], camera[4], camera[5] );
-ctx.drawImage( image, 0, 0 );
+// 2. Apply the cropper transforms on top:
+const finalCanvas = applyToCanvas(
+  processedCanvas,
+  { width: processedCanvas.width, height: processedCanvas.height },
+  cropperState
+);
 
-// Now add your own processing:
-// - Apply filters
-// - Send to AI API for enhancement
-// - Convert format
-// - Extract region for AI editing
+// 3. Export however you need:
+const blob = await new Promise( ( resolve ) =>
+  finalCanvas.toBlob( resolve, 'image/jpeg', 0.9 )
+);
 ```
+
+`applyToCanvas()` accepts any `CanvasImageSource`: `HTMLImageElement`, `HTMLCanvasElement`, `OffscreenCanvas`, `ImageBitmap`, `HTMLVideoElement`.
 
 ### 4. State management patterns
 
@@ -275,26 +275,7 @@ dispatch( { type: 'SNAP_ROTATE_90', payload: { direction: 1 } } );
 dispatch( { type: 'SETTLE_CROP' } );
 ```
 
-### 5. Camera system (coordinate transforms)
-
-The camera provides world-to-screen and screen-to-world transforms. Use it for:
-- Hit testing (is this click inside the image?)
-- Coordinate conversion (where on the image did the user click?)
-- Custom overlays (annotations, AI selection regions)
-
-```typescript
-import { createCamera, worldToScreen, screenToWorld } from '@wordpress/media-editor';
-
-const camera = createCamera( state, containerSize, imageSize );
-
-// Where does image point (0.25, 0.75) appear on screen?
-const screenPos = worldToScreen( camera, { x: 0.25, y: 0.75 } );
-
-// Where on the image did the user click (screen pixel 300, 200)?
-const imagePos = screenToWorld( camera, { x: 300, y: 200 } );
-```
-
-### 6. Source region for external tools
+### 5. Source region for external tools
 
 `getSourceRegion()` converts the current crop state to source-pixel coordinates. This is the bridge between the cropper and external tools (image processing libraries, AI APIs, server-side processing) that work in source-pixel coordinates.
 
@@ -322,7 +303,7 @@ const aiRequest = {
 };
 ```
 
-### 7. Multi-step editing pipelines
+### 6. Multi-step editing pipelines
 
 `applyToCanvas()` applies the cropper's transform to an existing canvas or image source. This enables multi-step editing where an upstream tool (brightness, color, filters) has already processed the image.
 
@@ -345,7 +326,7 @@ const blob = await canvasToBlob( finalCanvas, 'image/jpeg', 0.9 );
 
 Accepts any `CanvasImageSource`: `HTMLImageElement`, `HTMLCanvasElement`, `OffscreenCanvas`, `ImageBitmap`, `HTMLVideoElement`.
 
-### 8. State change notifications
+### 7. State change notifications
 
 The `Cropper` component provides two notification mechanisms:
 
@@ -372,7 +353,7 @@ The `Cropper` component provides two notification mechanisms:
 />
 ```
 
-### 9. Theming and styling
+### 8. Theming and styling
 
 The component uses BEM-style CSS classes that themes can override:
 
@@ -494,30 +475,6 @@ const blob = await exportCroppedImage( imageUrl, state, 'image/jpeg', 0.9 );
 ```
 
 Steps 1 and 2 are pure functions with zero DOM dependencies. Step 3 needs `canvas` and `Image` (browser, jsdom, or node-canvas).
-
-### Region selection for AI editing
-
-Use the camera to convert between screen clicks and image coordinates:
-
-```typescript
-// User draws a selection rectangle on screen:
-const screenRect = { x: 100, y: 50, width: 200, height: 150 };
-
-// Convert to image coordinates:
-const topLeft = screenToWorld( camera, { x: screenRect.x, y: screenRect.y } );
-const bottomRight = screenToWorld( camera, {
-  x: screenRect.x + screenRect.width,
-  y: screenRect.y + screenRect.height,
-} );
-
-// Send to AI API:
-const aiRegion = {
-  x: topLeft.x * naturalWidth,
-  y: topLeft.y * naturalHeight,
-  width: ( bottomRight.x - topLeft.x ) * naturalWidth,
-  height: ( bottomRight.y - topLeft.y ) * naturalHeight,
-};
-```
 
 ## Multi-step editing integration
 

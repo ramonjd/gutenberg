@@ -24,6 +24,12 @@ function ImageEditor() {
 }
 ```
 
+## Styles
+
+The cropper's styles are compiled as part of `@wordpress/media-editor`'s SCSS build and output to `build-style/style.css`. Consumers that already load `@wordpress/media-editor`'s stylesheet (e.g. via `wp_enqueue_style( 'wp-media-editor' )` in WordPress or `import '@wordpress/media-editor/build-style/style.css'` in JS bundles) will automatically get the cropper styles.
+
+If you're using the cropper components without the rest of the media editor, you still need to load the package's stylesheet — the cropper will not render correctly without it. All CSS classes use the `wp-media-editor-image-cropper` prefix, so themes can override styles with equal or higher specificity.
+
 ## Docs
 
 -   [docs/architecture.md](docs/architecture.md) — Data flow, coordinate spaces, and design decisions
