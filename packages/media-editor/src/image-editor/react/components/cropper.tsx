@@ -408,6 +408,14 @@ function CropperInner(
 	const [ settling, setSettling ] = useState( false );
 	const settleTimerRef = useRef< ReturnType< typeof setTimeout > >();
 
+	// Clear the pending settle timer on unmount so it can't fire a
+	// state update on an unmounted component.
+	useEffect( () => {
+		return () => {
+			clearTimeout( settleTimerRef.current );
+		};
+	}, [] );
+
 	/**
 	 * Handle resize end — settle the crop rect (re-center, fill height).
 	 */

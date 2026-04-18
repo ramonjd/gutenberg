@@ -967,5 +967,59 @@ describe( 'InteractionController', () => {
 				expect.any( Function )
 			);
 		} );
+
+		it( 'cleans up active pointer drag listeners', () => {
+			const state = makeState( { zoom: 2 } );
+			const { controller } = createController( state );
+			const el = createMockElement();
+
+			// Start a pointer drag — this registers move/up/lostcapture.
+			controller.handlePointerDown(
+				createPointerEvent( { clientX: 100, clientY: 100 } ),
+				el
+			);
+			expect( el.addEventListener ).toHaveBeenCalledWith(
+				'pointermove',
+				expect.any( Function )
+			);
+
+			// Destroy mid-drag without dispatching pointerup.
+			controller.destroy();
+
+			expect( el.removeEventListener ).toHaveBeenCalledWith(
+				'pointermove',
+				expect.any( Function )
+			);
+			expect( el.removeEventListener ).toHaveBeenCalledWith(
+				'pointerup',
+				expect.any( Function )
+			);
+			expect( el.removeEventListener ).toHaveBeenCalledWith(
+				'lostpointercapture',
+				expect.any( Function )
+			);
+		} );
+
+		it( 'does not dispatch if pointermove fires after destroy', () => {
+			const state = makeState( { zoom: 2 } );
+			const { controller } = createController( state );
+			const el = createMockElement();
+
+			controller.handlePointerDown(
+				createPointerEvent( { clientX: 100, clientY: 100 } ),
+				el
+			);
+			dispatchMock.mockClear();
+
+			controller.destroy();
+
+			// A late pointermove event (e.g. queued before unmount) must
+			// not reach the handler — listeners were removed.
+			el._fire(
+				'pointermove',
+				createPointerEvent( { clientX: 150, clientY: 100 } )
+			);
+			expect( dispatchMock ).not.toHaveBeenCalled();
+		} );
 	} );
 } );

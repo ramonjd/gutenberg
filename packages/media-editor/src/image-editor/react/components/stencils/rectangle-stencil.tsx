@@ -1,7 +1,7 @@
 /**
  * WordPress dependencies
  */
-import { useCallback, useMemo, useRef } from '@wordpress/element';
+import { useCallback, useEffect, useMemo, useRef } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 
 /**
@@ -123,6 +123,14 @@ export function RectangleStencil( {
 	);
 	const keyboardSettleTimerRef = useRef< ReturnType< typeof setTimeout > >();
 	const hasLockedRatio = !! ( aspectRatio && aspectRatio > 0 );
+
+	// Clear the pending keyboard settle timer on unmount so it can't
+	// fire onResizeEnd / dispatch onto an unmounted parent.
+	useEffect( () => {
+		return () => {
+			clearTimeout( keyboardSettleTimerRef.current );
+		};
+	}, [] );
 
 	// Latest callbacks for the drag listeners. The drag closure in
 	// handlePointerDown reads from this ref so it always sees current

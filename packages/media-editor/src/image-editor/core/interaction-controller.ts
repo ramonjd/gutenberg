@@ -143,6 +143,14 @@ export class InteractionController {
 	/** Cleanup function for active touch listeners on document. */
 	private touchCleanup: ( () => void ) | null = null;
 
+	/**
+	 * Cleanup function for active pointer-drag listeners on the
+	 * captured element. Set while a pointer drag is in progress so
+	 * `destroy()` can tear the drag down cleanly if the consumer
+	 * unmounts mid-drag. Cleared on pointerup/lostpointercapture.
+	 */
+	private pointerCleanup: ( () => void ) | null = null;
+
 	/** Last tap info for double-tap detection. */
 	private lastTap: {
 		time: number;
@@ -300,19 +308,27 @@ export class InteractionController {
 			} );
 		};
 
-		const onPointerUp = () => {
-			this.setStatus( { isDragging: false } );
-			this.options.onGestureEnd?.();
-			this.drag = null;
-			cancelAnimationFrame( this.rafId );
+		const removeListeners = () => {
 			el.removeEventListener( 'pointermove', onPointerMove );
 			el.removeEventListener( 'pointerup', onPointerUp );
 			el.removeEventListener( 'lostpointercapture', onPointerUp );
 		};
 
+		const onPointerUp = () => {
+			this.setStatus( { isDragging: false } );
+			this.options.onGestureEnd?.();
+			this.drag = null;
+			cancelAnimationFrame( this.rafId );
+			removeListeners();
+			this.pointerCleanup = null;
+		};
+
 		el.addEventListener( 'pointermove', onPointerMove );
 		el.addEventListener( 'pointerup', onPointerUp );
 		el.addEventListener( 'lostpointercapture', onPointerUp );
+		// Expose cleanup to destroy() in case the consumer unmounts
+		// mid-drag. The pending rAF is cancelled in destroy().
+		this.pointerCleanup = removeListeners;
 	}
 
 	/**
@@ -875,6 +891,9 @@ export class InteractionController {
 		clearTimeout( this.zoomTimer );
 		clearTimeout( this.wheelGestureTimer );
 		this.touchCleanup?.();
+		this.touchCleanup = null;
+		this.pointerCleanup?.();
+		this.pointerCleanup = null;
 		this.drag = null;
 		this.touch = null;
 		this.lastTap = null;
