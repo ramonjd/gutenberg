@@ -4,6 +4,7 @@
 import type { CropperState, TransformOperation } from '../../types';
 import { DEFAULT_STATE } from '../../constants';
 import { applyOperationToState, stateFromPipeline } from '../pipeline';
+import { cropperReducer } from '../../state';
 
 describe( 'applyOperationToState', () => {
 	let baseState: CropperState;
@@ -152,12 +153,18 @@ describe( 'stateFromPipeline', () => {
 	} );
 
 	it( 'should use custom initial state when provided', () => {
+		// The custom initial represents a user who committed to this
+		// pose via UI actions. Sync base fields so the pipeline replay
+		// (which routes through the reducer) doesn't relax them.
 		const customInitial: CropperState = {
 			...DEFAULT_STATE,
 			rotation: 90,
+			baseRotation: 90,
 			zoom: 2,
+			baseZoom: 2,
 			flip: { horizontal: true, vertical: false },
 			crop: { ...DEFAULT_STATE.crop },
+			basePan: { ...DEFAULT_STATE.crop },
 			cropRect: { ...DEFAULT_STATE.cropRect },
 		};
 
@@ -172,5 +179,75 @@ describe( 'stateFromPipeline', () => {
 		// Other state should carry forward.
 		expect( result.zoom ).toBe( 2 );
 		expect( result.flip.horizontal ).toBe( true );
+	} );
+} );
+
+describe( 'pipeline / reducer parity', () => {
+	// These tests pin the API parity contract: applying a pipeline op
+	// via applyOperationToState and dispatching the equivalent reducer
+	// action should produce the same bounded state.
+	const stateWithImage = {
+		...DEFAULT_STATE,
+		image: {
+			src: 'test.jpg',
+			naturalWidth: 1600,
+			naturalHeight: 900,
+		},
+	};
+
+	it( 'rotate op matches SET_ROTATION (absolute angle)', () => {
+		const pipelineResult = applyOperationToState( stateWithImage, {
+			type: 'rotate',
+			degrees: 30,
+		} );
+		// Pipeline op is additive, reducer action is absolute, so use
+		// the resolved absolute angle in the reducer call.
+		const reducerResult = cropperReducer( stateWithImage, {
+			type: 'SET_ROTATION',
+			payload: 30,
+		} );
+		expect( pipelineResult.rotation ).toBe( reducerResult.rotation );
+		expect( pipelineResult.zoom ).toBe( reducerResult.zoom );
+		expect( pipelineResult.crop.x ).toBeCloseTo( reducerResult.crop.x, 6 );
+		expect( pipelineResult.crop.y ).toBeCloseTo( reducerResult.crop.y, 6 );
+	} );
+
+	it( 'zoom op matches SET_ZOOM', () => {
+		const pipelineResult = applyOperationToState( stateWithImage, {
+			type: 'zoom',
+			factor: 3,
+		} );
+		const reducerResult = cropperReducer( stateWithImage, {
+			type: 'SET_ZOOM',
+			payload: 3,
+		} );
+		expect( pipelineResult.zoom ).toBe( reducerResult.zoom );
+		expect( pipelineResult.baseZoom ).toBe( reducerResult.baseZoom );
+	} );
+
+	it( 'flip op matches SET_FLIP', () => {
+		const pipelineResult = applyOperationToState( stateWithImage, {
+			type: 'flip',
+			direction: 'horizontal',
+		} );
+		const reducerResult = cropperReducer( stateWithImage, {
+			type: 'SET_FLIP',
+			payload: { horizontal: true, vertical: false },
+		} );
+		expect( pipelineResult.flip ).toEqual( reducerResult.flip );
+	} );
+
+	it( 'crop op matches SET_CROP_RECT', () => {
+		const rect = { x: 0.1, y: 0.1, width: 0.4, height: 0.4 };
+		const pipelineResult = applyOperationToState( stateWithImage, {
+			type: 'crop',
+			rect,
+		} );
+		const reducerResult = cropperReducer( stateWithImage, {
+			type: 'SET_CROP_RECT',
+			payload: rect,
+		} );
+		expect( pipelineResult.cropRect ).toEqual( reducerResult.cropRect );
+		expect( pipelineResult.zoom ).toBe( reducerResult.zoom );
 	} );
 } );

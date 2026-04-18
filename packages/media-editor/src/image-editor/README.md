@@ -52,8 +52,8 @@ Main cropper component. Fills its parent container.
 | `stencil` | `ComponentType<StencilProps>` | `RectangleStencil` | Custom crop area UI |
 | `showGrid` | `boolean` | `false` | Rule-of-thirds grid overlay |
 | `showDimming` | `boolean` | `true` | Dimming overlay outside crop |
-| `minZoom` | `number` | `1` | Minimum zoom level |
-| `maxZoom` | `number` | `10` | Maximum zoom level |
+| `minZoom` | `number` | `1` | Minimum zoom for interactive gestures (wheel, pinch, double-tap). The reducer itself clamps to `[1, 10]` regardless, so a larger `minZoom` only narrows what the user can reach through gestures. |
+| `maxZoom` | `number` | `10` | Maximum zoom for interactive gestures. Same caveat as `minZoom`. |
 | `aspectRatio` | `number` | — | Fixed aspect ratio (width/height) |
 | `freeformCrop` | `boolean` | `false` | Enable resize handles |
 | `onImageLoaded` | `(size: Size) => void` | — | Image load callback |

@@ -1,11 +1,50 @@
 /**
  * Internal dependencies
  */
-import type { CropperState, CropperAction } from './types';
+import type { CropperState, CropperAction, TransformOperation } from './types';
 import { DEFAULT_STATE, MAX_ZOOM } from './constants';
-import { applyOperationToState } from './transforms/pipeline';
 import { normalizeRotation, degreesToRadians } from './math/rotation';
 import { restrictPanZoom, restrictCropRect } from './camera';
+
+/**
+ * Translate a pipeline transform operation into the equivalent
+ * reducer action. Pipeline ops aren't 1:1 with reducer actions —
+ * `rotate` is a delta here, whereas SET_ROTATION takes an absolute
+ * angle — so deltas are resolved against the current state.
+ *
+ * Used by APPLY_OPERATION (and by the pipeline module's
+ * `applyOperationToState`, which is now a thin wrapper around the
+ * reducer) so that pipeline replay produces identical bounded
+ * state to UI interaction or direct setters.
+ *
+ * @param state The current cropper state.
+ * @param op    The pipeline operation.
+ * @return The equivalent reducer action.
+ */
+function operationToAction(
+	state: CropperState,
+	op: TransformOperation
+): CropperAction {
+	switch ( op.type ) {
+		case 'crop':
+			return { type: 'SET_CROP_RECT', payload: { ...op.rect } };
+		case 'rotate':
+			return {
+				type: 'SET_ROTATION',
+				payload: normalizeRotation( state.rotation + op.degrees ),
+			};
+		case 'flip':
+			return {
+				type: 'SET_FLIP',
+				payload: {
+					...state.flip,
+					[ op.direction ]: ! state.flip[ op.direction ],
+				},
+			};
+		case 'zoom':
+			return { type: 'SET_ZOOM', payload: op.factor };
+	}
+}
 
 /**
  * Enforces containment: restricts the crop rect to fit within the
@@ -361,10 +400,13 @@ export function cropperReducer(
 		}
 
 		case 'APPLY_OPERATION':
-			return commitBase(
-				enforceContainment(
-					applyOperationToState( state, action.payload )
-				)
+			// Route through the action equivalent so a pipeline replay
+			// yields the same bounded state as the matching UI/setter
+			// path (containment, baseZoom relaxation, pan rotation
+			// around crop center, etc.).
+			return cropperReducer(
+				state,
+				operationToAction( state, action.payload )
 			);
 
 		case 'RESET':
