@@ -15,7 +15,7 @@ The camera is the source of truth for restriction (ensuring the image covers the
 ```mermaid
 graph TD
     subgraph State["CropperState"]
-        crop["crop.x, crop.y"]
+        pan["pan.x, pan.y"]
         zoom["zoom"]
         rotation["rotation"]
         flip["flip"]

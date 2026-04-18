@@ -652,9 +652,9 @@ The cropper is keyboard-accessible and screen-reader friendly:
 - Aspect ratio lock is respected during keyboard resize
 
 **Screen reader support:**
-- Container has `role="application"` and `aria-label="Image cropper"`
-- Resize handles have `role="separator"`, `aria-orientation`, and descriptive `aria-label` (e.g., "Resize north-west corner")
-- An ARIA live region announces state changes (zoom, rotation, crop dimensions) with 300ms debounce
+- Container is a focusable `role="group"` with `aria-label="Image editor"`. We deliberately avoid `role="application"` because it disables the screen reader's default keybindings — too heavy for a single widget.
+- Resize handles are native `<button>` elements with descriptive `aria-label` (e.g., "Resize top-left corner"). Native buttons give correct focus behavior and announcements without extra ARIA.
+- An ARIA live region announces state changes (zoom, rotation, crop dimensions) with 300ms debounce.
 
 **For theme/plugin developers:**
 - Custom stencils should preserve `tabIndex`, `role`, and `aria-*` attributes on interactive elements

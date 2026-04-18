@@ -136,7 +136,7 @@ Applies a single operation to an existing state.
 
 | Type | Description |
 |------|-------------|
-| `CropperState` | `{ image, crop, zoom, rotation, flip, cropRect }` |
+| `CropperState` | `{ image, pan, zoom, rotation, flip, cropRect, basePan, baseZoom, baseRotation }` |
 | `CropperAction` | Union of all reducer actions |
 | `CropperProps` | Props for the `<Cropper>` component |
 | `StencilProps` | Contract for pluggable stencil components |
