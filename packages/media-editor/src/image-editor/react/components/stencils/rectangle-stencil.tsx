@@ -413,26 +413,24 @@ export function RectangleStencil( {
 					left: 0,
 				} }
 			/>
-			{ /* Resize handles — only in freeform mode */ }
+			{ /* Resize handles — only in freeform mode.
+				   Semantics: role="button" with aria-label describing
+				   which edge/corner. Arrow keys resize (onKeyDown).
+				   role="slider" would be more precise but requires
+				   per-handle aria-valuemin/max/now which don't map
+				   cleanly to a 2D crop rect. */ }
 			{ freeformCrop &&
 				handles.map( ( pos ) => (
-					// eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- resize handles need mouse and keyboard events.
-					<div
+					<button
 						key={ pos }
+						type="button"
 						className={ `wp-media-editor-image-editor__handle wp-media-editor-image-editor__handle--${ pos }` }
 						onPointerDown={ ( event ) =>
 							handlePointerDown( pos, event )
 						}
 						onTouchStart={ ( event ) => event.stopPropagation() }
 						onKeyDown={ ( event ) => handleKeyDown( pos, event ) }
-						role="separator"
-						aria-orientation={
-							pos === 'n' || pos === 's'
-								? 'horizontal'
-								: 'vertical'
-						}
 						aria-label={ getHandleLabel( pos ) }
-						tabIndex={ 0 }
 					/>
 				) ) }
 		</div>

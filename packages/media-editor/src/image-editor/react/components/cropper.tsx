@@ -71,9 +71,14 @@ export interface CropperProps {
 	/** Callback fired when the image is loaded. */
 	onImageLoaded?: ( size: Size ) => void;
 	/**
-	 * Callback fired whenever the cropper state changes.
-	 * Useful for syncing with external tools, analytics, or AI agents.
-	 * Receives the full state — consumers can derive what they need.
+	 * Callback fired on every state change. Fires at pointermove rate
+	 * during drags, so keep the handler light — no heavy work, no
+	 * expensive parent re-renders. For commit-style events (drag end,
+	 * settled crop), use `onGestureEnd` instead.
+	 *
+	 * Useful for lightweight syncing with external tools, analytics,
+	 * or AI agents. Receives the full state so consumers can derive
+	 * whatever they need.
 	 */
 	onStateChange?: ( state: CropperState ) => void;
 	/** Fires when a continuous gesture begins (pan drag, handle resize, pinch zoom). */
@@ -479,9 +484,15 @@ function CropperInner(
 				isDragging && 'wp-media-editor-image-editor--dragging',
 				className
 			) }
+			// The container is focusable so keyboard users can pan/zoom
+			// with arrow keys and +/−. We deliberately do NOT use
+			// role="application" — it disables the screen reader's
+			// normal keyboard interception, which is too heavy-handed
+			// for a single widget in a page. Screen reader users get
+			// the ARIA live region (below) as the announcement channel.
 			tabIndex={ 0 }
-			role="application"
-			aria-label={ __( 'Image cropper' ) }
+			role="group"
+			aria-label={ __( 'Image editor' ) }
 			{ ...handlers }
 		>
 			{ /* The image layer */ }

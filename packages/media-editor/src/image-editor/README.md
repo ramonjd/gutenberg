@@ -1,6 +1,9 @@
 # Image Editor
 
-A modular image editor inside `@wordpress/media-editor`. Two layers: a framework-agnostic **core** (pure functions, `gl-matrix` only) and a thin **React** adapter.
+A modular image editor inside `@wordpress/media-editor`. Two layers:
+
+- **Core** — framework-agnostic state, math, and interaction logic. Pure TypeScript + `gl-matrix`. The export helpers in `core/export/` are browser-only (they use `HTMLCanvasElement` and `Image`), but everything else — reducer, camera math, interaction controller — has no DOM or React dependency. A non-React UI layer (Vue, Svelte, vanilla) can reuse core directly.
+- **React adapter** — thin wrappers over core: the `<Cropper>` component, `useCropperState`, `useInteraction`, `useTransformStyle`. This is the public entrypoint for React consumers.
 
 ## Quick start
 
@@ -57,7 +60,7 @@ Main cropper component. Fills its parent container.
 | `aspectRatio` | `number` | — | Fixed aspect ratio (width/height) |
 | `freeformCrop` | `boolean` | `false` | Enable resize handles |
 | `onImageLoaded` | `(size: Size) => void` | — | Image load callback |
-| `onStateChange` | `(state: CropperState) => void` | — | Every-frame state callback |
+| `onStateChange` | `(state: CropperState) => void` | — | Fires on every state change (high frequency — at pointermove rate during drags). Avoid heavy work in the handler; for commit-style events use `onGestureEnd` instead. |
 | `onGestureStart` | `() => void` | — | Gesture boundary start |
 | `onGestureEnd` | `() => void` | — | Gesture boundary end |
 | `className` | `string` | — | Additional CSS class |

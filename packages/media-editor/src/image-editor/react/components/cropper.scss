@@ -69,6 +69,15 @@
 	}
 
 	&__handle {
+		// Reset native <button> UA styles — the handle is a button for
+		// accessibility (native keyboard focus, button semantics), but
+		// it's styled as a small draggable square.
+		appearance: none;
+		margin: 0;
+		padding: 0;
+		font: inherit;
+		cursor: default;
+
 		position: absolute;
 		width: 12px;
 		height: 12px;
