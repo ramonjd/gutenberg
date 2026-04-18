@@ -339,7 +339,7 @@ const WithControlsComponent = () => {
 				</div>
 			</div>
 
-			<div className="image-editor-story__container">
+			<div className="image-editor-story__resizable">
 				<Cropper
 					src={ SAMPLE_IMAGE }
 					state={ state }
