@@ -457,6 +457,98 @@ describe( 'exportCroppedImage', () => {
 			exportCroppedImage( 'https://example.com/broken.jpg', state )
 		).rejects.toBeDefined();
 	} );
+
+	it( 'propagates CORS-taint errors from canvasToBlob', async () => {
+		// Mock Image to resolve (simulating a successful load even from
+		// a tainted source — the browser doesn't flag the load itself,
+		// only the later toBlob call).
+		global.Image = jest.fn( () => {
+			const img: {
+				addEventListener: jest.Mock;
+				crossOrigin: string;
+				src: string;
+				naturalWidth: number;
+				naturalHeight: number;
+			} = {
+				addEventListener: jest.fn(
+					( event: string, fn: () => void ) => {
+						if ( event === 'load' ) {
+							// Fire load synchronously after src is set.
+							queueMicrotask( fn );
+						}
+					}
+				),
+				crossOrigin: '',
+				src: '',
+				naturalWidth: 800,
+				naturalHeight: 600,
+			};
+			return img;
+		} ) as unknown as typeof Image;
+
+		// Mock canvas to throw SecurityError from toBlob (CORS-taint).
+		const corsCanvas = {
+			width: 0,
+			height: 0,
+			getContext: jest.fn( () => ( {
+				setTransform: jest.fn(),
+				drawImage: jest.fn(),
+			} ) ),
+			toBlob: jest.fn( () => {
+				throw new DOMException(
+					'Tainted canvases may not be exported',
+					'SecurityError'
+				);
+			} ),
+		};
+		jest.spyOn( document, 'createElement' ).mockImplementation( ( (
+			tag: string
+		) => {
+			if ( tag === 'canvas' ) {
+				return corsCanvas as unknown as HTMLElement;
+			}
+			return document.createElement( tag );
+		} ) as typeof document.createElement );
+
+		const state = createTestState();
+		await expect(
+			exportCroppedImage(
+				'https://cross-origin.example/photo.jpg',
+				state
+			)
+		).rejects.toMatchObject( { name: 'SecurityError' } );
+
+		jest.restoreAllMocks();
+	} );
+
+	it( 'throws descriptive error when canvas context is unavailable', () => {
+		// Mock canvas.getContext to return null (no 2D context available).
+		const noCtxCanvas = {
+			width: 0,
+			height: 0,
+			getContext: jest.fn( () => null ),
+		};
+		jest.spyOn( document, 'createElement' ).mockImplementation( ( (
+			tag: string
+		) => {
+			if ( tag === 'canvas' ) {
+				return noCtxCanvas as unknown as HTMLElement;
+			}
+			return document.createElement( tag );
+		} ) as typeof document.createElement );
+
+		const state = createTestState();
+		const mockImage = {
+			naturalWidth: 800,
+			naturalHeight: 600,
+		} as HTMLImageElement;
+
+		expect( () => renderToCanvas( mockImage, state ) ).toThrow(
+			/2D context/i
+		);
+
+		jest.restoreAllMocks();
+	} );
 } );
 
 describe( 'renderToCanvas — export matrix verification', () => {
