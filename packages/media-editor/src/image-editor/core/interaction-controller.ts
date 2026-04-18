@@ -113,8 +113,8 @@ export class InteractionController {
 	private drag: {
 		startX: number;
 		startY: number;
-		startCropX: number;
-		startCropY: number;
+		startPanX: number;
+		startPanY: number;
 	} | null = null;
 
 	/** Active touch state during touch interactions. */
@@ -127,8 +127,8 @@ export class InteractionController {
 		lastTouchX: number;
 		lastTouchY: number;
 		/** Pan when gesture started. */
-		startCropX: number;
-		startCropY: number;
+		startPanX: number;
+		startPanY: number;
 		/** Container rect snapshot for focal-point math. */
 		containerRect?: DOMRect;
 		/** Midpoint of two fingers when pinch was detected. */
@@ -263,8 +263,8 @@ export class InteractionController {
 		this.drag = {
 			startX: e.clientX,
 			startY: e.clientY,
-			startCropX: currentState.crop.x,
-			startCropY: currentState.crop.y,
+			startPanX: currentState.pan.x,
+			startPanY: currentState.pan.y,
 		};
 
 		const onPointerMove = ( moveEvent: Event ) => {
@@ -289,12 +289,12 @@ export class InteractionController {
 						? ( pe.clientY - drag.startY ) / panSize.height
 						: 0;
 
-				const { crop: newCrop } = restrictPanZoom(
+				const { pan: newCrop } = restrictPanZoom(
 					{
 						...s,
-						crop: {
-							x: drag.startCropX + deltaX,
-							y: drag.startCropY + deltaY,
+						pan: {
+							x: drag.startPanX + deltaX,
+							y: drag.startPanY + deltaY,
 						},
 					},
 					getImageSizeFromState( s ),
@@ -302,7 +302,7 @@ export class InteractionController {
 				);
 
 				this.options.dispatch( {
-					type: 'SET_CROP',
+					type: 'SET_PAN',
 					payload: newCrop,
 				} );
 			} );
@@ -383,17 +383,17 @@ export class InteractionController {
 			const zoomRatio = 1 - newZoom / s.zoom;
 			const focalNormX = fx / visSize.width;
 			const focalNormY = fy / visSize.height;
-			const newCropX = s.crop.x + ( focalNormX - s.crop.x ) * zoomRatio;
-			const newCropY = s.crop.y + ( focalNormY - s.crop.y ) * zoomRatio;
+			const newCropX = s.pan.x + ( focalNormX - s.pan.x ) * zoomRatio;
+			const newCropY = s.pan.y + ( focalNormY - s.pan.y ) * zoomRatio;
 
-			const { crop: clampedCrop } = restrictPanZoom(
-				{ ...s, zoom: newZoom, crop: { x: newCropX, y: newCropY } },
+			const { pan: clampedCrop } = restrictPanZoom(
+				{ ...s, zoom: newZoom, pan: { x: newCropX, y: newCropY } },
 				getImageSizeFromState( s ),
 				s.cropRect
 			);
 			this.options.dispatch( {
 				type: 'SET_ZOOM_AT_POINT',
-				payload: { zoom: newZoom, crop: clampedCrop },
+				payload: { zoom: newZoom, pan: clampedCrop },
 			} );
 		} else {
 			this.options.dispatch( { type: 'SET_ZOOM', payload: newZoom } );
@@ -432,8 +432,8 @@ export class InteractionController {
 			this.touch.didPinch = true;
 			this.touch.startDistance = distance;
 			this.touch.startZoom = s.zoom;
-			this.touch.startCropX = s.crop.x;
-			this.touch.startCropY = s.crop.y;
+			this.touch.startPanX = s.pan.x;
+			this.touch.startPanY = s.pan.y;
 			this.touch.startMidX = midX;
 			this.touch.startMidY = midY;
 			this.touch.containerRect = containerRect;
@@ -491,17 +491,17 @@ export class InteractionController {
 						const focalNormX = fx / visSize.width;
 						const focalNormY = fy / visSize.height;
 						const newCropX =
-							currentState.crop.x +
-							( focalNormX - currentState.crop.x ) * zoomRatio;
+							currentState.pan.x +
+							( focalNormX - currentState.pan.x ) * zoomRatio;
 						const newCropY =
-							currentState.crop.y +
-							( focalNormY - currentState.crop.y ) * zoomRatio;
+							currentState.pan.y +
+							( focalNormY - currentState.pan.y ) * zoomRatio;
 
-						const { crop: clampedCrop } = restrictPanZoom(
+						const { pan: clampedCrop } = restrictPanZoom(
 							{
 								...currentState,
 								zoom: targetZoom,
-								crop: {
+								pan: {
 									x: newCropX,
 									y: newCropY,
 								},
@@ -513,7 +513,7 @@ export class InteractionController {
 							type: 'SET_ZOOM_AT_POINT',
 							payload: {
 								zoom: targetZoom,
-								crop: clampedCrop,
+								pan: clampedCrop,
 							},
 						} );
 					} else {
@@ -536,8 +536,8 @@ export class InteractionController {
 				startZoom: currentState.zoom,
 				lastTouchX: e.touches[ 0 ].clientX,
 				lastTouchY: e.touches[ 0 ].clientY,
-				startCropX: currentState.crop.x,
-				startCropY: currentState.crop.y,
+				startPanX: currentState.pan.x,
+				startPanY: currentState.pan.y,
 				containerRect,
 				startMidX: 0,
 				startMidY: 0,
@@ -557,8 +557,8 @@ export class InteractionController {
 				startZoom: currentState.zoom,
 				lastTouchX: 0,
 				lastTouchY: 0,
-				startCropX: currentState.crop.x,
-				startCropY: currentState.crop.y,
+				startPanX: currentState.pan.x,
+				startPanY: currentState.pan.y,
 				containerRect,
 				startMidX: midX,
 				startMidY: midY,
@@ -591,8 +591,8 @@ export class InteractionController {
 							moveEvent.touches[ 1 ]
 						);
 						touch.startZoom = s.zoom;
-						touch.startCropX = s.crop.x;
-						touch.startCropY = s.crop.y;
+						touch.startPanX = s.pan.x;
+						touch.startPanY = s.pan.y;
 						touch.startMidX =
 							( moveEvent.touches[ 0 ].clientX +
 								moveEvent.touches[ 1 ].clientX ) /
@@ -655,28 +655,28 @@ export class InteractionController {
 						const focalNormX = mx / visSize.width;
 						const focalNormY = my / visSize.height;
 						const zoomCropX =
-							s.crop.x + ( focalNormX - s.crop.x ) * zoomRatio;
+							s.pan.x + ( focalNormX - s.pan.x ) * zoomRatio;
 						const zoomCropY =
-							s.crop.y + ( focalNormY - s.crop.y ) * zoomRatio;
+							s.pan.y + ( focalNormY - s.pan.y ) * zoomRatio;
 
 						// Combined: pan drift + zoom correction.
 						const newCropX =
-							touch.startCropX + panDx + ( zoomCropX - s.crop.x );
+							touch.startPanX + panDx + ( zoomCropX - s.pan.x );
 						const newCropY =
-							touch.startCropY + panDy + ( zoomCropY - s.crop.y );
+							touch.startPanY + panDy + ( zoomCropY - s.pan.y );
 
-						const { crop: clampedCrop } = restrictPanZoom(
+						const { pan: clampedCrop } = restrictPanZoom(
 							{
 								...s,
 								zoom: newZoom,
-								crop: { x: newCropX, y: newCropY },
+								pan: { x: newCropX, y: newCropY },
 							},
 							getImageSizeFromState( s ),
 							s.cropRect
 						);
 						this.options.dispatch( {
 							type: 'SET_ZOOM_AT_POINT',
-							payload: { zoom: newZoom, crop: clampedCrop },
+							payload: { zoom: newZoom, pan: clampedCrop },
 						} );
 					} else if ( newZoom !== s.zoom ) {
 						this.options.dispatch( {
@@ -712,12 +712,12 @@ export class InteractionController {
 							  panSize.height
 							: 0;
 
-					const { crop: newCrop } = restrictPanZoom(
+					const { pan: newCrop } = restrictPanZoom(
 						{
 							...s,
-							crop: {
-								x: touch.startCropX + deltaX,
-								y: touch.startCropY + deltaY,
+							pan: {
+								x: touch.startPanX + deltaX,
+								y: touch.startPanY + deltaY,
 							},
 						},
 						getImageSizeFromState( s ),
@@ -725,7 +725,7 @@ export class InteractionController {
 					);
 
 					this.options.dispatch( {
-						type: 'SET_CROP',
+						type: 'SET_PAN',
 						payload: newCrop,
 					} );
 				}
@@ -768,76 +768,76 @@ export class InteractionController {
 		switch ( e.key ) {
 			case 'ArrowUp': {
 				e.preventDefault();
-				const { crop: newCrop } = restrictPanZoom(
+				const { pan: newCrop } = restrictPanZoom(
 					{
 						...currentState,
-						crop: {
-							x: currentState.crop.x,
-							y: currentState.crop.y - this.keyboardStep,
+						pan: {
+							x: currentState.pan.x,
+							y: currentState.pan.y - this.keyboardStep,
 						},
 					},
 					getImageSizeFromState( currentState ),
 					currentState.cropRect
 				);
 				this.options.dispatch( {
-					type: 'SET_CROP',
+					type: 'SET_PAN',
 					payload: newCrop,
 				} );
 				break;
 			}
 			case 'ArrowDown': {
 				e.preventDefault();
-				const { crop: newCrop } = restrictPanZoom(
+				const { pan: newCrop } = restrictPanZoom(
 					{
 						...currentState,
-						crop: {
-							x: currentState.crop.x,
-							y: currentState.crop.y + this.keyboardStep,
+						pan: {
+							x: currentState.pan.x,
+							y: currentState.pan.y + this.keyboardStep,
 						},
 					},
 					getImageSizeFromState( currentState ),
 					currentState.cropRect
 				);
 				this.options.dispatch( {
-					type: 'SET_CROP',
+					type: 'SET_PAN',
 					payload: newCrop,
 				} );
 				break;
 			}
 			case 'ArrowLeft': {
 				e.preventDefault();
-				const { crop: newCrop } = restrictPanZoom(
+				const { pan: newCrop } = restrictPanZoom(
 					{
 						...currentState,
-						crop: {
-							x: currentState.crop.x - this.keyboardStep,
-							y: currentState.crop.y,
+						pan: {
+							x: currentState.pan.x - this.keyboardStep,
+							y: currentState.pan.y,
 						},
 					},
 					getImageSizeFromState( currentState ),
 					currentState.cropRect
 				);
 				this.options.dispatch( {
-					type: 'SET_CROP',
+					type: 'SET_PAN',
 					payload: newCrop,
 				} );
 				break;
 			}
 			case 'ArrowRight': {
 				e.preventDefault();
-				const { crop: newCrop } = restrictPanZoom(
+				const { pan: newCrop } = restrictPanZoom(
 					{
 						...currentState,
-						crop: {
-							x: currentState.crop.x + this.keyboardStep,
-							y: currentState.crop.y,
+						pan: {
+							x: currentState.pan.x + this.keyboardStep,
+							y: currentState.pan.y,
 						},
 					},
 					getImageSizeFromState( currentState ),
 					currentState.cropRect
 				);
 				this.options.dispatch( {
-					type: 'SET_CROP',
+					type: 'SET_PAN',
 					payload: newCrop,
 				} );
 				break;

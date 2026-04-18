@@ -21,8 +21,8 @@ export function computeTransformStyle(
 	state: CropperState,
 	imageSize: Size
 ): string {
-	const translateX = state.crop.x * imageSize.width;
-	const translateY = state.crop.y * imageSize.height;
+	const translateX = state.pan.x * imageSize.width;
+	const translateY = state.pan.y * imageSize.height;
 	const rad = degreesToRadians( state.rotation );
 	const cos = Math.cos( rad );
 	const sin = Math.sin( rad );

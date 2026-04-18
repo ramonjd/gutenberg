@@ -168,7 +168,7 @@ export function createCamera(
 	] );
 
 	// Pan offset in visual-space pixels.
-	mat2d.translate( m, m, [ state.crop.x * visualW, state.crop.y * visualH ] );
+	mat2d.translate( m, m, [ state.pan.x * visualW, state.pan.y * visualH ] );
 
 	// Rotate.
 	mat2d.rotate( m, m, degreesToRadians( state.rotation ) );
@@ -384,8 +384,8 @@ export function getCropBounds(
 	}
 
 	// Build the same CSS matrix as use-transform-style.
-	const tx = state.crop.x * visualSize.width;
-	const ty = state.crop.y * visualSize.height;
+	const tx = state.pan.x * visualSize.width;
+	const ty = state.pan.y * visualSize.height;
 	const rad = degreesToRadians( state.rotation );
 	const cos = Math.cos( rad );
 	const sin = Math.sin( rad );
@@ -535,7 +535,7 @@ export function restrictPanZoom(
 	state: CropperState,
 	imageSize: Size,
 	cropRect: NormalizedRect
-): { crop: { x: number; y: number }; zoom: number } {
+): { pan: { x: number; y: number }; zoom: number } {
 	// Algorithm overview:
 	// 1. Ensure zoom is high enough for the rotated image to cover the crop.
 	// 2. Build a camera (world→screen matrix) with the candidate state.
@@ -574,7 +574,7 @@ export function restrictPanZoom(
 	const baseCamera = createCamera(
 		{
 			...candidateState,
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 			zoom: 1,
 			rotation: snapRotation,
 		},
@@ -641,10 +641,7 @@ export function restrictPanZoom(
 		minWy >= -EPSILON &&
 		maxWy <= 1 + EPSILON
 	) {
-		if ( zoom === state.zoom ) {
-			return { crop: state.crop, zoom };
-		}
-		return { crop: state.crop, zoom };
+		return { pan: state.pan, zoom };
 	}
 
 	// Compute world-space correction needed.
@@ -679,18 +676,18 @@ export function restrictPanZoom(
 	const dsy = camera[ 1 ] * dwx + camera[ 3 ] * dwy;
 
 	// Convert screen-space correction to pan-field correction.
-	// Pan in screen pixels = crop.x * visualW, crop.y * visualH.
+	// Pan in screen pixels = pan.x * visualW, pan.y * visualH.
 	// The correction is subtractive: a positive world shift (dw > 0) means
 	// the image needs to move opposite to pan direction, so pan decreases.
-	const newCropX =
-		state.crop.x -
+	const newPanX =
+		state.pan.x -
 		( visibleBounds.width > 0 ? dsx / visibleBounds.width : 0 );
-	const newCropY =
-		state.crop.y -
+	const newPanY =
+		state.pan.y -
 		( visibleBounds.height > 0 ? dsy / visibleBounds.height : 0 );
 
 	return {
-		crop: { x: newCropX, y: newCropY },
+		pan: { x: newPanX, y: newPanY },
 		zoom,
 	};
 }
@@ -716,7 +713,7 @@ export function createExportCamera(
 	outputSize: Size
 ): Camera {
 	const m = mat2d.create();
-	const { rotation, flip, cropRect, zoom, crop } = state;
+	const { rotation, flip, cropRect, zoom, pan } = state;
 	if (
 		imageSize.width === 0 ||
 		imageSize.height === 0 ||
@@ -741,8 +738,8 @@ export function createExportCamera(
 	const cropOffsetX = cropRect.x * rotW + outputSize.width / 2 / outputScaleX;
 	const cropOffsetY =
 		cropRect.y * rotH + outputSize.height / 2 / outputScaleY;
-	const visualCenterX = rotW / 2 + crop.x * rotW;
-	const visualCenterY = rotH / 2 + crop.y * rotH;
+	const visualCenterX = rotW / 2 + pan.x * rotW;
+	const visualCenterY = rotH / 2 + pan.y * rotH;
 	mat2d.scale( m, m, [ outputScaleX, outputScaleY ] );
 	mat2d.translate( m, m, [
 		visualCenterX - cropOffsetX + outputSize.width / 2 / outputScaleX,
@@ -824,7 +821,7 @@ export function getSourceRegion(
 	// (zoom=1, no pan) to locate the visual bounds, then place the
 	// crop rect within them.
 	const baseCamera = createCamera(
-		{ ...state, crop: { x: 0, y: 0 }, zoom: 1 },
+		{ ...state, pan: { x: 0, y: 0 }, zoom: 1 },
 		syntheticContainer,
 		imageSize
 	);

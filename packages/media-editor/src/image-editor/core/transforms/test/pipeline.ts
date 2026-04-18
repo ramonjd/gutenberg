@@ -13,7 +13,7 @@ describe( 'applyOperationToState', () => {
 		baseState = {
 			...DEFAULT_STATE,
 			flip: { ...DEFAULT_STATE.flip },
-			crop: { ...DEFAULT_STATE.crop },
+			pan: { ...DEFAULT_STATE.pan },
 			cropRect: { ...DEFAULT_STATE.cropRect },
 		};
 	} );
@@ -163,8 +163,8 @@ describe( 'stateFromPipeline', () => {
 			zoom: 2,
 			baseZoom: 2,
 			flip: { horizontal: true, vertical: false },
-			crop: { ...DEFAULT_STATE.crop },
-			basePan: { ...DEFAULT_STATE.crop },
+			pan: { ...DEFAULT_STATE.pan },
+			basePan: { ...DEFAULT_STATE.pan },
 			cropRect: { ...DEFAULT_STATE.cropRect },
 		};
 
@@ -208,8 +208,8 @@ describe( 'pipeline / reducer parity', () => {
 		} );
 		expect( pipelineResult.rotation ).toBe( reducerResult.rotation );
 		expect( pipelineResult.zoom ).toBe( reducerResult.zoom );
-		expect( pipelineResult.crop.x ).toBeCloseTo( reducerResult.crop.x, 6 );
-		expect( pipelineResult.crop.y ).toBeCloseTo( reducerResult.crop.y, 6 );
+		expect( pipelineResult.pan.x ).toBeCloseTo( reducerResult.pan.x, 6 );
+		expect( pipelineResult.pan.y ).toBeCloseTo( reducerResult.pan.y, 6 );
 	} );
 
 	it( 'zoom op matches SET_ZOOM', () => {

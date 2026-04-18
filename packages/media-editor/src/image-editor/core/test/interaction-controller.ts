@@ -266,11 +266,11 @@ describe( 'InteractionController', () => {
 			);
 
 			expect( dispatchMock ).toHaveBeenCalledWith(
-				expect.objectContaining( { type: 'SET_CROP' } )
+				expect.objectContaining( { type: 'SET_PAN' } )
 			);
 
 			const setCropCall = dispatchMock.mock.calls.find(
-				( call ) => call[ 0 ].type === 'SET_CROP'
+				( call ) => call[ 0 ].type === 'SET_PAN'
 			);
 			expect( setCropCall ).toBeDefined();
 
@@ -503,11 +503,11 @@ describe( 'InteractionController', () => {
 			controller.handleKeyDown( createKeyboardEvent( 'ArrowUp' ) );
 
 			expect( dispatchMock ).toHaveBeenCalledWith(
-				expect.objectContaining( { type: 'SET_CROP' } )
+				expect.objectContaining( { type: 'SET_PAN' } )
 			);
 
 			const call = dispatchMock.mock.calls.find(
-				( c ) => c[ 0 ].type === 'SET_CROP'
+				( c ) => c[ 0 ].type === 'SET_PAN'
 			);
 			// ArrowUp decreases y by keyboardStep (0.05 default).
 			expect(
@@ -522,7 +522,7 @@ describe( 'InteractionController', () => {
 			controller.handleKeyDown( createKeyboardEvent( 'ArrowDown' ) );
 
 			expect( dispatchMock ).toHaveBeenCalledWith(
-				expect.objectContaining( { type: 'SET_CROP' } )
+				expect.objectContaining( { type: 'SET_PAN' } )
 			);
 		} );
 
@@ -533,11 +533,11 @@ describe( 'InteractionController', () => {
 			controller.handleKeyDown( createKeyboardEvent( 'ArrowLeft' ) );
 
 			expect( dispatchMock ).toHaveBeenCalledWith(
-				expect.objectContaining( { type: 'SET_CROP' } )
+				expect.objectContaining( { type: 'SET_PAN' } )
 			);
 
 			const call = dispatchMock.mock.calls.find(
-				( c ) => c[ 0 ].type === 'SET_CROP'
+				( c ) => c[ 0 ].type === 'SET_PAN'
 			);
 			// ArrowLeft decreases x by keyboardStep.
 			expect(
@@ -552,7 +552,7 @@ describe( 'InteractionController', () => {
 			controller.handleKeyDown( createKeyboardEvent( 'ArrowRight' ) );
 
 			expect( dispatchMock ).toHaveBeenCalledWith(
-				expect.objectContaining( { type: 'SET_CROP' } )
+				expect.objectContaining( { type: 'SET_PAN' } )
 			);
 		} );
 
@@ -622,7 +622,7 @@ describe( 'InteractionController', () => {
 			controller.handleKeyDown( createKeyboardEvent( 'ArrowRight' ) );
 
 			const call = dispatchMock.mock.calls.find(
-				( c ) => c[ 0 ].type === 'SET_CROP'
+				( c ) => c[ 0 ].type === 'SET_PAN'
 			);
 			// At zoom=2 with full crop rect, maxX = 0.25.
 			// 0 + 0.1 = 0.1, within bounds.
@@ -661,7 +661,7 @@ describe( 'InteractionController', () => {
 			);
 
 			expect( dispatchMock ).toHaveBeenCalledWith(
-				expect.objectContaining( { type: 'SET_CROP' } )
+				expect.objectContaining( { type: 'SET_PAN' } )
 			);
 		} );
 
@@ -804,7 +804,7 @@ describe( 'InteractionController', () => {
 				createTouchEvent( [ { clientX: 210, clientY: 155 } ] )
 			);
 			expect( dispatchMock ).toHaveBeenCalledWith(
-				expect.objectContaining( { type: 'SET_CROP' } )
+				expect.objectContaining( { type: 'SET_PAN' } )
 			);
 			dispatchMock.mockClear();
 
@@ -833,7 +833,7 @@ describe( 'InteractionController', () => {
 			// Should NOT have dispatched any more SET_CROP after switching.
 			expect(
 				dispatchMock.mock.calls.filter(
-					( c ) => c[ 0 ].type === 'SET_CROP'
+					( c ) => c[ 0 ].type === 'SET_PAN'
 				)
 			).toHaveLength( 0 );
 		} );
@@ -912,7 +912,7 @@ describe( 'InteractionController', () => {
 			);
 
 			expect( dispatchMock ).not.toHaveBeenCalledWith(
-				expect.objectContaining( { type: 'SET_CROP' } )
+				expect.objectContaining( { type: 'SET_PAN' } )
 			);
 		} );
 	} );

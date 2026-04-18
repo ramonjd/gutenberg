@@ -24,7 +24,7 @@ describe( 'useCropperState', () => {
 		expect( result.current.state.zoom ).toBe( 2 );
 		expect( result.current.state.rotation ).toBe( 45 );
 		// Non-overridden fields should match defaults.
-		expect( result.current.state.crop ).toEqual( DEFAULT_STATE.crop );
+		expect( result.current.state.pan ).toEqual( DEFAULT_STATE.pan );
 	} );
 
 	it( 'should dispatch SET_CROP via setCrop', () => {
@@ -37,11 +37,11 @@ describe( 'useCropperState', () => {
 		} );
 
 		act( () => {
-			result.current.setCrop( { x: 0.3, y: 0.2 } );
+			result.current.setPan( { x: 0.3, y: 0.2 } );
 		} );
 
-		expect( result.current.state.crop.x ).toBeCloseTo( 0.3 );
-		expect( result.current.state.crop.y ).toBeCloseTo( 0.2 );
+		expect( result.current.state.pan.x ).toBeCloseTo( 0.3 );
+		expect( result.current.state.pan.y ).toBeCloseTo( 0.2 );
 	} );
 
 	it( 'should dispatch SET_ZOOM via setZoom', () => {
@@ -226,7 +226,7 @@ describe( 'useCropperState', () => {
 		} );
 
 		expect( result.current.state.zoom ).toBe( 2 );
-		expect( result.current.state.crop ).toEqual( DEFAULT_STATE.crop );
+		expect( result.current.state.pan ).toEqual( DEFAULT_STATE.pan );
 	} );
 
 	describe( 'isDirty', () => {
@@ -245,7 +245,7 @@ describe( 'useCropperState', () => {
 			} );
 
 			act( () => {
-				result.current.setCrop( { x: 0.1, y: 0.2 } );
+				result.current.setPan( { x: 0.1, y: 0.2 } );
 			} );
 
 			expect( result.current.isDirty ).toBe( true );
@@ -309,7 +309,7 @@ describe( 'useCropperState', () => {
 			} );
 
 			act( () => {
-				result.current.setCrop( { x: 0.2, y: 0.2 } );
+				result.current.setPan( { x: 0.2, y: 0.2 } );
 			} );
 
 			expect( result.current.isDirty ).toBe( true );
@@ -320,7 +320,7 @@ describe( 'useCropperState', () => {
 			} );
 
 			act( () => {
-				result.current.setCrop( { x: 0, y: 0 } );
+				result.current.setPan( { x: 0, y: 0 } );
 			} );
 
 			expect( result.current.isDirty ).toBe( false );
@@ -351,11 +351,11 @@ describe( 'useCropperState', () => {
 			// At zoom=1, no panning is possible — the image exactly covers
 			// the crop area. Any pan value should be clamped to (0, 0).
 			act( () => {
-				result.current.setCrop( { x: 0.5, y: 0.5 } );
+				result.current.setPan( { x: 0.5, y: 0.5 } );
 			} );
 
-			expect( result.current.state.crop.x ).toBeCloseTo( 0, 5 );
-			expect( result.current.state.crop.y ).toBeCloseTo( 0, 5 );
+			expect( result.current.state.pan.x ).toBeCloseTo( 0, 5 );
+			expect( result.current.state.pan.y ).toBeCloseTo( 0, 5 );
 		} );
 
 		it( 'should allow limited panning at zoom > 1', () => {
@@ -366,20 +366,20 @@ describe( 'useCropperState', () => {
 			} );
 
 			act( () => {
-				result.current.setCrop( { x: 0.3, y: 0.3 } );
+				result.current.setPan( { x: 0.3, y: 0.3 } );
 			} );
 
 			// Should be within bounds (not clamped to 0)
-			expect( result.current.state.crop.x ).toBeGreaterThan( 0 );
-			expect( result.current.state.crop.y ).toBeGreaterThan( 0 );
+			expect( result.current.state.pan.x ).toBeGreaterThan( 0 );
+			expect( result.current.state.pan.y ).toBeGreaterThan( 0 );
 
 			// But if we try an extreme pan, it should be clamped
 			act( () => {
-				result.current.setCrop( { x: 100, y: 100 } );
+				result.current.setPan( { x: 100, y: 100 } );
 			} );
 
-			expect( result.current.state.crop.x ).toBeLessThan( 1 );
-			expect( result.current.state.crop.y ).toBeLessThan( 1 );
+			expect( result.current.state.pan.x ).toBeLessThan( 1 );
+			expect( result.current.state.pan.y ).toBeLessThan( 1 );
 		} );
 
 		it( 'should bump zoom to cover crop during rotation', () => {
@@ -429,10 +429,10 @@ describe( 'useCropperState', () => {
 				result.current.setZoom( 3 );
 			} );
 			act( () => {
-				result.current.setCrop( { x: 0.2, y: 0.2 } );
+				result.current.setPan( { x: 0.2, y: 0.2 } );
 			} );
 
-			expect( result.current.state.crop.x ).toBeCloseTo( 0.2 );
+			expect( result.current.state.pan.x ).toBeCloseTo( 0.2 );
 
 			// Rotate — position should be re-restricted
 			act( () => {
@@ -440,10 +440,10 @@ describe( 'useCropperState', () => {
 			} );
 
 			// The position should be within the new valid range
-			const { crop, zoom } = result.current.state;
+			const { pan, zoom } = result.current.state;
 			// Verify the position is valid for the new state
-			expect( Math.abs( crop.x ) ).toBeLessThanOrEqual( zoom );
-			expect( Math.abs( crop.y ) ).toBeLessThanOrEqual( zoom );
+			expect( Math.abs( pan.x ) ).toBeLessThanOrEqual( zoom );
+			expect( Math.abs( pan.y ) ).toBeLessThanOrEqual( zoom );
 		} );
 
 		it( 'should not allow zoom below minZoomForCover', () => {
@@ -472,10 +472,10 @@ describe( 'useCropperState', () => {
 				result.current.setZoom( 4 );
 			} );
 			act( () => {
-				result.current.setCrop( { x: 1, y: 1 } );
+				result.current.setPan( { x: 1, y: 1 } );
 			} );
 
-			const panAtZoom4 = { ...result.current.state.crop };
+			const panAtZoom4 = { ...result.current.state.pan };
 
 			// Zoom out — pan should be reduced to stay within bounds
 			act( () => {
@@ -483,7 +483,7 @@ describe( 'useCropperState', () => {
 			} );
 
 			expect(
-				Math.abs( result.current.state.crop.x )
+				Math.abs( result.current.state.pan.x )
 			).toBeLessThanOrEqual( Math.abs( panAtZoom4.x ) );
 		} );
 
@@ -674,8 +674,8 @@ describe( 'useCropperState', () => {
 			const stateAfter = result.current.state;
 			expect( stateAfter.cropRect ).toEqual( stateBefore.cropRect );
 			expect( stateAfter.zoom ).toEqual( stateBefore.zoom );
-			expect( stateAfter.crop.x ).toBeCloseTo( stateBefore.crop.x, 5 );
-			expect( stateAfter.crop.y ).toBeCloseTo( stateBefore.crop.y, 5 );
+			expect( stateAfter.pan.x ).toBeCloseTo( stateBefore.pan.x, 5 );
+			expect( stateAfter.pan.y ).toBeCloseTo( stateBefore.pan.y, 5 );
 		} );
 	} );
 
@@ -805,7 +805,7 @@ describe( 'useCropperState', () => {
 		// you MUST also update isStateDirty() in use-cropper-state.ts.
 		it( 'should track all CropperState fields', () => {
 			// Flatten DEFAULT_STATE keys into dot-notation paths.
-			// e.g., { crop: { x: 0, y: 0 } } → ['crop.x', 'crop.y']
+			// e.g., { pan: { x: 0, y: 0 } } → ['crop.x', 'crop.y']
 			function flattenKeys(
 				obj: Record< string, unknown >,
 				prefix = ''
@@ -836,8 +836,8 @@ describe( 'useCropperState', () => {
 			// Keep this in sync — if you add a field to CropperState,
 			// add it here AND in isStateDirty().
 			const dirtyCheckedFields = [
-				'crop.x',
-				'crop.y',
+				'pan.x',
+				'pan.y',
 				'cropRect.height',
 				'cropRect.width',
 				'cropRect.x',

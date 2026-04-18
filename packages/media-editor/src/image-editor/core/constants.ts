@@ -24,17 +24,17 @@ const DEFAULT_FLIP: Flip = {
 	vertical: false,
 };
 
-const DEFAULT_CROP: { x: number; y: number } = {
+const DEFAULT_PAN: { x: number; y: number } = {
 	x: 0,
 	y: 0,
 };
 
 export const DEFAULT_STATE: CropperState = {
 	image: null,
-	crop: { ...DEFAULT_CROP },
+	pan: { ...DEFAULT_PAN },
 	zoom: MIN_ZOOM,
 	rotation: 0,
-	basePan: { ...DEFAULT_CROP },
+	basePan: { ...DEFAULT_PAN },
 	baseZoom: MIN_ZOOM,
 	baseRotation: 0,
 	flip: { ...DEFAULT_FLIP },

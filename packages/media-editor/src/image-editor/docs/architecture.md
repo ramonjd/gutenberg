@@ -59,7 +59,7 @@ graph TD
     getImageFit --> |"visualSize"| useInteraction
     getImageFit --> |"visualSize"| useTransformStyle
 
-    useInteraction --> |"SET_CROP"| State
+    useInteraction --> |"SET_PAN"| State
 
     State --> createExportCamera --> canvasRenderer
 ```

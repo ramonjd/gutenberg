@@ -363,7 +363,7 @@ const WithControlsComponent = () => {
 							rotation: state.rotation,
 							zoom: state.zoom,
 							cropRect: state.cropRect,
-							crop: state.crop,
+							pan: state.pan,
 							image: state.image
 								? {
 										naturalWidth: state.image.naturalWidth,
@@ -457,7 +457,7 @@ const DebugComponent = () => {
 		: null;
 	const baseCamera = hasImage
 		? createCamera(
-				{ ...state, crop: { x: 0, y: 0 }, zoom: 1 },
+				{ ...state, pan: { x: 0, y: 0 }, zoom: 1 },
 				containerSize,
 				imageSize
 		  )
@@ -629,7 +629,7 @@ aspect ratio: ${ (
 						<pre style={ { margin: '4px 0' } }>
 							{ `zoom: ${ state.zoom.toFixed( 3 ) }
 rotation: ${ state.rotation.toFixed( 1 ) }°
-pan: (${ state.crop.x.toFixed( 4 ) }, ${ state.crop.y.toFixed( 4 ) })
+pan: (${ state.pan.x.toFixed( 4 ) }, ${ state.pan.y.toFixed( 4 ) })
 cropRect: (${ state.cropRect.x.toFixed( 3 ) }, ${ state.cropRect.y.toFixed(
 								3
 							) }) ${ state.cropRect.width.toFixed(
@@ -691,9 +691,9 @@ BR: (${ cropWorldCorners[ 1 ].x.toFixed(
 								{ `zoom: ${ restrictionResult.zoom.toFixed(
 									3
 								) }
-pan: (${ restrictionResult.crop.x.toFixed(
+pan: (${ restrictionResult.pan.x.toFixed(
 									4
-								) }, ${ restrictionResult.crop.y.toFixed(
+								) }, ${ restrictionResult.pan.y.toFixed(
 									4
 								) })` }
 							</pre>

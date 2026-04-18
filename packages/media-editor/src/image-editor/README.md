@@ -72,13 +72,15 @@ Context wrapper for deep component trees. Wraps `useCropperState` and provides i
 
 State management hook. Returns:
 
-Prefer the convenience setters (`setCrop`, `setZoom`, etc.) for most use cases. `dispatch` is exposed as an escape hatch but may be hidden in a future version — see [docs/roadmap.md](docs/roadmap.md).
+Prefer the convenience setters (`setPan`, `setZoom`, etc.) for most use cases. `dispatch` is exposed as an escape hatch but may be hidden in a future version — see [docs/roadmap.md](docs/roadmap.md).
+
+> **Pan vs. crop rectangle**: `setPan` / `state.pan` sets the image *pan offset* (how the image is translated inside the viewport). `setCropRect` / `state.cropRect` sets the *crop rectangle* (the region being selected).
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `state` | `CropperState` | Current state |
 | `dispatch` | `Dispatch<CropperAction>` | Raw reducer dispatch (escape hatch — prefer setters) |
-| `setCrop` | `(crop: NormalizedPoint) => void` | Set pan offset |
+| `setPan` | `(pan: NormalizedPoint) => void` | Set image pan offset |
 | `setZoom` | `(zoom: number) => void` | Set zoom (clamped 1–10) |
 | `setRotation` | `(degrees: number) => void` | Set rotation (normalized 0–360) |
 | `setFlip` | `(flip: Flip) => void` | Set flip state |
@@ -87,7 +89,7 @@ Prefer the convenience setters (`setCrop`, `setZoom`, etc.) for most use cases. 
 | `applyOperation` | `(op: TransformOperation) => void` | Apply a pipeline operation |
 | `reset` | `(state?: Partial<CropperState>) => void` | Reset to initial or given state |
 | `isDirty` | `boolean` | Whether state differs from initial |
-| `getCroppedImage` | `(mime?: string, quality?: number) => Promise<Blob \| null>` | Export as Blob |
+| `getCroppedImage` | `(mime?: string, quality?: number) => Promise<Blob>` | Export as Blob. Throws on load/CORS/context failure — wrap in try/catch to recover. |
 
 ### Source region
 
@@ -103,7 +105,15 @@ Same as `getSourceRegion` but returns percentages (0–100): `{ x, y, width, hei
 
 #### `exportCroppedImage( src, state, mimeType?, quality? ): Promise<Blob>`
 
-End-to-end: load image, render with transforms, export as Blob.
+End-to-end: load image, render with transforms, export as Blob. Browser-only (needs `HTMLCanvasElement`).
+
+Rejects on:
+
+- **Image load failures** (network error, 404) — the native load error is propagated.
+- **CORS / tainted canvas** — if the source doesn't set `Access-Control-Allow-Origin`, `canvas.toBlob()` rejects because the canvas is tainted. Fix at the server: send permissive CORS headers.
+- **Missing canvas context** — throws with a descriptive `Error`.
+
+Wrap in `try/catch` to distinguish failure modes.
 
 #### `applyToCanvas( source: CanvasImageSource, imageSize, state ): HTMLCanvasElement`
 

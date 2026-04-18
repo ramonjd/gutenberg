@@ -29,7 +29,7 @@ function makeState( overrides: Partial< CropperState > = {} ): CropperState {
 		merged.baseZoom = merged.zoom;
 	}
 	if ( overrides.basePan === undefined ) {
-		merged.basePan = { x: merged.crop.x, y: merged.crop.y };
+		merged.basePan = { x: merged.pan.x, y: merged.pan.y };
 	}
 	if ( overrides.baseRotation === undefined ) {
 		merged.baseRotation = merged.rotation;
@@ -59,7 +59,7 @@ function getCropWorldRegion(
 
 	// Build base camera (zero pan, zoom=1) for stencil positioning.
 	const baseCamera = createCamera(
-		{ ...state, crop: { x: 0, y: 0 }, zoom: 1 },
+		{ ...state, pan: { x: 0, y: 0 }, zoom: 1 },
 		containerSize,
 		imageSize
 	);
@@ -99,8 +99,8 @@ describe( 'enforceContainment', () => {
 		const result = enforceContainment( state );
 		// Floating-point epsilon may introduce tiny drift (~1e-9),
 		// so we check closeness rather than reference equality.
-		expect( result.crop.x ).toBeCloseTo( 0, 5 );
-		expect( result.crop.y ).toBeCloseTo( 0, 5 );
+		expect( result.pan.x ).toBeCloseTo( 0, 5 );
+		expect( result.pan.y ).toBeCloseTo( 0, 5 );
 		expect( result.zoom ).toBeCloseTo( 1, 5 );
 		expect( result.cropRect ).toEqual( state.cropRect );
 	} );
@@ -165,7 +165,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 		const state = makeState( {
 			cropRect: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 },
 			zoom: 1,
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 		} );
 		const settled = cropperReducer( state, { type: 'SETTLE_CROP' } );
 
@@ -181,7 +181,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 		const state = makeState( {
 			cropRect: { x: 0.1, y: 0.1, width: 0.4, height: 0.3 },
 			zoom: 1.5,
-			crop: { x: 0.05, y: -0.02 },
+			pan: { x: 0.05, y: -0.02 },
 		} );
 		const settled = cropperReducer( state, { type: 'SETTLE_CROP' } );
 
@@ -194,7 +194,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 		const state = makeState( {
 			cropRect: { x: 0.0, y: 0.3, width: 1.0, height: 0.4 },
 			zoom: 1,
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 		} );
 		const settled = cropperReducer( state, { type: 'SETTLE_CROP' } );
 
@@ -210,7 +210,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 		const state = makeState( {
 			cropRect: { x: 0.3, y: 0.0, width: 0.4, height: 1.0 },
 			zoom: 1,
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 		} );
 		const settled = cropperReducer( state, { type: 'SETTLE_CROP' } );
 
@@ -225,7 +225,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 		const state = makeState( {
 			cropRect: { x: 0.05, y: 0.2, width: 0.6, height: 0.5 },
 			zoom: 2,
-			crop: { x: 0.1, y: -0.05 },
+			pan: { x: 0.1, y: -0.05 },
 		} );
 		const settled = cropperReducer( state, { type: 'SETTLE_CROP' } );
 
@@ -240,7 +240,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 			cropRect: { x: 0.2, y: 0.2, width: 0.6, height: 0.6 },
 			zoom: 1.3,
 			rotation: 20,
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 		} );
 		const settled = cropperReducer( state, { type: 'SETTLE_CROP' } );
 
@@ -252,7 +252,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 		const state = makeState( {
 			cropRect: { x: 0, y: 0, width: 1, height: 1 },
 			zoom: 1,
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 		} );
 		const settled = cropperReducer( state, { type: 'SETTLE_CROP' } );
 
@@ -285,7 +285,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 						height: cropH,
 					},
 					zoom,
-					crop: { x: panX, y: panY },
+					pan: { x: panX, y: panY },
 				} )
 			);
 
@@ -328,7 +328,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 			makeState( {
 				cropRect: { x: 0.0, y: 0.0, width: 0.3, height: 0.3 },
 				zoom: 1,
-				crop: { x: 0, y: 0 },
+				pan: { x: 0, y: 0 },
 			} )
 		);
 
@@ -362,7 +362,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 			makeState( {
 				cropRect: { x: 0.5, y: 0.5, width: 0.4, height: 0.4 },
 				zoom: 1,
-				crop: { x: 0, y: 0 },
+				pan: { x: 0, y: 0 },
 			} )
 		);
 
@@ -387,7 +387,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 			makeState( {
 				cropRect: { x: 0.45, y: 0.45, width: 0.1, height: 0.1 },
 				zoom: 1,
-				crop: { x: 0, y: 0 },
+				pan: { x: 0, y: 0 },
 			} )
 		);
 
@@ -408,7 +408,7 @@ describe( 'cropperReducer — SETTLE_CROP', () => {
 
 describe( 'cropperReducer — SET_ZOOM_AT_POINT', () => {
 	it( 'focal-point zoom preserves the focal point position', () => {
-		const state = makeState( { zoom: 1, crop: { x: 0, y: 0 } } );
+		const state = makeState( { zoom: 1, pan: { x: 0, y: 0 } } );
 		const { elementSize, visualSize } = getImageFit( CONTAINER, IMAGE, 0 );
 
 		// Simulate focal point at top-left quarter of the container.
@@ -430,14 +430,12 @@ describe( 'cropperReducer — SET_ZOOM_AT_POINT', () => {
 		const zoomRatio = 1 - newZoom / state.zoom;
 		const focalNormX = fx / visSize.width;
 		const focalNormY = fy / visSize.height;
-		const newCropX =
-			state.crop.x + ( focalNormX - state.crop.x ) * zoomRatio;
-		const newCropY =
-			state.crop.y + ( focalNormY - state.crop.y ) * zoomRatio;
+		const newCropX = state.pan.x + ( focalNormX - state.pan.x ) * zoomRatio;
+		const newCropY = state.pan.y + ( focalNormY - state.pan.y ) * zoomRatio;
 
 		const zoomed = cropperReducer( state, {
 			type: 'SET_ZOOM_AT_POINT',
-			payload: { zoom: newZoom, crop: { x: newCropX, y: newCropY } },
+			payload: { zoom: newZoom, pan: { x: newCropX, y: newCropY } },
 		} );
 
 		// Compute what world point is under the focal point after zoom.
@@ -484,7 +482,7 @@ describe( 'cropperReducer — SNAP_ROTATE_90', () => {
 	it( 'rotates pan 90° CW so framed content stays framed', () => {
 		const state = makeState( {
 			zoom: 2,
-			crop: { x: 0.1, y: 0.2 },
+			pan: { x: 0.1, y: 0.2 },
 		} );
 
 		const rotated = cropperReducer( state, {
@@ -493,14 +491,14 @@ describe( 'cropperReducer — SNAP_ROTATE_90', () => {
 		} );
 
 		// CW rotation: (px, py) → (-py, px)
-		expect( rotated.crop.x ).toBeCloseTo( -0.2, 5 );
-		expect( rotated.crop.y ).toBeCloseTo( 0.1, 5 );
+		expect( rotated.pan.x ).toBeCloseTo( -0.2, 5 );
+		expect( rotated.pan.y ).toBeCloseTo( 0.1, 5 );
 	} );
 
 	it( 'rotates pan 90° CCW in the other direction', () => {
 		const state = makeState( {
 			zoom: 2,
-			crop: { x: 0.1, y: 0.2 },
+			pan: { x: 0.1, y: 0.2 },
 		} );
 
 		const rotated = cropperReducer( state, {
@@ -509,14 +507,14 @@ describe( 'cropperReducer — SNAP_ROTATE_90', () => {
 		} );
 
 		// CCW rotation: (px, py) → (py, -px)
-		expect( rotated.crop.x ).toBeCloseTo( 0.2, 5 );
-		expect( rotated.crop.y ).toBeCloseTo( -0.1, 5 );
+		expect( rotated.pan.x ).toBeCloseTo( 0.2, 5 );
+		expect( rotated.pan.y ).toBeCloseTo( -0.1, 5 );
 	} );
 
 	it( 'four CW 90° rotations return pan to the original position', () => {
 		const state = makeState( {
 			zoom: 2,
-			crop: { x: 0.15, y: -0.08 },
+			pan: { x: 0.15, y: -0.08 },
 		} );
 		let result = state;
 		for ( let i = 0; i < 4; i++ ) {
@@ -525,8 +523,8 @@ describe( 'cropperReducer — SNAP_ROTATE_90', () => {
 				payload: { direction: 1 },
 			} );
 		}
-		expect( result.crop.x ).toBeCloseTo( state.crop.x, 5 );
-		expect( result.crop.y ).toBeCloseTo( state.crop.y, 5 );
+		expect( result.pan.x ).toBeCloseTo( state.pan.x, 5 );
+		expect( result.pan.y ).toBeCloseTo( state.pan.y, 5 );
 	} );
 } );
 
@@ -567,7 +565,7 @@ describe( 'cropperReducer — SET_FLIP', () => {
 	it( 'mirrors pan horizontally on horizontal flip', () => {
 		const state = makeState( {
 			zoom: 2,
-			crop: { x: 0.15, y: 0.07 },
+			pan: { x: 0.15, y: 0.07 },
 		} );
 
 		const flipped = cropperReducer( state, {
@@ -575,14 +573,14 @@ describe( 'cropperReducer — SET_FLIP', () => {
 			payload: { horizontal: true, vertical: false },
 		} );
 
-		expect( flipped.crop.x ).toBeCloseTo( -0.15, 5 );
-		expect( flipped.crop.y ).toBeCloseTo( 0.07, 5 );
+		expect( flipped.pan.x ).toBeCloseTo( -0.15, 5 );
+		expect( flipped.pan.y ).toBeCloseTo( 0.07, 5 );
 	} );
 
 	it( 'is its own inverse — two flips return to the original', () => {
 		const state = makeState( {
 			zoom: 2,
-			crop: { x: 0.1, y: -0.05 },
+			pan: { x: 0.1, y: -0.05 },
 			cropRect: { x: 0.2, y: 0.3, width: 0.5, height: 0.4 },
 		} );
 
@@ -595,8 +593,8 @@ describe( 'cropperReducer — SET_FLIP', () => {
 			payload: { horizontal: false, vertical: false },
 		} );
 
-		expect( twice.crop.x ).toBeCloseTo( state.crop.x, 5 );
-		expect( twice.crop.y ).toBeCloseTo( state.crop.y, 5 );
+		expect( twice.pan.x ).toBeCloseTo( state.pan.x, 5 );
+		expect( twice.pan.y ).toBeCloseTo( state.pan.y, 5 );
 		expect( twice.cropRect.x ).toBeCloseTo( state.cropRect.x, 5 );
 		expect( twice.cropRect.y ).toBeCloseTo( state.cropRect.y, 5 );
 	} );
@@ -604,7 +602,7 @@ describe( 'cropperReducer — SET_FLIP', () => {
 	it( 'does nothing to cropRect or pan when flip state is unchanged', () => {
 		const state = makeState( {
 			zoom: 2,
-			crop: { x: 0.1, y: 0.2 },
+			pan: { x: 0.1, y: 0.2 },
 			cropRect: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
 			flip: { horizontal: true, vertical: false },
 		} );
@@ -614,8 +612,8 @@ describe( 'cropperReducer — SET_FLIP', () => {
 			payload: { horizontal: true, vertical: false },
 		} );
 
-		expect( result.crop.x ).toBeCloseTo( 0.1, 5 );
-		expect( result.crop.y ).toBeCloseTo( 0.2, 5 );
+		expect( result.pan.x ).toBeCloseTo( 0.1, 5 );
+		expect( result.pan.y ).toBeCloseTo( 0.2, 5 );
 		expect( result.cropRect.x ).toBe( 0.1 );
 	} );
 } );
@@ -624,7 +622,7 @@ describe( 'cropperReducer — SET_ROTATION', () => {
 	it( 'rotates pan by the angle delta', () => {
 		const state = makeState( {
 			zoom: 2,
-			crop: { x: 0.1, y: 0 },
+			pan: { x: 0.1, y: 0 },
 			rotation: 0,
 		} );
 
@@ -639,8 +637,8 @@ describe( 'cropperReducer — SET_ROTATION', () => {
 		// delta = 90°; cos(90°)=0, sin(90°)=1
 		// newX = px*0 - py*1 = 0
 		// newY = px*1 + py*0 = 0.1
-		expect( rotated.crop.x ).toBeCloseTo( 0, 5 );
-		expect( rotated.crop.y ).toBeCloseTo( 0.1, 5 );
+		expect( rotated.pan.x ).toBeCloseTo( 0, 5 );
+		expect( rotated.pan.y ).toBeCloseTo( 0.1, 5 );
 	} );
 
 	it( 'preserves zoom (no reset)', () => {
@@ -659,7 +657,7 @@ describe( 'cropperReducer — SET_ROTATION', () => {
 		// stepwise result matches a single 45° rotation exactly.
 		const state = makeState( {
 			zoom: 2,
-			crop: { x: 0.1, y: 0 },
+			pan: { x: 0.1, y: 0 },
 		} );
 
 		let stepwise = state;
@@ -675,8 +673,8 @@ describe( 'cropperReducer — SET_ROTATION', () => {
 			payload: 45,
 		} );
 
-		expect( stepwise.crop.x ).toBeCloseTo( direct.crop.x, 5 );
-		expect( stepwise.crop.y ).toBeCloseTo( direct.crop.y, 5 );
+		expect( stepwise.pan.x ).toBeCloseTo( direct.pan.x, 5 );
+		expect( stepwise.pan.y ).toBeCloseTo( direct.pan.y, 5 );
 	} );
 
 	it( 'rotating away and back to 0° returns to the exact base pan', () => {
@@ -686,7 +684,7 @@ describe( 'cropperReducer — SET_ROTATION', () => {
 		// have clamped at intermediate angles.
 		const state = makeState( {
 			zoom: 2,
-			crop: { x: 0.1, y: -0.05 },
+			pan: { x: 0.1, y: -0.05 },
 		} );
 
 		let result = state;
@@ -697,8 +695,8 @@ describe( 'cropperReducer — SET_ROTATION', () => {
 			} );
 		}
 
-		expect( result.crop.x ).toBeCloseTo( state.crop.x, 5 );
-		expect( result.crop.y ).toBeCloseTo( state.crop.y, 5 );
+		expect( result.pan.x ).toBeCloseTo( state.pan.x, 5 );
+		expect( result.pan.y ).toBeCloseTo( state.pan.y, 5 );
 		expect( result.zoom ).toBeCloseTo( state.zoom, 5 );
 	} );
 } );

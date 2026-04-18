@@ -68,7 +68,7 @@ export function enforceContainment( state: CropperState ): CropperState {
 	// 1. First bump zoom so the image can cover the crop rect as-is.
 	//    This ensures that explicit crop rect changes (e.g., fixed-crop
 	//    mode during rotation) get zoom accommodation, not crop shrinkage.
-	const { crop: panAfterZoom, zoom } = restrictPanZoom(
+	const { pan: panAfterZoom, zoom } = restrictPanZoom(
 		state,
 		imageSize,
 		state.cropRect
@@ -85,9 +85,9 @@ export function enforceContainment( state: CropperState ): CropperState {
 	);
 
 	// 3. If the crop rect was shrunk, re-restrict pan for the new rect.
-	let crop = panAfterZoom;
+	let pan = panAfterZoom;
 	if ( cropRect !== state.cropRect ) {
-		( { crop } = restrictPanZoom(
+		( { pan } = restrictPanZoom(
 			{ ...state, zoom, cropRect },
 			imageSize,
 			cropRect
@@ -95,14 +95,14 @@ export function enforceContainment( state: CropperState ): CropperState {
 	}
 
 	if (
-		crop.x === state.crop.x &&
-		crop.y === state.crop.y &&
+		pan.x === state.pan.x &&
+		pan.y === state.pan.y &&
 		zoom === state.zoom &&
 		cropRect === state.cropRect
 	) {
 		return state;
 	}
-	return { ...state, crop, zoom, cropRect };
+	return { ...state, pan, zoom, cropRect };
 }
 
 /**
@@ -120,8 +120,8 @@ export function enforceContainment( state: CropperState ): CropperState {
  */
 function commitBase( next: CropperState ): CropperState {
 	if (
-		next.basePan.x === next.crop.x &&
-		next.basePan.y === next.crop.y &&
+		next.basePan.x === next.pan.x &&
+		next.basePan.y === next.pan.y &&
 		next.baseZoom === next.zoom &&
 		next.baseRotation === next.rotation
 	) {
@@ -129,7 +129,7 @@ function commitBase( next: CropperState ): CropperState {
 	}
 	return {
 		...next,
-		basePan: { x: next.crop.x, y: next.crop.y },
+		basePan: { x: next.pan.x, y: next.pan.y },
 		baseZoom: next.zoom,
 		baseRotation: next.rotation,
 	};
@@ -167,11 +167,11 @@ export function cropperReducer(
 				} )
 			);
 
-		case 'SET_CROP':
+		case 'SET_PAN':
 			return commitBase(
 				enforceContainment( {
 					...state,
-					crop: action.payload,
+					pan: action.payload,
 				} )
 			);
 
@@ -191,7 +191,7 @@ export function cropperReducer(
 				enforceContainment( {
 					...state,
 					zoom: z,
-					crop: action.payload.crop,
+					pan: action.payload.pan,
 				} )
 			);
 		}
@@ -225,7 +225,7 @@ export function cropperReducer(
 				...state,
 				rotation: newRotation,
 				zoom: state.baseZoom,
-				crop: {
+				pan: {
 					x: ox + cos * dx - sin * dy,
 					y: oy + sin * dx + cos * dy,
 				},
@@ -246,15 +246,15 @@ export function cropperReducer(
 			// Rotate pan vector 90° around origin.
 			//   CW  (dir=+1): (px, py) → (-py, px)
 			//   CCW (dir=-1): (px, py) → (py, -px)
-			const newPanX = dir90 === 1 ? -state.crop.y : state.crop.y;
-			const newPanY = dir90 === 1 ? state.crop.x : -state.crop.x;
+			const newPanX = dir90 === 1 ? -state.pan.y : state.pan.y;
+			const newPanY = dir90 === 1 ? state.pan.x : -state.pan.x;
 
 			return commitBase(
 				enforceContainment( {
 					...state,
 					rotation: rot90,
 					zoom: state.baseZoom,
-					crop: { x: newPanX, y: newPanY },
+					pan: { x: newPanX, y: newPanY },
 					cropRect: {
 						x: cx - rect.height / 2,
 						y: cy - rect.width / 2,
@@ -296,8 +296,8 @@ export function cropperReducer(
 			const flippedV = oldFlip.vertical !== newFlip.vertical;
 			const rect = state.cropRect;
 
-			let panX = state.crop.x;
-			let panY = state.crop.y;
+			let panX = state.pan.x;
+			let panY = state.pan.y;
 
 			if ( flippedH !== flippedV ) {
 				// Only one axis flipped: reflect pan across the
@@ -328,7 +328,7 @@ export function cropperReducer(
 				enforceContainment( {
 					...state,
 					flip: newFlip,
-					crop: { x: panX, y: panY },
+					pan: { x: panX, y: panY },
 					cropRect: {
 						x: flippedH ? 1 - rect.x - rect.width : rect.x,
 						y: flippedV ? 1 - rect.y - rect.height : rect.y,
@@ -385,9 +385,9 @@ export function cropperReducer(
 				enforceContainment( {
 					...state,
 					zoom: state.zoom * s,
-					crop: {
-						x: ( state.crop.x - oldCx + 0.5 ) * s,
-						y: ( state.crop.y - oldCy + 0.5 ) * s,
+					pan: {
+						x: ( state.pan.x - oldCx + 0.5 ) * s,
+						y: ( state.pan.y - oldCy + 0.5 ) * s,
 					},
 					cropRect: {
 						x: ( 1 - newW ) / 2,
@@ -433,8 +433,8 @@ export function isStateDirty(
 	initial: CropperState
 ): boolean {
 	return (
-		current.crop.x !== initial.crop.x ||
-		current.crop.y !== initial.crop.y ||
+		current.pan.x !== initial.pan.x ||
+		current.pan.y !== initial.pan.y ||
 		current.zoom !== initial.zoom ||
 		current.rotation !== initial.rotation ||
 		current.flip.horizontal !== initial.flip.horizontal ||

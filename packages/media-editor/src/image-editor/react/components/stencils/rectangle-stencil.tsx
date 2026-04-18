@@ -202,16 +202,33 @@ export function RectangleStencil( {
 				startRect: { ...cropRect },
 			};
 
+			// RAF-throttle: stash the latest pointer position and
+			// process it once per animation frame. Avoids dispatching
+			// on every pointermove (which fires at much higher than
+			// screen refresh rate) and matches the pan-drag path in
+			// InteractionController.
+			let rafId = 0;
+			let latestX = event.clientX;
+			let latestY = event.clientY;
+
 			const onMove = ( e: Event ) => {
 				const pe = e as PointerEvent;
-				const h = latestHandlersRef.current;
-				if ( ! h ) {
+				latestX = pe.clientX;
+				latestY = pe.clientY;
+				if ( rafId ) {
 					return;
 				}
-				const newRect = h.hasLockedRatio
-					? h.computeLockedRect( drag, pe.clientX, pe.clientY )
-					: h.computeFreeRect( drag, pe.clientX, pe.clientY );
-				h.onCropChange( newRect );
+				rafId = requestAnimationFrame( () => {
+					rafId = 0;
+					const h = latestHandlersRef.current;
+					if ( ! h ) {
+						return;
+					}
+					const newRect = h.hasLockedRatio
+						? h.computeLockedRect( drag, latestX, latestY )
+						: h.computeFreeRect( drag, latestX, latestY );
+					h.onCropChange( newRect );
+				} );
 			};
 
 			// Guard against duplicate firing: pointerup and
@@ -222,6 +239,10 @@ export function RectangleStencil( {
 					return;
 				}
 				ended = true;
+				if ( rafId ) {
+					cancelAnimationFrame( rafId );
+					rafId = 0;
+				}
 				el.removeEventListener( 'pointermove', onMove );
 				el.removeEventListener( 'pointerup', onEnd );
 				el.removeEventListener( 'lostpointercapture', onEnd );

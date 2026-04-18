@@ -47,7 +47,7 @@ describe( 'createCamera', () => {
 		const state = makeState( {
 			zoom: 1.5,
 			rotation: 30,
-			crop: { x: 0.1, y: -0.05 },
+			pan: { x: 0.1, y: -0.05 },
 		} );
 		const camera = createCamera( state, CONTAINER, IMAGE );
 		const worldPt = { x: 0.3, y: 0.7 };
@@ -91,7 +91,7 @@ describe( 'createCamera', () => {
 
 	it( 'pan shifts the image in screen space', () => {
 		const noPan = makeState();
-		const withPan = makeState( { crop: { x: 0.1, y: 0 } } );
+		const withPan = makeState( { pan: { x: 0.1, y: 0 } } );
 		const cam1 = createCamera( noPan, CONTAINER, IMAGE );
 		const cam2 = createCamera( withPan, CONTAINER, IMAGE );
 		const p1 = worldToScreen( cam1, { x: 0.5, y: 0.5 } );
@@ -104,15 +104,15 @@ describe( 'restrictPanZoom', () => {
 	it( 'returns identity pan at default state', () => {
 		const state = makeState();
 		const result = restrictPanZoom( state, IMAGE, state.cropRect );
-		expect( result.crop.x ).toBeCloseTo( 0 );
-		expect( result.crop.y ).toBeCloseTo( 0 );
+		expect( result.pan.x ).toBeCloseTo( 0 );
+		expect( result.pan.y ).toBeCloseTo( 0 );
 		expect( result.zoom ).toBeCloseTo( 1 );
 	} );
 	it( 'clamps pan so image covers crop rect', () => {
-		const state = makeState( { crop: { x: 5, y: 5 }, zoom: 1 } );
+		const state = makeState( { pan: { x: 5, y: 5 }, zoom: 1 } );
 		const result = restrictPanZoom( state, IMAGE, state.cropRect );
-		expect( Math.abs( result.crop.x ) ).toBeLessThan( 1 );
-		expect( Math.abs( result.crop.y ) ).toBeLessThan( 1 );
+		expect( Math.abs( result.pan.x ) ).toBeLessThan( 1 );
+		expect( Math.abs( result.pan.y ) ).toBeLessThan( 1 );
 	} );
 	it( 'increases zoom if too low for rotation', () => {
 		const state = makeState( { rotation: 45, zoom: 1 } );
@@ -125,11 +125,11 @@ describe( 'restrictPanZoom', () => {
 		const state = makeState( {
 			rotation: 90,
 			zoom: 1,
-			crop: { x: 0.3, y: 0.3 },
+			pan: { x: 0.3, y: 0.3 },
 		} );
 		const result = restrictPanZoom( state, IMAGE, state.cropRect );
-		expect( result.crop.x ).toBeCloseTo( 0, 5 );
-		expect( result.crop.y ).toBeCloseTo( 0, 5 );
+		expect( result.pan.x ).toBeCloseTo( 0, 5 );
+		expect( result.pan.y ).toBeCloseTo( 0, 5 );
 	} );
 	it( 'at 90° with zoom=2, allows symmetric pan range', () => {
 		// When zoomed in at 90° rotation, the pan range should be symmetric
@@ -137,12 +137,12 @@ describe( 'restrictPanZoom', () => {
 		const state90pos = makeState( {
 			rotation: 90,
 			zoom: 2,
-			crop: { x: 0.5, y: 0 },
+			pan: { x: 0.5, y: 0 },
 		} );
 		const state90neg = makeState( {
 			rotation: 90,
 			zoom: 2,
-			crop: { x: -0.5, y: 0 },
+			pan: { x: -0.5, y: 0 },
 		} );
 		const resultPos = restrictPanZoom(
 			state90pos,
@@ -155,20 +155,20 @@ describe( 'restrictPanZoom', () => {
 			state90neg.cropRect
 		);
 		// Should allow meaningful horizontal pan (not clamped to 0).
-		expect( resultPos.crop.x ).toBeGreaterThan( 0.1 );
-		expect( resultNeg.crop.x ).toBeLessThan( -0.1 );
+		expect( resultPos.pan.x ).toBeGreaterThan( 0.1 );
+		expect( resultNeg.pan.x ).toBeLessThan( -0.1 );
 		// And the range should be symmetric.
-		expect( resultPos.crop.x ).toBeCloseTo( -resultNeg.crop.x, 5 );
+		expect( resultPos.pan.x ).toBeCloseTo( -resultNeg.pan.x, 5 );
 	} );
 	it( 'at 0° with zoom=1, allows zero pan on landscape image', () => {
 		const state = makeState( {
 			rotation: 0,
 			zoom: 1,
-			crop: { x: 0.3, y: 0.3 },
+			pan: { x: 0.3, y: 0.3 },
 		} );
 		const result = restrictPanZoom( state, IMAGE, state.cropRect );
-		expect( result.crop.x ).toBeCloseTo( 0, 5 );
-		expect( result.crop.y ).toBeCloseTo( 0, 5 );
+		expect( result.pan.x ).toBeCloseTo( 0, 5 );
+		expect( result.pan.y ).toBeCloseTo( 0, 5 );
 	} );
 } );
 
@@ -246,7 +246,7 @@ describe( 'containment invariant (property-based)', () => {
 		const baseCamera = createCamera(
 			{
 				...state,
-				crop: { x: 0, y: 0 },
+				pan: { x: 0, y: 0 },
 				zoom: 1,
 				rotation: snapRotation,
 			},
@@ -313,7 +313,7 @@ describe( 'containment invariant (property-based)', () => {
 					expect( restricted.zoom ).toBeGreaterThanOrEqual( 1 );
 					const restrictedState = makeState( {
 						...state,
-						crop: restricted.crop,
+						pan: restricted.pan,
 						zoom: restricted.zoom,
 						cropRect: rect,
 					} );
@@ -347,14 +347,14 @@ describe( 'containment invariant (property-based)', () => {
 			const state = makeState( {
 				rotation,
 				zoom,
-				crop: { x: panX, y: panY },
+				pan: { x: panX, y: panY },
 				cropRect: rect,
 			} );
 
 			const restricted = restrictPanZoom( state, IMAGE, rect );
 			const restrictedState = makeState( {
 				...state,
-				crop: restricted.crop,
+				pan: restricted.pan,
 				zoom: restricted.zoom,
 				cropRect: rect,
 			} );
@@ -428,7 +428,7 @@ describe( 'getSourceRegionPercent', () => {
 	} );
 
 	it( 'percentages sum correctly (x + width ≤ 100, y + height ≤ 100)', () => {
-		const state = makeState( { zoom: 3, crop: { x: 0.1, y: -0.05 } } );
+		const state = makeState( { zoom: 3, pan: { x: 0.1, y: -0.05 } } );
 		const pct = getSourceRegionPercent( state, IMAGE );
 		expect( pct.x + pct.width ).toBeLessThanOrEqual( 100.01 );
 		expect( pct.y + pct.height ).toBeLessThanOrEqual( 100.01 );
@@ -439,7 +439,7 @@ describe( 'getSourceRegionPercent', () => {
 	it( 'matches getSourceRegion divided by image dimensions', () => {
 		const state = makeState( {
 			zoom: 1.5,
-			crop: { x: 0.05, y: -0.02 },
+			pan: { x: 0.05, y: -0.02 },
 			rotation: 15,
 		} );
 		const region = getSourceRegion( state, IMAGE );

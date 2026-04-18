@@ -121,7 +121,7 @@ function stencilCornersViaCameraPath(
 	imageSize: Size
 ): { x: number; y: number }[] {
 	const baseCamera = createCamera(
-		{ ...state, crop: { x: 0, y: 0 }, zoom: 1 },
+		{ ...state, pan: { x: 0, y: 0 }, zoom: 1 },
 		containerSize,
 		imageSize
 	);
@@ -292,7 +292,7 @@ describe( 'Render–Camera bridge: image point projection', () => {
 		{
 			label: 'pan + zoom + rotation',
 			overrides: {
-				crop: { x: 0.05, y: -0.03 },
+				pan: { x: 0.05, y: -0.03 },
 				zoom: 2,
 				rotation: 15,
 			},
@@ -335,7 +335,7 @@ describe( 'Render–Camera bridge: visual size consistency', () => {
 			const state = makeState( { rotation } );
 			const { visualSize } = getImageFit( CONTAINER, IMAGE, rotation );
 			const baseCamera = createCamera(
-				{ ...state, crop: { x: 0, y: 0 }, zoom: 1 },
+				{ ...state, pan: { x: 0, y: 0 }, zoom: 1 },
 				CONTAINER,
 				IMAGE
 			);

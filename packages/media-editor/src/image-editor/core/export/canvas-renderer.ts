@@ -50,7 +50,9 @@ export function renderToCanvas(
 	canvas.height = outH;
 	const ctx = canvas.getContext( '2d' );
 	if ( ! ctx ) {
-		return canvas;
+		throw new Error(
+			'Could not obtain a 2D context for the export canvas.'
+		);
 	}
 
 	const camera = createExportCamera( state, imageSize, {
@@ -116,25 +118,34 @@ export function canvasToDataURL(
 /**
  * Load an image, render with transforms, and export as a Blob.
  *
+ * Throws on failure so callers can distinguish error cases:
+ * - Image load failures (network errors, 404s) throw the native
+ *   load error from the Image element.
+ * - Cross-origin failures manifest as tainted-canvas errors from
+ *   `canvas.toBlob()` — the browser rejects reading pixel data
+ *   from a canvas that drew an image without valid CORS headers.
+ *   Ensure the source server sets `Access-Control-Allow-Origin`.
+ * - Canvas context creation failures throw a descriptive Error.
+ *
+ * Only works in browser environments (needs DOM / HTMLCanvasElement).
+ *
  * @param src      - The image URL to load.
  * @param state    - The cropper state with all transform settings.
  * @param mimeType - The output MIME type. Defaults to 'image/png'.
  * @param quality  - The quality parameter for lossy formats (0-1). Defaults to DEFAULT_QUALITY.
- * @return A promise that resolves to a Blob, or null if an error occurs.
+ * @return A promise that resolves to the exported Blob.
+ * @throws If the image fails to load, canvas creation fails, or
+ *         the resulting canvas is tainted by CORS restrictions.
  */
 export async function exportCroppedImage(
 	src: string,
 	state: CropperState,
 	mimeType: string = 'image/png',
 	quality: number = DEFAULT_QUALITY
-): Promise< Blob | null > {
-	try {
-		const image = await loadImage( src );
-		const canvas = renderToCanvas( image, state );
-		return await canvasToBlob( canvas, mimeType, quality );
-	} catch {
-		return null;
-	}
+): Promise< Blob > {
+	const image = await loadImage( src );
+	const canvas = renderToCanvas( image, state );
+	return canvasToBlob( canvas, mimeType, quality );
 }
 
 /**
@@ -180,7 +191,9 @@ export function applyToCanvas(
 	canvas.height = outH;
 	const ctx = canvas.getContext( '2d' );
 	if ( ! ctx ) {
-		return canvas;
+		throw new Error(
+			'Could not obtain a 2D context for the export canvas.'
+		);
 	}
 
 	const camera = createExportCamera( state, sourceSize, {
@@ -205,12 +218,14 @@ export function applyToCanvas(
  * Loads the source image, applies all transforms, and triggers a
  * browser download via exportCroppedImage() + object URL + anchor click.
  *
+ * Throws on export failure (see `exportCroppedImage`).
+ *
  * @param src      - The image URL to load.
  * @param state    - The cropper state with all transform settings.
  * @param filename - The download filename. Defaults to 'cropped-image'.
  * @param mimeType - The output MIME type. Defaults to 'image/png'.
  * @param quality  - The quality parameter for lossy formats (0-1). Defaults to DEFAULT_QUALITY.
- * @return A promise that resolves to true if the download was triggered, false on error.
+ * @return A promise that resolves when the download is triggered.
  */
 export async function downloadCroppedImage(
 	src: string,
@@ -218,11 +233,8 @@ export async function downloadCroppedImage(
 	filename: string = 'cropped-image',
 	mimeType: string = 'image/png',
 	quality: number = DEFAULT_QUALITY
-): Promise< boolean > {
+): Promise< void > {
 	const blob = await exportCroppedImage( src, state, mimeType, quality );
-	if ( ! blob ) {
-		return false;
-	}
 	const ext = mimeType.split( '/' )[ 1 ] ?? 'png';
 	const url = URL.createObjectURL( blob );
 	const a = document.createElement( 'a' );
@@ -230,5 +242,4 @@ export async function downloadCroppedImage(
 	a.download = `${ filename }.${ ext }`;
 	a.click();
 	URL.revokeObjectURL( url );
-	return true;
 }

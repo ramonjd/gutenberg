@@ -61,7 +61,7 @@ function createTestState( overrides?: Partial< CropperState > ): CropperState {
 			naturalWidth: 800,
 			naturalHeight: 600,
 		},
-		crop: { ...DEFAULT_STATE.crop },
+		pan: { ...DEFAULT_STATE.pan },
 		flip: { ...DEFAULT_STATE.flip },
 		cropRect: { x: 0.1, y: 0.2, width: 0.5, height: 0.5 },
 		...overrides,
@@ -436,7 +436,7 @@ describe( 'exportCroppedImage', () => {
 		expect( result ).toBeInstanceOf( Blob );
 	} );
 
-	it( 'should return null when an error occurs', async () => {
+	it( 'throws when image fails to load', async () => {
 		// Override Image to simulate a load error.
 		const errorImage = {
 			addEventListener: jest.fn(),
@@ -453,12 +453,9 @@ describe( 'exportCroppedImage', () => {
 		global.Image = jest.fn( () => errorImage ) as unknown as typeof Image;
 
 		const state = createTestState();
-		const result = await exportCroppedImage(
-			'https://example.com/broken.jpg',
-			state
-		);
-
-		expect( result ).toBeNull();
+		await expect(
+			exportCroppedImage( 'https://example.com/broken.jpg', state )
+		).rejects.toBeDefined();
 	} );
 } );
 
@@ -489,7 +486,7 @@ describe( 'renderToCanvas — export matrix verification', () => {
 			rotation: 0,
 			zoom: 1,
 			flip: { horizontal: false, vertical: false },
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 			cropRect: { x: 0, y: 0, width: 1, height: 1 },
 		} );
 		const mockImage = {
@@ -523,7 +520,7 @@ describe( 'renderToCanvas — export matrix verification', () => {
 			rotation: 90,
 			zoom: 1,
 			flip: { horizontal: false, vertical: false },
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 			cropRect: { x: 0, y: 0, width: 1, height: 1 },
 		} );
 		const mockImage = {
@@ -555,7 +552,7 @@ describe( 'renderToCanvas — export matrix verification', () => {
 			rotation: 0,
 			zoom: 1,
 			flip: { horizontal: false, vertical: false },
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 			cropRect: { x: 0, y: 0, width: 1, height: 1 },
 		} );
 		const mockImage = {
@@ -572,7 +569,7 @@ describe( 'renderToCanvas — export matrix verification', () => {
 			rotation: 0,
 			zoom: 2,
 			flip: { horizontal: false, vertical: false },
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 			cropRect: { x: 0, y: 0, width: 1, height: 1 },
 		} );
 		renderToCanvas( mockImage, stateZ2 );
@@ -591,7 +588,7 @@ describe( 'renderToCanvas — export matrix verification', () => {
 			rotation: 0,
 			zoom: 1,
 			flip: { horizontal: false, vertical: false },
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 			cropRect: { x: 0, y: 0, width: 1, height: 1 },
 		} );
 		const mockImage = {
@@ -608,7 +605,7 @@ describe( 'renderToCanvas — export matrix verification', () => {
 			rotation: 0,
 			zoom: 1,
 			flip: { horizontal: true, vertical: false },
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 			cropRect: { x: 0, y: 0, width: 1, height: 1 },
 		} );
 		renderToCanvas( mockImage, stateFlip );
@@ -671,7 +668,7 @@ describe( 'applyToCanvas — export matrix verification', () => {
 			rotation: 0,
 			zoom: 1,
 			flip: { horizontal: false, vertical: false },
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 			cropRect: { x: 0.1, y: 0.2, width: 0.5, height: 0.5 },
 		} );
 		const sourceSize = { width: 800, height: 600 };
@@ -708,7 +705,7 @@ describe( 'applyToCanvas — export matrix verification', () => {
 			rotation: 0,
 			zoom: 1,
 			flip: { horizontal: false, vertical: false },
-			crop: { x: 0, y: 0 },
+			pan: { x: 0, y: 0 },
 			cropRect: { x: 0, y: 0, width: 1, height: 1 },
 		} );
 		const sourceSize = { width: 800, height: 600 };

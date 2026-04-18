@@ -33,7 +33,7 @@ describe( 'useTransformStyle', () => {
 	} );
 
 	it( 'should include translation from crop offset', () => {
-		const state = createState( { crop: { x: 0.5, y: 0.25 } } );
+		const state = createState( { pan: { x: 0.5, y: 0.25 } } );
 		const { result } = renderHook( () =>
 			useTransformStyle( state, imageSize )
 		);
@@ -116,7 +116,7 @@ describe( 'useTransformStyle', () => {
 
 	it( 'should combine all transforms correctly', () => {
 		const state = createState( {
-			crop: { x: 0.1, y: 0.2 },
+			pan: { x: 0.1, y: 0.2 },
 			rotation: 90,
 			flip: { horizontal: true, vertical: false },
 			zoom: 3,

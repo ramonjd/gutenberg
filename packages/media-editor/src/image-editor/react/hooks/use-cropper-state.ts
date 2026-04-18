@@ -30,8 +30,11 @@ export interface UseCropperStateReturn {
 	state: CropperState;
 	/** The raw dispatch function for sending actions to the reducer. */
 	dispatch: React.Dispatch< CropperAction >;
-	/** Set the pan offset in normalized coordinates. */
-	setCrop: ( crop: NormalizedPoint ) => void;
+	/**
+	 * Set the image pan offset in normalized coordinates. Use
+	 * `setCropRect` for the crop rectangle.
+	 */
+	setPan: ( pan: NormalizedPoint ) => void;
 	/** Set the zoom level. Clamped to [1, 10]. */
 	setZoom: ( zoom: number ) => void;
 	/** Set the rotation in degrees. Normalized to [0, 360). */
@@ -48,11 +51,13 @@ export interface UseCropperStateReturn {
 	reset: ( resetState?: Partial< CropperState > ) => void;
 	/** Whether the current state differs from the initial state. */
 	isDirty: boolean;
-	/** Export the cropped image as a Blob. */
-	getCroppedImage: (
-		mimeType?: string,
-		quality?: number
-	) => Promise< Blob | null >;
+	/**
+	 * Export the cropped image as a Blob. Throws on failure — see
+	 * `exportCroppedImage` in core for the error semantics (image
+	 * load errors, CORS taint, missing canvas context). Wrap in
+	 * try/catch if you need to recover.
+	 */
+	getCroppedImage: ( mimeType?: string, quality?: number ) => Promise< Blob >;
 }
 
 /**
@@ -80,9 +85,9 @@ export function useCropperState(
 		enforceContainment( { ...DEFAULT_STATE, ...initialState } )
 	);
 
-	const setCrop = useCallback(
-		( crop: NormalizedPoint ) => {
-			dispatch( { type: 'SET_CROP', payload: crop } );
+	const setPan = useCallback(
+		( pan: NormalizedPoint ) => {
+			dispatch( { type: 'SET_PAN', payload: pan } );
 		},
 		[ dispatch ]
 	);
@@ -146,9 +151,11 @@ export function useCropperState(
 	const isDirty = isStateDirty( state, initialRef.current );
 
 	const getCroppedImage = useCallback(
-		( mimeType?: string, quality?: number ) => {
+		( mimeType?: string, quality?: number ): Promise< Blob > => {
 			if ( ! state.image ) {
-				return Promise.resolve( null );
+				return Promise.reject(
+					new Error( 'No image loaded — call setImage first.' )
+				);
 			}
 			return exportCroppedImage(
 				state.image.src,
@@ -163,7 +170,7 @@ export function useCropperState(
 	return {
 		state,
 		dispatch,
-		setCrop,
+		setPan,
 		setZoom,
 		setRotation,
 		setFlip,
