@@ -33,8 +33,10 @@ export const DEFAULT_STATE: CropperState = {
 	image: null,
 	crop: { ...DEFAULT_CROP },
 	zoom: MIN_ZOOM,
-	baseZoom: MIN_ZOOM,
 	rotation: 0,
+	basePan: { ...DEFAULT_CROP },
+	baseZoom: MIN_ZOOM,
+	baseRotation: 0,
 	flip: { ...DEFAULT_FLIP },
 	cropRect: { ...DEFAULT_CROP_RECT },
 };

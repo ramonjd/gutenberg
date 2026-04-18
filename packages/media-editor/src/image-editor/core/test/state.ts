@@ -21,12 +21,18 @@ function makeState( overrides: Partial< CropperState > = {} ): CropperState {
 		},
 		...overrides,
 	};
-	// Default baseZoom to zoom so tests setting `zoom: N` represent
-	// a user who explicitly zoomed to that level (and baseZoom should
-	// track it). Tests that want to exercise divergence can set
-	// baseZoom explicitly in overrides.
+	// Default base fields to the live values so tests setting `zoom`,
+	// `crop`, or `rotation` represent a user who explicitly committed
+	// to that pose. Tests that want to exercise base/live divergence
+	// can set the base fields explicitly in overrides.
 	if ( overrides.baseZoom === undefined ) {
 		merged.baseZoom = merged.zoom;
+	}
+	if ( overrides.basePan === undefined ) {
+		merged.basePan = { x: merged.crop.x, y: merged.crop.y };
+	}
+	if ( overrides.baseRotation === undefined ) {
+		merged.baseRotation = merged.rotation;
 	}
 	return merged;
 }
@@ -646,13 +652,11 @@ describe( 'cropperReducer — SET_ROTATION', () => {
 		expect( rotated.zoom ).toBeGreaterThanOrEqual( 3 );
 	} );
 
-	it( 'small rotation ticks accumulate with bounded drift', () => {
+	it( 'small rotation ticks accumulate without drift', () => {
 		// Simulate a slider going 0° → 45° in 9 ticks of 5°.
-		// Each tick runs enforceContainment which may clamp pan
-		// slightly; accumulated drift is expected to be small but
-		// non-zero (this is the known UX quirk where dragging the
-		// slider then dragging back doesn't land exactly where you
-		// started when panned near an edge).
+		// SET_ROTATION derives each tick from the fixed basePan (not
+		// from the previous tick's potentially-clamped pan), so the
+		// stepwise result matches a single 45° rotation exactly.
 		const state = makeState( {
 			zoom: 2,
 			crop: { x: 0.1, y: 0 },
@@ -671,12 +675,30 @@ describe( 'cropperReducer — SET_ROTATION', () => {
 			payload: 45,
 		} );
 
-		// Bounded drift: ≤0.05 normalized per axis over 9 ticks.
-		expect( Math.abs( stepwise.crop.x - direct.crop.x ) ).toBeLessThan(
-			0.05
-		);
-		expect( Math.abs( stepwise.crop.y - direct.crop.y ) ).toBeLessThan(
-			0.05
-		);
+		expect( stepwise.crop.x ).toBeCloseTo( direct.crop.x, 5 );
+		expect( stepwise.crop.y ).toBeCloseTo( direct.crop.y, 5 );
+	} );
+
+	it( 'rotating away and back to 0° returns to the exact base pan', () => {
+		// Regression test for accumulated-clamp drift: rotating 0° →
+		// through various angles → 0° should land at the original
+		// pan, even when panned near an edge where containment would
+		// have clamped at intermediate angles.
+		const state = makeState( {
+			zoom: 2,
+			crop: { x: 0.1, y: -0.05 },
+		} );
+
+		let result = state;
+		for ( const angle of [ 10, 25, 40, 45, 30, 15, 0 ] ) {
+			result = cropperReducer( result, {
+				type: 'SET_ROTATION',
+				payload: angle,
+			} );
+		}
+
+		expect( result.crop.x ).toBeCloseTo( state.crop.x, 5 );
+		expect( result.crop.y ).toBeCloseTo( state.crop.y, 5 );
+		expect( result.zoom ).toBeCloseTo( state.zoom, 5 );
 	} );
 } );

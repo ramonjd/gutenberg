@@ -73,15 +73,28 @@ export interface CropperState {
 	crop: NormalizedPoint;
 	/** Zoom level. 1 = no zoom. */
 	zoom: number;
-	/**
-	 * The zoom the user explicitly requested. When rotation forces
-	 * the effective `zoom` higher to cover the rotated crop rect,
-	 * `baseZoom` stays at the user's level so rotating back toward 0°
-	 * returns `zoom` to `baseZoom` instead of ratcheting up.
-	 */
-	baseZoom: number;
 	/** Rotation in degrees, normalized to 0-360. */
 	rotation: number;
+	/**
+	 * Base pan/zoom/rotation — the pose the user last explicitly set.
+	 *
+	 * During continuous fine rotation (SET_ROTATION), every tick
+	 * re-derives the transient `crop`/`zoom` from these base values
+	 * rather than compounding on the previous tick. This prevents
+	 * drift from accumulated containment clamping near image edges:
+	 * rotating 0°→30°→0° returns to the exact starting pan, not a
+	 * slightly-nudged version of it.
+	 *
+	 * These are updated by every action except SET_ROTATION itself —
+	 * explicit zoom, pan, crop, flip, and 90° snap all commit the
+	 * post-containment state into base. SET_ROTATION reads from
+	 * `basePan` and `baseRotation` to compute the new pan, and reads
+	 * `baseZoom` as the zoom floor (enforceContainment may bump it up
+	 * to cover the rotated crop, but never leaves it above baseZoom).
+	 */
+	basePan: NormalizedPoint;
+	baseZoom: number;
+	baseRotation: number;
 	/** Flip state. */
 	flip: Flip;
 	/** The crop rectangle in normalized coordinates. */

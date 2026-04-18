@@ -67,11 +67,47 @@ export function enforceContainment( state: CropperState ): CropperState {
 }
 
 /**
+ * Snapshot the current `crop`, `zoom`, and `rotation` into the
+ * corresponding `basePan`, `baseZoom`, `baseRotation` fields. Called
+ * by every committing action so that the next SET_ROTATION derives
+ * its transient pan from a fresh base (not from a drifted one).
+ *
+ * SET_ROTATION is the only action that does NOT commit base — it
+ * reads the base, computes a transient pan, and leaves the base
+ * alone. This is what eliminates rotation drift near edges.
+ *
+ * @param next The post-containment state to commit.
+ * @return The state with base fields synced to current.
+ */
+function commitBase( next: CropperState ): CropperState {
+	if (
+		next.basePan.x === next.crop.x &&
+		next.basePan.y === next.crop.y &&
+		next.baseZoom === next.zoom &&
+		next.baseRotation === next.rotation
+	) {
+		return next;
+	}
+	return {
+		...next,
+		basePan: { x: next.crop.x, y: next.crop.y },
+		baseZoom: next.zoom,
+		baseRotation: next.rotation,
+	};
+}
+
+/**
  * Reducer function for cropper state management.
  *
  * Every state transition that could invalidate the containment invariant
  * (crop, zoom, rotation, cropRect, flip) is followed by enforceContainment
  * to ensure the image always covers the crop area.
+ *
+ * Committing actions (everything except SET_ROTATION) also call
+ * `commitBase` to snapshot the post-containment state as the new
+ * base pose. SET_ROTATION derives from that base without mutating
+ * it, which prevents accumulated-clamp drift during continuous fine
+ * rotation.
  *
  * @param state  The current cropper state.
  * @param action The action to process.
@@ -85,61 +121,67 @@ export function cropperReducer(
 	// the image always fully covers the crop area.
 	switch ( action.type ) {
 		case 'SET_IMAGE':
-			return enforceContainment( {
-				...state,
-				image: action.payload,
-			} );
+			return commitBase(
+				enforceContainment( {
+					...state,
+					image: action.payload,
+				} )
+			);
 
 		case 'SET_CROP':
-			return enforceContainment( {
-				...state,
-				crop: action.payload,
-			} );
+			return commitBase(
+				enforceContainment( {
+					...state,
+					crop: action.payload,
+				} )
+			);
 
 		case 'SET_ZOOM': {
-			// Explicit zoom action: update baseZoom so rotation relaxation
-			// returns to this level, not the pre-zoom default.
 			const z = Math.min( MAX_ZOOM, Math.max( 1, action.payload ) );
-			return enforceContainment( {
-				...state,
-				zoom: z,
-				baseZoom: z,
-			} );
+			return commitBase(
+				enforceContainment( {
+					...state,
+					zoom: z,
+				} )
+			);
 		}
 
 		case 'SET_ZOOM_AT_POINT': {
 			const z = Math.min( MAX_ZOOM, Math.max( 1, action.payload.zoom ) );
-			return enforceContainment( {
-				...state,
-				zoom: z,
-				baseZoom: z,
-				crop: action.payload.crop,
-			} );
+			return commitBase(
+				enforceContainment( {
+					...state,
+					zoom: z,
+					crop: action.payload.crop,
+				} )
+			);
 		}
 
 		case 'SET_ROTATION': {
-			// Rotate pan around the crop-rect center so the visible
-			// content in the stencil stays framed. Image's world origin
-			// is at visual-normalized (0.5 + pan.x, 0.5 + pan.y). We
-			// rotate that around crop center (cropCx, cropCy) and
-			// solve for the new pan:
-			//   pan' = (cropC - 0.5) + R(Δθ) * (pan - (cropC - 0.5))
+			// Rotate the base pan around the crop-rect center by the
+			// delta from the base rotation. Deriving each tick from
+			// the fixed base — rather than compounding on the previous
+			// tick — prevents accumulated-clamp drift. Rotating
+			// 0°→30°→0° now returns to the exact base pan.
 			//
-			// Zoom relaxes to baseZoom (the user's explicit zoom)
-			// before containment. enforceContainment may still bump it
-			// up to cover the rotated crop, but only up to what this
-			// rotation needs — so rotating back toward 0° drops zoom
-			// back to baseZoom.
+			// Zoom starts from baseZoom; enforceContainment may bump it
+			// up to cover the rotated crop, but never raises the base.
+			//
+			// SET_ROTATION is the only action that does NOT call
+			// commitBase — the base pose stays pinned at the user's
+			// last committed pan/zoom/rotation.
 			const newRotation = normalizeRotation( action.payload );
-			const deltaRad = degreesToRadians( newRotation - state.rotation );
+			const deltaRad = degreesToRadians(
+				newRotation - state.baseRotation
+			);
 			const cos = Math.cos( deltaRad );
 			const sin = Math.sin( deltaRad );
 			const cropCx = state.cropRect.x + state.cropRect.width / 2;
 			const cropCy = state.cropRect.y + state.cropRect.height / 2;
 			const ox = cropCx - 0.5;
 			const oy = cropCy - 0.5;
-			const dx = state.crop.x - ox;
-			const dy = state.crop.y - oy;
+			const dx = state.basePan.x - ox;
+			const dy = state.basePan.y - oy;
 			return enforceContainment( {
 				...state,
 				rotation: newRotation,
@@ -168,18 +210,20 @@ export function cropperReducer(
 			const newPanX = dir90 === 1 ? -state.crop.y : state.crop.y;
 			const newPanY = dir90 === 1 ? state.crop.x : -state.crop.x;
 
-			return enforceContainment( {
-				...state,
-				rotation: rot90,
-				zoom: state.baseZoom,
-				crop: { x: newPanX, y: newPanY },
-				cropRect: {
-					x: cx - rect.height / 2,
-					y: cy - rect.width / 2,
-					width: rect.height,
-					height: rect.width,
-				},
-			} );
+			return commitBase(
+				enforceContainment( {
+					...state,
+					rotation: rot90,
+					zoom: state.baseZoom,
+					crop: { x: newPanX, y: newPanY },
+					cropRect: {
+						x: cx - rect.height / 2,
+						y: cy - rect.width / 2,
+						width: rect.height,
+						height: rect.width,
+					},
+				} )
+			);
 		}
 
 		case 'SET_FLIP': {
@@ -241,28 +285,28 @@ export function cropperReducer(
 				panY = -panY;
 			}
 
-			return enforceContainment( {
-				...state,
-				flip: newFlip,
-				crop: { x: panX, y: panY },
-				cropRect: {
-					x: flippedH ? 1 - rect.x - rect.width : rect.x,
-					y: flippedV ? 1 - rect.y - rect.height : rect.y,
-					width: rect.width,
-					height: rect.height,
-				},
-			} );
+			return commitBase(
+				enforceContainment( {
+					...state,
+					flip: newFlip,
+					crop: { x: panX, y: panY },
+					cropRect: {
+						x: flippedH ? 1 - rect.x - rect.width : rect.x,
+						y: flippedV ? 1 - rect.y - rect.height : rect.y,
+						width: rect.width,
+						height: rect.height,
+					},
+				} )
+			);
 		}
 
-		case 'SET_CROP_RECT': {
-			// Committing a crop rect commits whatever zoom it needs.
-			// baseZoom follows so a later rotation won't relax below this.
-			const next = enforceContainment( {
-				...state,
-				cropRect: action.payload,
-			} );
-			return next === state ? state : { ...next, baseZoom: next.zoom };
-		}
+		case 'SET_CROP_RECT':
+			return commitBase(
+				enforceContainment( {
+					...state,
+					cropRect: action.payload,
+				} )
+			);
 
 		case 'SETTLE_CROP': {
 			// After a resize drag ends: expand the crop to fill the
@@ -298,42 +342,39 @@ export function cropperReducer(
 			// (0.5, 0.5), the pan must place that same content at
 			// the new center. Both pan and zoom scale by s because
 			// the CSS translate is independent of zoom.
-			// baseZoom scales by the same factor as zoom so rotation
-			// relaxation returns to the settled zoom.
-			return enforceContainment( {
-				...state,
-				zoom: state.zoom * s,
-				baseZoom: state.baseZoom * s,
-				crop: {
-					x: ( state.crop.x - oldCx + 0.5 ) * s,
-					y: ( state.crop.y - oldCy + 0.5 ) * s,
-				},
-				cropRect: {
-					x: ( 1 - newW ) / 2,
-					y: ( 1 - newH ) / 2,
-					width: newW,
-					height: newH,
-				},
-			} );
+			return commitBase(
+				enforceContainment( {
+					...state,
+					zoom: state.zoom * s,
+					crop: {
+						x: ( state.crop.x - oldCx + 0.5 ) * s,
+						y: ( state.crop.y - oldCy + 0.5 ) * s,
+					},
+					cropRect: {
+						x: ( 1 - newW ) / 2,
+						y: ( 1 - newH ) / 2,
+						width: newW,
+						height: newH,
+					},
+				} )
+			);
 		}
 
 		case 'APPLY_OPERATION':
-			return enforceContainment(
-				applyOperationToState( state, action.payload )
+			return commitBase(
+				enforceContainment(
+					applyOperationToState( state, action.payload )
+				)
 			);
 
-		case 'RESET': {
-			const merged = {
-				...DEFAULT_STATE,
-				image: state.image,
-				...action.payload,
-			};
-			// Keep baseZoom in sync with zoom unless the caller provided it.
-			if ( action.payload?.baseZoom === undefined ) {
-				merged.baseZoom = merged.zoom;
-			}
-			return enforceContainment( merged );
-		}
+		case 'RESET':
+			return commitBase(
+				enforceContainment( {
+					...DEFAULT_STATE,
+					image: state.image,
+					...action.payload,
+				} )
+			);
 	}
 }
 
