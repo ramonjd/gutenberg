@@ -10,12 +10,11 @@ Getting started, extension points, and integration patterns.
 import { Cropper, useCropperState } from '@wordpress/media-editor';
 
 function ImageEditor() {
-  const { state, dispatch } = useCropperState();
+  const controller = useCropperState();
   return (
     <Cropper
       src="https://example.com/photo.jpg"
-      state={ state }
-      dispatch={ dispatch }
+      controller={ controller }
       showDimming
       showGrid
     />
@@ -27,20 +26,21 @@ The cropper fills its parent container. Wrap it in a sized element:
 
 ```tsx
 <div style={ { width: 600, height: 400 } }>
-  <Cropper src={ imageUrl } state={ state } dispatch={ dispatch } />
+  <Cropper src={ imageUrl } controller={ controller } />
 </div>
 ```
 
 ### Step 2: Add controls
 
-`useCropperState` returns convenience setters alongside `state` and `dispatch`:
+`useCropperState` returns a single `controller` object bundling the state and a named setter for every supported transition:
 
 ```tsx
+const controller = useCropperState();
 const {
-  state, dispatch,
+  state,
   setZoom, setRotation, setFlip, snapRotate90, setCropRect,
   applyOperation, reset, isDirty, getCroppedImage,
-} = useCropperState();
+} = controller;
 
 // Zoom slider
 <input type="range" min={ 1 } max={ 10 } step={ 0.1 }
@@ -86,7 +86,7 @@ useCropperState()          -- State management (reducer + convenience setters)
 <Cropper>                  -- Orchestrates rendering and interaction
     |
     +-- stencil prop       -- Pluggable crop area UI (StencilProps interface)
-    +-- useInteraction()   -- Mouse/touch/keyboard → dispatch
+    +-- useInteraction()   -- Mouse/touch/keyboard → reducer actions
     +-- useTransformStyle()-- State → CSS matrix
     |
     v
@@ -110,8 +110,8 @@ function CircularStencil( { cropRect, containerSize, imageSize, onCropChange }: 
 }
 
 function MyCropper() {
-  const { state, dispatch } = useCropperState();
-  return <Cropper src="image.jpg" state={ state } dispatch={ dispatch } stencil={ CircularStencil } />;
+  const controller = useCropperState();
+  return <Cropper src="image.jpg" controller={ controller } stencil={ CircularStencil } />;
 }
 ```
 
@@ -199,7 +199,7 @@ const blob = await new Promise( ( resolve ) =>
 
 ### 4. State management patterns
 
-The state is a plain object, and dispatch is a standard React reducer dispatch. There are two ways to use it depending on your component structure.
+The state is a plain object and the hook returns one `controller` bundle of state + named setters. There are two ways to wire it up depending on your component structure.
 
 **Direct hook (simple case):**
 
@@ -209,13 +209,14 @@ When the cropper and controls are in the same component:
 import { Cropper, useCropperState } from '@wordpress/media-editor';
 
 function ImageEditor() {
-  const { state, dispatch, setZoom, snapRotate90, reset } = useCropperState();
+  const controller = useCropperState();
+  const { state, setZoom, snapRotate90, reset } = controller;
   return (
     <div>
       <button onClick={ () => setZoom( state.zoom + 0.5 ) }>Zoom In</button>
       <button onClick={ () => snapRotate90( 1 ) }>Rotate 90</button>
       <button onClick={ () => reset() }>Reset</button>
-      <Cropper src="image.jpg" state={ state } dispatch={ dispatch } />
+      <Cropper src="image.jpg" controller={ controller } />
     </div>
   );
 }
@@ -223,7 +224,7 @@ function ImageEditor() {
 
 **Provider pattern (deep component trees):**
 
-When controls and the cropper are in different parts of the tree, use `CropperProvider` to avoid prop-drilling. Any descendant can call `useCropper()` to access the state:
+When controls and the cropper are in different parts of the tree, use `CropperProvider` to avoid prop-drilling. Any descendant can call `useCropper()` to access the controller:
 
 ```tsx
 import { Cropper, CropperProvider, useCropper } from '@wordpress/media-editor';
@@ -249,8 +250,8 @@ function Toolbar() {
 }
 
 function CropperPanel() {
-  const { state, dispatch } = useCropper();
-  return <Cropper src="image.jpg" state={ state } dispatch={ dispatch } freeformCrop />;
+  const controller = useCropper();
+  return <Cropper src="image.jpg" controller={ controller } freeformCrop />;
 }
 
 function Sidebar() {
@@ -259,7 +260,7 @@ function Sidebar() {
 }
 ```
 
-**External control via dispatch:**
+**Programmatic control:**
 
 ```typescript
 // Observe state:
@@ -268,11 +269,11 @@ useEffect( () => {
   // Send to analytics, sync with server, update AI context, etc.
 }, [ state ] );
 
-// Control programmatically:
-dispatch( { type: 'SET_ZOOM', payload: 2.0 } );
-dispatch( { type: 'SET_ROTATION', payload: 45 } );
-dispatch( { type: 'SNAP_ROTATE_90', payload: { direction: 1 } } );
-dispatch( { type: 'SETTLE_CROP' } );
+// Control programmatically — use the named setters:
+controller.setZoom( 2.0 );
+controller.setRotation( 45 );
+controller.snapRotate90( 1 );
+controller.settleCrop();
 ```
 
 ### 5. Source region for external tools
@@ -336,8 +337,7 @@ The `Cropper` component provides two notification mechanisms:
 ```tsx
 <Cropper
   src="image.jpg"
-  state={ state }
-  dispatch={ dispatch }
+  controller={ controller }
   onStateChange={ ( currentState ) => {
     // Fires every frame during drag — good for live preview.
     updateLivePreview( currentState );
@@ -493,7 +493,7 @@ The state is external and serializable. You can:
 const savedCropState = { ...state };
 
 // Restore when coming back:
-const { state, dispatch } = useCropperState( savedCropState );
+const controller = useCropperState( savedCropState );
 ```
 
 ### Undo/redo with gesture support
@@ -502,7 +502,7 @@ The `Cropper` component fires `onGestureStart` and `onGestureEnd` callbacks at t
 
 **Two kinds of undo entries:**
 
-1. **Toolbar operations** (rotate, flip, zoom buttons) — snapshot state before dispatching, then apply the `TransformOperation`.
+1. **Toolbar operations** (rotate, flip, zoom buttons) — snapshot state before calling a setter, then apply the `TransformOperation`.
 2. **Gestures** (drag, resize, wheel zoom) — snapshot state in `onGestureStart`, compare with the current state in `onGestureEnd`, and push the before-state onto the undo stack.
 
 See the `UndoRedo` story for a complete working example. Here is the core pattern:
@@ -513,7 +513,8 @@ import type { CropperState, TransformOperation } from '@wordpress/media-editor';
 import { useState, useCallback, useRef, useEffect } from '@wordpress/element';
 
 function ImageEditorWithUndo( { src }: { src: string } ) {
-  const { state, dispatch, reset } = useCropperState();
+  const controller = useCropperState();
+  const { state, applyOperation, reset } = controller;
 
   // Keep a ref to the latest state so gesture callbacks never go stale.
   const stateRef = useRef( state );
@@ -533,9 +534,9 @@ function ImageEditorWithUndo( { src }: { src: string } ) {
       // Snapshot current state before applying.
       setPast( ( prev ) => [ ...prev, { ...state } ] );
       setFuture( [] );
-      dispatch( { type: 'APPLY_OPERATION', payload: op } );
+      applyOperation( op );
     },
-    [ state, dispatch ]
+    [ state, applyOperation ]
   );
 
   // --- Gesture-based undo ---
@@ -567,8 +568,8 @@ function ImageEditorWithUndo( { src }: { src: string } ) {
     const previous = newPast.pop()!;
     setPast( newPast );
     setFuture( ( prev ) => [ ...prev, { ...state } ] );
-    dispatch( { type: 'RESET', payload: previous } );
-  }, [ past, state, dispatch ] );
+    reset( previous );
+  }, [ past, state, reset ] );
 
   const redo = useCallback( () => {
     if ( future.length === 0 ) {
@@ -578,8 +579,8 @@ function ImageEditorWithUndo( { src }: { src: string } ) {
     const next = newFuture.pop()!;
     setPast( ( prev ) => [ ...prev, { ...state } ] );
     setFuture( newFuture );
-    dispatch( { type: 'RESET', payload: next } );
-  }, [ future, state, dispatch ] );
+    reset( next );
+  }, [ future, state, reset ] );
 
   // --- Keyboard shortcuts (use refs to avoid stale closures) ---
 
@@ -619,8 +620,7 @@ function ImageEditorWithUndo( { src }: { src: string } ) {
 
       <Cropper
         src={ src }
-        state={ state }
-        dispatch={ dispatch }
+        controller={ controller }
         freeformCrop
         onGestureStart={ handleGestureStart }
         onGestureEnd={ handleGestureEnd }
@@ -701,8 +701,7 @@ const blockAspectRatio = getBlockAspectRatio( blockAttributes );
 
 <Cropper
   src={ imageUrl }
-  state={ state }
-  dispatch={ dispatch }
+  controller={ controller }
   aspectRatio={ blockAspectRatio }  // Pre-set to match block layout
 />
 ```
@@ -716,8 +715,7 @@ Use `onStateChange` to bridge into the WordPress hooks system:
 ```typescript
 <Cropper
   src={ imageUrl }
-  state={ state }
-  dispatch={ dispatch }
+  controller={ controller }
   onStateChange={ ( currentState ) => {
     // Let plugins react to crop changes.
     wp.hooks.doAction( 'imageEditing.stateChanged', currentState );

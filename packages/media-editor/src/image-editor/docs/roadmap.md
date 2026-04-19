@@ -4,30 +4,11 @@ Follow-up work and future phases for the image editor. These are not blockers fo
 
 ## Phase 1 — API refinements
 
-### Hide `dispatch` and `CropperAction` from the public API
+### ~~Hide `dispatch` and `CropperAction`~~ — **done**
 
-**Why:** The reducer pattern is the right internal implementation (it centralizes the containment invariant and handles compound actions like `SETTLE_CROP` and `SET_ZOOM_AT_POINT`), but it leaks into the public API. Consumers get a `dispatch` function and a `CropperAction` type they rarely need — every common action already has a convenience setter.
+Reducer details are no longer part of the public API. `useCropperState()` returns a `controller` object with named setters (`setPan`, `setZoom`, `setRotation`, `setFlip`, `snapRotate90`, `setCropRect`, `settleCrop`, `applyOperation`, `reset`), plus `setImage` for loading and `getCroppedImage` for export. `<Cropper>` takes the controller as a single prop (`controller={ controller }`).
 
-**Proposed shape:**
-
-```tsx
-// Hook returns a controller object, no dispatch exposed.
-const cropper = useCropperState();
-// cropper.state, cropper.setZoom, cropper.snapRotate90, cropper.reset, etc.
-
-// Cropper takes the controller as a single prop.
-<Cropper src={ url } controller={ cropper } />
-```
-
-**Trade-offs:**
-
-- Cleaner API surface (removes `dispatch` and `CropperAction` from public exports).
-- Breaking change — all call sites update.
-- `<Cropper>` needs access to the internal `dispatch` for interactions; the controller object can expose it via a non-enumerable property, a symbol, or a separate internal hook pattern.
-
-### Consider exposing `settle()` as a first-class method
-
-`SETTLE_CROP` is currently only triggerable via `dispatch`. It's an internal mechanic, but could be useful for consumers building custom resize controls.
+An `__dispatch` field is present on the controller object for the internal React code only — the underscore prefix signals "do not use in application code." The reducer action type `CropperAction` is no longer exported from the package.
 
 ## Phase 2 — Framework-agnostic consumers
 
@@ -82,4 +63,4 @@ Defer this decision until the API is stable and we have real consumers.
 
 ### Documented "escape hatches"
 
-- `dispatch` + `CropperAction` are public for MVP but documented as "use the convenience setters unless you have a reason." Follow-up: remove them in Phase 1.
+- The controller object's `__dispatch` field is used by `<Cropper>` and the internal interaction hook. It's not part of the stable public API and may be renamed or hidden behind a symbol in a future version. Application code should use the named setters.

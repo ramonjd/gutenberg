@@ -22,11 +22,11 @@ import { __ } from '@wordpress/i18n';
  */
 import type {
 	CropperState,
-	CropperAction,
 	StencilProps,
 	Size,
 	NormalizedRect,
 } from '../../core/types';
+import type { UseCropperStateReturn } from '../hooks/use-cropper-state';
 import { getImageFit, getCropBounds } from '../../core/camera';
 import { useInteraction } from '../hooks/use-interaction';
 import { useTransformStyle } from '../hooks/use-transform-style';
@@ -46,10 +46,8 @@ const ARIA_DEBOUNCE_MS = 300;
 export interface CropperProps {
 	/** Image source URL. */
 	src: string;
-	/** Cropper state from useCropperState. */
-	state: CropperState;
-	/** Dispatch function from useCropperState. */
-	dispatch: React.Dispatch< CropperAction >;
+	/** The full state/setter object from `useCropperState`. */
+	controller: UseCropperStateReturn;
 	/** Stencil component for the crop area. Defaults to RectangleStencil. */
 	stencil?: React.ComponentType< StencilProps >;
 	/** Show the rule-of-thirds grid overlay. */
@@ -119,8 +117,7 @@ function buildAnnouncement( state: CropperState ): string {
  *
  * @param root0                Component props implementing CropperProps.
  * @param root0.src            Image source URL.
- * @param root0.state          Cropper state from useCropperState.
- * @param root0.dispatch       Dispatch function from useCropperState.
+ * @param root0.controller     The full state/setter object from `useCropperState`.
  * @param root0.stencil        Custom stencil component.
  * @param root0.showGrid       Show rule-of-thirds grid overlay.
  * @param root0.showDimming    Show dimming overlay outside crop.
@@ -138,8 +135,7 @@ function buildAnnouncement( state: CropperState ): string {
 function CropperInner(
 	{
 		src,
-		state,
-		dispatch,
+		controller,
 		stencil: StencilComponent = RectangleStencil,
 		showGrid = false,
 		showDimming = true,
@@ -155,6 +151,13 @@ function CropperInner(
 	}: CropperProps,
 	ref: React.ForwardedRef< HTMLDivElement >
 ) {
+	const {
+		state,
+		setImage,
+		setCropRect,
+		settleCrop,
+		__dispatch: dispatch,
+	} = controller;
 	// Container measurement via ResizeObserver.
 	const containerRef = useRef< HTMLDivElement >( null );
 	const [ containerSize, setContainerSize ] = useState< Size >( {
@@ -266,11 +269,8 @@ function CropperInner(
 		) {
 			return;
 		}
-		dispatch( {
-			type: 'SET_CROP_RECT',
-			payload: { x, y, width: w, height: h },
-		} );
-	}, [ freeformCrop, aspectRatio, visualSize, dispatch, state.cropRect ] );
+		setCropRect( { x, y, width: w, height: h } );
+	}, [ freeformCrop, aspectRatio, visualSize, setCropRect, state.cropRect ] );
 
 	// In freeform mode, when aspectRatio changes, compute the largest
 	// inscribed rect of the new ratio within the visual bounds, centered.
@@ -317,16 +317,13 @@ function CropperInner(
 			}
 		}
 
-		dispatch( {
-			type: 'SET_CROP_RECT',
-			payload: {
-				x: ( 1 - w ) / 2,
-				y: ( 1 - h ) / 2,
-				width: w,
-				height: h,
-			},
+		setCropRect( {
+			x: ( 1 - w ) / 2,
+			y: ( 1 - h ) / 2,
+			width: w,
+			height: h,
 		} );
-	}, [ aspectRatio, freeformCrop, visualSize, dispatch ] );
+	}, [ aspectRatio, freeformCrop, visualSize, setCropRect ] );
 
 	// Compute the crop handle bounds from the actual image footprint.
 	// Depends on the full state object because getCropBounds reads
@@ -385,18 +382,15 @@ function CropperInner(
 
 			setNaturalSize( size );
 
-			dispatch( {
-				type: 'SET_IMAGE',
-				payload: {
-					src,
-					naturalWidth: size.width,
-					naturalHeight: size.height,
-				},
+			setImage( {
+				src,
+				naturalWidth: size.width,
+				naturalHeight: size.height,
 			} );
 
 			onImageLoaded?.( size );
 		},
-		[ src, dispatch, onImageLoaded ]
+		[ src, setImage, onImageLoaded ]
 	);
 
 	/**
@@ -404,9 +398,9 @@ function CropperInner(
 	 */
 	const handleCropChange = useCallback(
 		( rect: NormalizedRect ) => {
-			dispatch( { type: 'SET_CROP_RECT', payload: rect } );
+			setCropRect( rect );
 		},
-		[ dispatch ]
+		[ setCropRect ]
 	);
 
 	// Settling animation: brief linear transition after resize end.
@@ -426,13 +420,13 @@ function CropperInner(
 	 */
 	const handleResizeEnd = useCallback( () => {
 		setSettling( true );
-		dispatch( { type: 'SETTLE_CROP' } );
+		settleCrop();
 		onGestureEnd?.();
 		clearTimeout( settleTimerRef.current );
 		settleTimerRef.current = setTimeout( () => {
 			setSettling( false );
 		}, 200 );
-	}, [ dispatch, onGestureEnd ] );
+	}, [ settleCrop, onGestureEnd ] );
 
 	const imageTransition =
 		settling || isZooming ? 'transform 150ms linear' : undefined;

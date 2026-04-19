@@ -1,7 +1,6 @@
 // Types
 export type {
 	CropperState,
-	CropperAction,
 	TransformOperation,
 	NormalizedPoint,
 	NormalizedRect,
@@ -9,6 +8,10 @@ export type {
 	Flip,
 	StencilProps,
 } from './types';
+// Note: `CropperAction` is intentionally not exported. The reducer's
+// action shape is an internal detail; consumers drive state through
+// the named setters on `UseCropperStateReturn` (setPan, setZoom, etc.).
+// This keeps the public API stable as the reducer evolves.
 
 // Constants
 export {

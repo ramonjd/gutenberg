@@ -24,12 +24,28 @@ import {
 
 /**
  * The return type of the useCropperState hook.
+ *
+ * The hook exposes its state through named setter methods rather
+ * than a raw dispatch function. Each setter has a specific
+ * behavioral contract (see individual JSDoc) that maps 1:1 to a
+ * reducer action internally. Keeping the reducer actions private
+ * lets the implementation evolve without breaking consumers.
  */
 export interface UseCropperStateReturn {
-	/** The current cropper state. */
+	/** The current cropper state (read-only). */
 	state: CropperState;
-	/** The raw dispatch function for sending actions to the reducer. */
-	dispatch: React.Dispatch< CropperAction >;
+	/**
+	 * Internal: the raw reducer dispatch. Used by `<Cropper>` and the
+	 * interaction hook for actions that don't have a dedicated setter
+	 * (or for behavior that expects a compact action object). Not
+	 * part of the public API — consumers should use the named
+	 * setters. Prefixed `__` to signal "do not reach in".
+	 *
+	 * @internal
+	 */
+	__dispatch: React.Dispatch< CropperAction >;
+	/** Set the loaded image (natural size and src). */
+	setImage: ( image: CropperState[ 'image' ] ) => void;
 	/**
 	 * Set the image pan offset in normalized coordinates. Use
 	 * `setCropRect` for the crop rectangle.
@@ -45,6 +61,12 @@ export interface UseCropperStateReturn {
 	snapRotate90: ( direction: 1 | -1 ) => void;
 	/** Set the crop rectangle in normalized coordinates. */
 	setCropRect: ( rect: NormalizedRect ) => void;
+	/**
+	 * Settle the crop rect after a resize drag: expand to fill the
+	 * available visual area while preserving the framed image region.
+	 * Typically called from a stencil's `onResizeEnd` callback.
+	 */
+	settleCrop: () => void;
 	/** Apply a transform operation through the pipeline. */
 	applyOperation: ( op: TransformOperation ) => void;
 	/** Reset the state. Optionally merge partial state overrides. */
@@ -61,16 +83,15 @@ export interface UseCropperStateReturn {
 }
 
 /**
- * Reducer-based state management hook for the image cropper.
+ * Reducer-based state management hook for the image editor.
  *
- * Provides the full cropper state, a dispatch function, and
- * convenience action creators for common operations.
- *
- * The reducer and containment logic live in core/state.ts (framework-agnostic).
- * This hook is a thin React wrapper around that pure reducer.
+ * Provides the full cropper state and named setter methods for
+ * every supported transition. The reducer and containment logic
+ * live in core/state.ts (framework-agnostic); this hook is a thin
+ * React wrapper around that pure reducer, with memoized callbacks.
  *
  * @param initialState Optional partial state to merge with DEFAULT_STATE.
- * @return The cropper state, dispatch, convenience setters, and utilities.
+ * @return The cropper state, setters, and utilities.
  */
 export function useCropperState(
 	initialState?: Partial< CropperState >
@@ -83,6 +104,13 @@ export function useCropperState(
 
 	const initialRef = useRef< CropperState >(
 		enforceContainment( { ...DEFAULT_STATE, ...initialState } )
+	);
+
+	const setImage = useCallback(
+		( image: CropperState[ 'image' ] ) => {
+			dispatch( { type: 'SET_IMAGE', payload: image } );
+		},
+		[ dispatch ]
 	);
 
 	const setPan = useCallback(
@@ -130,6 +158,10 @@ export function useCropperState(
 		[ dispatch ]
 	);
 
+	const settleCrop = useCallback( () => {
+		dispatch( { type: 'SETTLE_CROP' } );
+	}, [ dispatch ] );
+
 	const applyOperation = useCallback(
 		( op: TransformOperation ) => {
 			dispatch( { type: 'APPLY_OPERATION', payload: op } );
@@ -169,13 +201,15 @@ export function useCropperState(
 
 	return {
 		state,
-		dispatch,
+		__dispatch: dispatch,
+		setImage,
 		setPan,
 		setZoom,
 		setRotation,
 		setFlip,
 		snapRotate90,
 		setCropRect,
+		settleCrop,
 		applyOperation,
 		reset,
 		isDirty,

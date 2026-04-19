@@ -333,7 +333,7 @@ describe( 'useCropperState', () => {
 		function setupWithImage() {
 			const view = renderHook( () => useCropperState() );
 			act( () => {
-				view.result.current.dispatch( {
+				view.result.current.__dispatch( {
 					type: 'SET_IMAGE',
 					payload: {
 						src: 'test.jpg',
@@ -579,7 +579,7 @@ describe( 'useCropperState', () => {
 		function setupWithImage() {
 			const view = renderHook( () => useCropperState() );
 			act( () => {
-				view.result.current.dispatch( {
+				view.result.current.__dispatch( {
 					type: 'SET_IMAGE',
 					payload: {
 						src: 'test.jpg',
@@ -605,7 +605,7 @@ describe( 'useCropperState', () => {
 			} );
 
 			act( () => {
-				result.current.dispatch( { type: 'SETTLE_CROP' } );
+				result.current.__dispatch( { type: 'SETTLE_CROP' } );
 			} );
 
 			const { cropRect } = result.current.state;
@@ -644,7 +644,7 @@ describe( 'useCropperState', () => {
 			const preZoom = result.current.state.zoom;
 
 			act( () => {
-				result.current.dispatch( { type: 'SETTLE_CROP' } );
+				result.current.__dispatch( { type: 'SETTLE_CROP' } );
 			} );
 
 			const postCropRect = result.current.state.cropRect;
@@ -668,7 +668,7 @@ describe( 'useCropperState', () => {
 			const stateBefore = result.current.state;
 
 			act( () => {
-				result.current.dispatch( { type: 'SETTLE_CROP' } );
+				result.current.__dispatch( { type: 'SETTLE_CROP' } );
 			} );
 
 			const stateAfter = result.current.state;
@@ -683,7 +683,7 @@ describe( 'useCropperState', () => {
 		function setupWithImage() {
 			const view = renderHook( () => useCropperState() );
 			act( () => {
-				view.result.current.dispatch( {
+				view.result.current.__dispatch( {
 					type: 'SET_IMAGE',
 					payload: {
 						src: 'test.jpg',
@@ -789,7 +789,7 @@ describe( 'useCropperState', () => {
 			};
 
 			act( () => {
-				result.current.dispatch( {
+				result.current.__dispatch( {
 					type: 'SET_IMAGE',
 					payload: imageData,
 				} );

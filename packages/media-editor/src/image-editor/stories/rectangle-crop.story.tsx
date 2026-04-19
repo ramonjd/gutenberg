@@ -93,15 +93,14 @@ type Story = StoryObj< typeof Cropper >;
  * Default story. Basic cropper with a sample image, no controls.
  */
 const DefaultComponent = () => {
-	const { state, dispatch } = useCropperState();
+	const controller = useCropperState();
 
 	return (
 		<div>
 			<div className="image-editor-story__container">
 				<Cropper
 					src={ SAMPLE_IMAGE }
-					state={ state }
-					dispatch={ dispatch }
+					controller={ controller }
 					showDimming
 				/>
 			</div>
@@ -118,16 +117,16 @@ export const Default: Story = {
  * Full interactive demo with controls.
  */
 const WithControlsComponent = () => {
+	const controller = useCropperState();
 	const {
 		state,
-		dispatch,
 		setRotation,
 		setFlip,
 		setZoom,
 		setCropRect,
 		snapRotate90,
 		reset,
-	} = useCropperState();
+	} = controller;
 
 	const [ aspectRatioValue, setAspectRatioValue ] = useState( '0' );
 	const [ freeformCrop, setFreeformCrop ] = useState( false );
@@ -342,8 +341,7 @@ const WithControlsComponent = () => {
 			<div className="image-editor-story__resizable">
 				<Cropper
 					src={ SAMPLE_IMAGE }
-					state={ state }
-					dispatch={ dispatch }
+					controller={ controller }
 					showGrid
 					showDimming
 					freeformCrop={ freeformCrop }
@@ -395,8 +393,8 @@ export const WithControls: Story = {
  * or verify the camera and render paths agree.
  */
 const DebugComponent = () => {
-	const { state, dispatch, setRotation, setZoom, snapRotate90, reset } =
-		useCropperState();
+	const controller = useCropperState();
+	const { state, setRotation, setZoom, snapRotate90, reset } = controller;
 
 	const [ freeformCrop, setFreeformCrop ] = useState( false );
 	const freeformToggleId = useId();
@@ -574,8 +572,7 @@ const DebugComponent = () => {
 					<div className="image-editor-story__container">
 						<Cropper
 							src={ SAMPLE_IMAGE }
-							state={ state }
-							dispatch={ dispatch }
+							controller={ controller }
 							showGrid
 							showDimming
 							freeformCrop={ freeformCrop }

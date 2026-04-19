@@ -3,7 +3,7 @@
 A modular image editor inside `@wordpress/media-editor`. Two layers:
 
 - **Core** — framework-agnostic state, math, and interaction logic. Pure TypeScript + `gl-matrix`. The export helpers in `core/export/` are browser-only (they use `HTMLCanvasElement` and `Image`), but everything else — reducer, camera math, interaction controller — has no DOM or React dependency. A non-React UI layer (Vue, Svelte, vanilla) can reuse core directly.
-- **React adapter** — thin wrappers over core: the `<Cropper>` component, `useCropperState`, `useInteraction`, `useTransformStyle`. This is the public entrypoint for React consumers.
+- **React adapter** — thin wrappers over core. The public surface is `<Cropper>`, `useCropperState`, plus the optional `CropperProvider` / `useCropper` context pair. `useInteraction` and `useTransformStyle` exist internally but are not exported.
 
 ## Quick start
 
@@ -11,13 +11,12 @@ A modular image editor inside `@wordpress/media-editor`. Two layers:
 import { Cropper, useCropperState } from '@wordpress/media-editor';
 
 function ImageEditor() {
-  const { state, dispatch } = useCropperState();
+  const controller = useCropperState();
   return (
     <div style={ { width: 600, height: 400 } }>
       <Cropper
         src="https://example.com/photo.jpg"
-        state={ state }
-        dispatch={ dispatch }
+        controller={ controller }
         showDimming
         showGrid
         freeformCrop
@@ -26,6 +25,8 @@ function ImageEditor() {
   );
 }
 ```
+
+`useCropperState` returns a single `controller` object that bundles the current state and every setter. Pass it to `<Cropper>` as a single prop, and call setters like `controller.setZoom( 2 )` or `controller.snapRotate90( 1 )` from your own toolbars.
 
 ## Styles
 
@@ -50,8 +51,7 @@ Main cropper component. Fills its parent container.
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `src` | `string` | **required** | Image source URL |
-| `state` | `CropperState` | **required** | State from `useCropperState` |
-| `dispatch` | `Dispatch<CropperAction>` | **required** | Dispatch from `useCropperState` |
+| `controller` | `UseCropperStateReturn` | **required** | The full object returned by `useCropperState()` |
 | `stencil` | `ComponentType<StencilProps>` | `RectangleStencil` | Custom crop area UI |
 | `showGrid` | `boolean` | `false` | Rule-of-thirds grid overlay |
 | `showDimming` | `boolean` | `true` | Dimming overlay outside crop |
@@ -73,26 +73,27 @@ Context wrapper for deep component trees. Wraps `useCropperState` and provides i
 
 #### `useCropperState( initialState?: Partial<CropperState> ): UseCropperStateReturn`
 
-State management hook. Returns:
-
-Prefer the convenience setters (`setPan`, `setZoom`, etc.) for most use cases. `dispatch` is exposed as an escape hatch but may be hidden in a future version — see [docs/roadmap.md](docs/roadmap.md).
+State management hook. Returns a `controller` object with the current state and a named setter for each supported transition.
 
 > **Pan vs. crop rectangle**: `setPan` / `state.pan` sets the image *pan offset* (how the image is translated inside the viewport). `setCropRect` / `state.cropRect` sets the *crop rectangle* (the region being selected).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `state` | `CropperState` | Current state |
-| `dispatch` | `Dispatch<CropperAction>` | Raw reducer dispatch (escape hatch — prefer setters) |
+| `state` | `CropperState` | Current state (read-only) |
+| `setImage` | `(image: CropperState['image']) => void` | Set the loaded image (src + natural size) |
 | `setPan` | `(pan: NormalizedPoint) => void` | Set image pan offset |
 | `setZoom` | `(zoom: number) => void` | Set zoom (clamped 1–10) |
 | `setRotation` | `(degrees: number) => void` | Set rotation (normalized 0–360) |
 | `setFlip` | `(flip: Flip) => void` | Set flip state |
 | `snapRotate90` | `(direction: 1 \| -1) => void` | 90° snap rotation |
 | `setCropRect` | `(rect: NormalizedRect) => void` | Set crop rectangle |
+| `settleCrop` | `() => void` | Settle the crop rect after a resize drag (typically from `onResizeEnd`) |
 | `applyOperation` | `(op: TransformOperation) => void` | Apply a pipeline operation |
 | `reset` | `(state?: Partial<CropperState>) => void` | Reset to initial or given state |
 | `isDirty` | `boolean` | Whether state differs from initial |
 | `getCroppedImage` | `(mime?: string, quality?: number) => Promise<Blob>` | Export as Blob. Throws on load/CORS/context failure — wrap in try/catch to recover. |
+
+The object also exposes an `__dispatch` field for the internal React code (`<Cropper>`) that needs raw action dispatch. **Do not use it in application code** — it's not part of the stable API and may change or move. Use the named setters.
 
 ### Source region
 
@@ -137,7 +138,7 @@ Applies a single operation to an existing state.
 | Type | Description |
 |------|-------------|
 | `CropperState` | `{ image, pan, zoom, rotation, flip, cropRect, basePan, baseZoom, baseRotation }` |
-| `CropperAction` | Union of all reducer actions |
+| `UseCropperStateReturn` | The full shape returned by `useCropperState()`: state + setters |
 | `CropperProps` | Props for the `<Cropper>` component |
 | `StencilProps` | Contract for pluggable stencil components |
 | `TransformOperation` | `{ type: 'crop' \| 'rotate' \| 'flip' \| 'zoom', ... }` |
@@ -148,6 +149,8 @@ Applies a single operation to an existing state.
 | `SourceRegion` | `{ x, y, width, height, rotation, flip, zoom }` in source pixels |
 | `SourceRegionPercent` | `{ x, y, width, height }` as percentages (0–100) |
 | `AspectRatioPreset` | `{ label: string, value: number }` |
+
+`CropperAction` (the reducer's action union) is deliberately not exported. Drive state through the named setters on the controller object.
 
 ### Constants
 
