@@ -174,8 +174,9 @@ describe( 'stateFromPipeline', () => {
 
 		const result = stateFromPipeline( pipeline, customInitial );
 
-		// 90 (initial) + 90 (operation) = 180
-		expect( result.rotation ).toBe( 180 );
+		// Single-axis flip is active, so `degrees: 90` (visual CW) is
+		// applied as -90° to the rotation field: 90 − 90 = 0.
+		expect( result.rotation ).toBe( 0 );
 		// Other state should carry forward.
 		expect( result.zoom ).toBe( 2 );
 		expect( result.flip.horizontal ).toBe( true );
@@ -249,5 +250,20 @@ describe( 'pipeline / reducer parity', () => {
 		} );
 		expect( pipelineResult.cropRect ).toEqual( reducerResult.cropRect );
 		expect( pipelineResult.zoom ).toBe( reducerResult.zoom );
+	} );
+
+	it( 'rotate op: degrees means visual CW, negated on single-axis flip', () => {
+		// `{ type: 'rotate', degrees: 90 }` means "90° clockwise visually".
+		// On a single-flipped image the rotation field must go the other
+		// way to achieve that visual outcome — matching snapRotate90.
+		const flippedState = {
+			...stateWithImage,
+			flip: { horizontal: true, vertical: false },
+		};
+		const result = applyOperationToState( flippedState, {
+			type: 'rotate',
+			degrees: 90,
+		} );
+		expect( result.rotation ).toBe( 270 );
 	} );
 } );

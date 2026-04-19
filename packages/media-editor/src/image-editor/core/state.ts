@@ -28,11 +28,20 @@ function operationToAction(
 	switch ( op.type ) {
 		case 'crop':
 			return { type: 'SET_CROP_RECT', payload: { ...op.rect } };
-		case 'rotate':
+		case 'rotate': {
+			// `op.degrees` is the visual rotation the caller wants (positive
+			// = CW on screen). A single-axis flip inverts on-screen rotation
+			// relative to the rotation field, so negate the field delta in
+			// that case — this keeps `{ type: 'rotate', degrees: 90 }` a
+			// reliable "90° clockwise visually" instruction across flip
+			// states, matching the SNAP_ROTATE_90 convention.
+			const singleFlip = state.flip.horizontal !== state.flip.vertical;
+			const fieldDelta = singleFlip ? -op.degrees : op.degrees;
 			return {
 				type: 'SET_ROTATION',
-				payload: normalizeRotation( state.rotation + op.degrees ),
+				payload: normalizeRotation( state.rotation + fieldDelta ),
 			};
+		}
 		case 'flip':
 			return {
 				type: 'SET_FLIP',
@@ -210,11 +219,16 @@ export function cropperReducer(
 			// commitBase — the base pose stays pinned at the user's
 			// last committed pan/zoom/rotation.
 			const newRotation = normalizeRotation( action.payload );
+			// With viewport-relative flip, pan rotation is conjugated by
+			// the flip (S * R * S) — which reverses direction when exactly
+			// one axis is flipped. Negate sin in that case so the crop
+			// stays framed on the same image content through rotation.
+			const singleFlip = state.flip.horizontal !== state.flip.vertical;
 			const deltaRad = degreesToRadians(
 				newRotation - state.baseRotation
 			);
 			const cos = Math.cos( deltaRad );
-			const sin = Math.sin( deltaRad );
+			const sin = Math.sin( deltaRad ) * ( singleFlip ? -1 : 1 );
 			const cropCx = state.cropRect.x + state.cropRect.width / 2;
 			const cropCy = state.cropRect.y + state.cropRect.height / 2;
 			const ox = cropCx - 0.5;
@@ -237,17 +251,28 @@ export function cropperReducer(
 			// (width/height swap), and the pan rotates 90° around the
 			// pan-space origin. The combination keeps the same image
 			// slice framed — just viewed through a rotated window.
-			const dir90 = action.payload.direction;
-			const rot90 = normalizeRotation( state.rotation + dir90 * 90 );
+			//
+			// `direction` is the visual rotation the caller wants: +1
+			// means "rotate the image CW on screen", −1 means "CCW".
+			// With a single-axis flip active, rotation on screen appears
+			// reversed relative to the rotation field (S·R·S conjugation),
+			// so internally we negate the direction applied to the
+			// `rotation` field. Pan rotates in the caller's direction —
+			// that way the same image content stays framed after the
+			// snap regardless of flip state.
+			const rawDir = action.payload.direction;
+			const singleFlip = state.flip.horizontal !== state.flip.vertical;
+			const fieldDir = singleFlip ? -rawDir : rawDir;
+			const rot90 = normalizeRotation( state.rotation + fieldDir * 90 );
 			const rect = state.cropRect;
 			const cx = rect.x + rect.width / 2;
 			const cy = rect.y + rect.height / 2;
 
 			// Rotate pan vector 90° around origin.
-			//   CW  (dir=+1): (px, py) → (-py, px)
-			//   CCW (dir=-1): (px, py) → (py, -px)
-			const newPanX = dir90 === 1 ? -state.pan.y : state.pan.y;
-			const newPanY = dir90 === 1 ? state.pan.x : -state.pan.x;
+			//   CW  (rawDir=+1): (px, py) → (-py, px)
+			//   CCW (rawDir=-1): (px, py) → (py, -px)
+			const newPanX = rawDir === 1 ? -state.pan.y : state.pan.y;
+			const newPanY = rawDir === 1 ? state.pan.x : -state.pan.x;
 
 			return commitBase(
 				enforceContainment( {
@@ -266,69 +291,25 @@ export function cropperReducer(
 		}
 
 		case 'SET_FLIP': {
-			// Mirror the crop rect and pan so the same image content
-			// stays selected after the flip. Without this, the flip
-			// would mirror the image but the crop would stay in its
-			// current normalized position, which would frame different
-			// content than the user selected.
-			//
-			// The flip in the camera matrix is applied BEFORE rotation,
-			// so a "horizontal" flip from the user's perspective (screen
-			// space) corresponds to a reflection along the image's own
-			// x-axis, which is rotated by θ on screen. To preserve
-			// framing, we reflect the pan vector across the same rotated
-			// axis. The reflection matrix for flipping along the x-axis
-			// after rotation θ is:
-			//
-			//   [-cos(2θ)  -sin(2θ)]
-			//   [-sin(2θ)   cos(2θ)]
-			//
-			// and for flipping along the y-axis after rotation θ:
-			//
-			//   [ cos(2θ)   sin(2θ)]
-			//   [ sin(2θ)  -cos(2θ)]
-			//
-			// Two flips compose; combining them gives the combined
-			// reflection matrix below.
+			// Mirror the crop rect and pan so the same image content stays
+			// framed after a flip. Flip in the camera matrix is composed
+			// outside rotation (viewport-relative), so both `pan` and
+			// `cropRect` live in viewport-aligned space: negating the flipped
+			// axis on each is enough — no rotation math needed.
 			const oldFlip = state.flip;
 			const newFlip = action.payload;
 			const flippedH = oldFlip.horizontal !== newFlip.horizontal;
 			const flippedV = oldFlip.vertical !== newFlip.vertical;
 			const rect = state.cropRect;
 
-			let panX = state.pan.x;
-			let panY = state.pan.y;
-
-			if ( flippedH !== flippedV ) {
-				// Only one axis flipped: reflect pan across the
-				// corresponding rotated axis.
-				const twoTheta = 2 * degreesToRadians( state.rotation );
-				const c = Math.cos( twoTheta );
-				const s = Math.sin( twoTheta );
-				if ( flippedH ) {
-					// Reflect across the image's y-axis (vertical line).
-					const nx = -c * panX - s * panY;
-					const ny = -s * panX + c * panY;
-					panX = nx;
-					panY = ny;
-				} else {
-					// Reflect across the image's x-axis (horizontal line).
-					const nx = c * panX + s * panY;
-					const ny = s * panX - c * panY;
-					panX = nx;
-					panY = ny;
-				}
-			} else if ( flippedH && flippedV ) {
-				// Both axes flipped: equivalent to 180° rotation of pan.
-				panX = -panX;
-				panY = -panY;
-			}
-
 			return commitBase(
 				enforceContainment( {
 					...state,
 					flip: newFlip,
-					pan: { x: panX, y: panY },
+					pan: {
+						x: flippedH ? -state.pan.x : state.pan.x,
+						y: flippedV ? -state.pan.y : state.pan.y,
+					},
 					cropRect: {
 						x: flippedH ? 1 - rect.x - rect.width : rect.x,
 						y: flippedV ? 1 - rect.y - rect.height : rect.y,

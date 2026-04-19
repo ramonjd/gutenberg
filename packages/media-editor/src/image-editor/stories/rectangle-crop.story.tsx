@@ -141,8 +141,14 @@ const WithControlsComponent = () => {
 		: null;
 
 	// The base cardinal angle (nearest 90° step) and the fine offset.
+	// `setRotation` is a raw state setter (absolute-angle assignment), so
+	// sliders need to flip the offset sign when a single flip is active to
+	// stay visually consistent. `snapRotate90` and the pipeline `rotate`
+	// op already handle this internally.
 	const baseAngle = Math.round( state.rotation / 90 ) * 90;
-	const fineOffset = state.rotation - baseAngle;
+	const singleFlip = state.flip.horizontal !== state.flip.vertical;
+	const visualDir = singleFlip ? -1 : 1;
+	const fineOffset = ( state.rotation - baseAngle ) * visualDir;
 
 	const handleRotateLeft = useCallback( () => {
 		snapRotate90( -1 );
@@ -154,9 +160,11 @@ const WithControlsComponent = () => {
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setRotation( baseAngle + parseFloat( event.target.value ) );
+			setRotation(
+				baseAngle + parseFloat( event.target.value ) * visualDir
+			);
 		},
-		[ baseAngle, setRotation ]
+		[ baseAngle, setRotation, visualDir ]
 	);
 
 	const handleFlipHorizontal = useCallback( () => {
@@ -394,7 +402,8 @@ export const WithControls: Story = {
  */
 const DebugComponent = () => {
 	const controller = useCropperState();
-	const { state, setRotation, setZoom, snapRotate90, reset } = controller;
+	const { state, setRotation, setZoom, setFlip, snapRotate90, reset } =
+		controller;
 
 	const [ freeformCrop, setFreeformCrop ] = useState( false );
 	const freeformToggleId = useId();
@@ -499,8 +508,13 @@ const DebugComponent = () => {
 		cropWorldCorners[ 1 ].x <= 1.001 &&
 		cropWorldCorners[ 1 ].y <= 1.001;
 
+	// `setRotation` is a raw state setter (absolute-angle assignment), so
+	// sliders need to flip the offset sign when a single flip is active
+	// to stay visually consistent. `snapRotate90` already handles this.
 	const baseAngle = Math.round( state.rotation / 90 ) * 90;
-	const fineOffset = state.rotation - baseAngle;
+	const singleFlip = state.flip.horizontal !== state.flip.vertical;
+	const visualDir = singleFlip ? -1 : 1;
+	const fineOffset = ( state.rotation - baseAngle ) * visualDir;
 
 	const handleRotateLeft = useCallback( () => {
 		snapRotate90( -1 );
@@ -512,9 +526,11 @@ const DebugComponent = () => {
 
 	const handleRotationSlider = useCallback(
 		( event: React.ChangeEvent< HTMLInputElement > ) => {
-			setRotation( baseAngle + parseFloat( event.target.value ) );
+			setRotation(
+				baseAngle + parseFloat( event.target.value ) * visualDir
+			);
 		},
-		[ baseAngle, setRotation ]
+		[ baseAngle, setRotation, visualDir ]
 	);
 
 	const handleZoomChange = useCallback(
@@ -523,6 +539,20 @@ const DebugComponent = () => {
 		},
 		[ setZoom ]
 	);
+
+	const handleFlipHorizontal = useCallback( () => {
+		setFlip( {
+			horizontal: ! state.flip.horizontal,
+			vertical: state.flip.vertical,
+		} );
+	}, [ state.flip, setFlip ] );
+
+	const handleFlipVertical = useCallback( () => {
+		setFlip( {
+			horizontal: state.flip.horizontal,
+			vertical: ! state.flip.vertical,
+		} );
+	}, [ state.flip, setFlip ] );
 
 	return (
 		<div>
@@ -547,6 +577,8 @@ const DebugComponent = () => {
 						value={ state.zoom }
 						onChange={ handleZoomChange }
 					/>
+					<button onClick={ handleFlipHorizontal }>Flip H</button>
+					<button onClick={ handleFlipVertical }>Flip V</button>
 					<label htmlFor={ freeformToggleId }>
 						<input
 							id={ freeformToggleId }

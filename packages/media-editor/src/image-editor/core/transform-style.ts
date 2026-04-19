@@ -7,8 +7,12 @@ import { degreesToRadians } from './math/rotation';
 /**
  * Computes a CSS matrix() transform string from the cropper state.
  *
- * The combined transform is: translate(tx, ty) * rotate(r) * scale(sx*z, sy*z)
+ * The combined transform is: translate(tx, ty) * scale(sx, sy) * rotate(r) * scale(z)
  * expressed as a 2D CSS matrix(a, b, c, d, tx, ty).
+ *
+ * Flip is composed outside rotation so it is viewport-relative — horizontal
+ * flip mirrors across the viewport's vertical axis regardless of rotation.
+ * Must match the matrix order in `createCamera` / `getCropBounds`.
  *
  * This is a pure function with no framework dependencies. The React hook
  * `useTransformStyle` wraps this in `useMemo` for memoization.
@@ -30,11 +34,11 @@ export function computeTransformStyle(
 	const sy = state.flip.vertical ? -1 : 1;
 	const z = state.zoom;
 
-	// Combined: translate(tx,ty) * rotate(r) * scale(sx*z, sy*z)
-	const a = cos * sx * z;
-	const b = sin * sx * z;
-	const c = -sin * sy * z;
-	const d = cos * sy * z;
+	// Combined: translate(tx,ty) * scale(sx,sy) * rotate(r) * scale(z)
+	const a = sx * cos * z;
+	const b = sy * sin * z;
+	const c = -sx * sin * z;
+	const d = sy * cos * z;
 
 	return `matrix(${ a }, ${ b }, ${ c }, ${ d }, ${ translateX }, ${ translateY })`;
 }

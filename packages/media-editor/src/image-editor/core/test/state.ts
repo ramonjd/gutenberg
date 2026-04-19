@@ -526,6 +526,48 @@ describe( 'cropperReducer — SNAP_ROTATE_90', () => {
 		expect( result.pan.x ).toBeCloseTo( state.pan.x, 5 );
 		expect( result.pan.y ).toBeCloseTo( state.pan.y, 5 );
 	} );
+
+	it( 'single-axis flip: direction=+1 means visual CW, so rotation field decreases', () => {
+		// `direction` is the visual rotation the caller wants. With a
+		// single-axis flip, on-screen rotation is reversed relative to
+		// the rotation field, so internally the field decreases by 90°
+		// to achieve a visual CW rotation. Pan still rotates by +90° in
+		// the visual direction to keep framing.
+		const state = makeState( {
+			zoom: 2,
+			pan: { x: 0.1, y: 0.2 },
+			rotation: 0,
+			flip: { horizontal: true, vertical: false },
+		} );
+
+		const rotated = cropperReducer( state, {
+			type: 'SNAP_ROTATE_90',
+			payload: { direction: 1 },
+		} );
+
+		// Field moved 0 → 270 (i.e. -90 normalized).
+		expect( rotated.rotation ).toBe( 270 );
+		// Pan rotates by +90° CW: (px, py) → (-py, px).
+		expect( rotated.pan.x ).toBeCloseTo( -0.2, 5 );
+		expect( rotated.pan.y ).toBeCloseTo( 0.1, 5 );
+	} );
+
+	it( 'both-axis flip: rotation field advances normally (two flips cancel)', () => {
+		const state = makeState( {
+			zoom: 2,
+			pan: { x: 0.1, y: 0.2 },
+			flip: { horizontal: true, vertical: true },
+		} );
+
+		const rotated = cropperReducer( state, {
+			type: 'SNAP_ROTATE_90',
+			payload: { direction: 1 },
+		} );
+
+		expect( rotated.rotation ).toBe( 90 );
+		expect( rotated.pan.x ).toBeCloseTo( -0.2, 5 );
+		expect( rotated.pan.y ).toBeCloseTo( 0.1, 5 );
+	} );
 } );
 
 describe( 'cropperReducer — SET_FLIP', () => {
@@ -615,6 +657,24 @@ describe( 'cropperReducer — SET_FLIP', () => {
 		expect( result.pan.x ).toBeCloseTo( 0.1, 5 );
 		expect( result.pan.y ).toBeCloseTo( 0.2, 5 );
 		expect( result.cropRect.x ).toBe( 0.1 );
+	} );
+
+	it( 'flip is viewport-relative — negates pan axis independent of rotation', () => {
+		// With viewport-relative flip, a horizontal flip always negates pan.x
+		// regardless of current rotation (same viewport axis gets mirrored).
+		const state = makeState( {
+			zoom: 2,
+			pan: { x: 0.15, y: 0.07 },
+			rotation: 90,
+		} );
+
+		const flipped = cropperReducer( state, {
+			type: 'SET_FLIP',
+			payload: { horizontal: true, vertical: false },
+		} );
+
+		expect( flipped.pan.x ).toBeCloseTo( -0.15, 5 );
+		expect( flipped.pan.y ).toBeCloseTo( 0.07, 5 );
 	} );
 } );
 

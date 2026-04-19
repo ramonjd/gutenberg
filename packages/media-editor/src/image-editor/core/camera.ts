@@ -105,7 +105,11 @@ export function getImageFit(
  * Input (0,0) = image top-left, (1,1) = image bottom-right.
  *
  * Composition order (left-to-right = outermost first, applied last to point):
- *   M = T_containerCenter * T_pan * R_rotation * S_flip * S_zoom * T_center * S_toRenderedPixels
+ *   M = T_containerCenter * T_pan * S_flip * R_rotation * S_zoom * T_center * S_toRenderedPixels
+ *
+ * Flip is composed outside rotation, so `flip.horizontal` / `flip.vertical`
+ * are viewport-relative: the image mirrors across the viewport's vertical /
+ * horizontal axis regardless of current rotation.
  *
  * @param state         The current cropper state (zoom, rotation, flip, crop).
  * @param containerSize The size of the container in pixels.
@@ -170,14 +174,15 @@ export function createCamera(
 	// Pan offset in visual-space pixels.
 	mat2d.translate( m, m, [ state.pan.x * visualW, state.pan.y * visualH ] );
 
-	// Rotate.
-	mat2d.rotate( m, m, degreesToRadians( state.rotation ) );
-
-	// Flip (negative scale).
+	// Flip (viewport-relative — composed outside rotation so horizontal
+	// flip always mirrors across the viewport's vertical axis).
 	mat2d.scale( m, m, [
 		state.flip.horizontal ? -1 : 1,
 		state.flip.vertical ? -1 : 1,
 	] );
+
+	// Rotate.
+	mat2d.rotate( m, m, degreesToRadians( state.rotation ) );
 
 	// Zoom.
 	mat2d.scale( m, m, [ state.zoom, state.zoom ] );
@@ -383,7 +388,8 @@ export function getCropBounds(
 		return { minX: 0, minY: 0, maxX: 1, maxY: 1 };
 	}
 
-	// Build the same CSS matrix as use-transform-style.
+	// Build the same CSS matrix as use-transform-style: flip * rotate * zoom.
+	// Flip is outside rotation so it acts in viewport axes (see createCamera).
 	const tx = state.pan.x * visualSize.width;
 	const ty = state.pan.y * visualSize.height;
 	const rad = degreesToRadians( state.rotation );
@@ -392,10 +398,10 @@ export function getCropBounds(
 	const sx = state.flip.horizontal ? -1 : 1;
 	const sy = state.flip.vertical ? -1 : 1;
 	const z = state.zoom;
-	const ma = cos * sx * z;
-	const mb = sin * sx * z;
-	const mc = -sin * sy * z;
-	const md = cos * sy * z;
+	const ma = sx * cos * z;
+	const mb = sy * sin * z;
+	const mc = -sx * sin * z;
+	const md = sy * cos * z;
 
 	// Image element corners relative to element center.
 	const hw = elementSize.width / 2;
@@ -745,11 +751,11 @@ export function createExportCamera(
 		visualCenterX - cropOffsetX + outputSize.width / 2 / outputScaleX,
 		visualCenterY - cropOffsetY + outputSize.height / 2 / outputScaleY,
 	] );
+	// Flip is composed outside rotation so it acts in viewport/output space —
+	// must match createCamera's order for preview and export to agree.
+	mat2d.scale( m, m, [ flip.horizontal ? -1 : 1, flip.vertical ? -1 : 1 ] );
 	mat2d.rotate( m, m, degreesToRadians( rotation ) );
-	mat2d.scale( m, m, [
-		zoom * ( flip.horizontal ? -1 : 1 ),
-		zoom * ( flip.vertical ? -1 : 1 ),
-	] );
+	mat2d.scale( m, m, [ zoom, zoom ] );
 	mat2d.translate( m, m, [ -imageSize.width / 2, -imageSize.height / 2 ] );
 	return m;
 }

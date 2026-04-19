@@ -126,8 +126,10 @@ describe( 'useTransformStyle', () => {
 		);
 
 		// tx = 0.1 * 400 = 40, ty = 0.2 * 300 = 60
+		// Matrix order is flip * rotate * zoom (viewport-relative flip).
 		// cos(90°)≈0, sin(90°)≈1, sx=-1, sy=1, z=3
-		// a=0*(-1)*3≈0, b=1*(-1)*3≈-3, c=-1*1*3≈-3, d=0*1*3≈0
+		// a=sx*cos*z=(-1)*0*3≈0, b=sy*sin*z=1*1*3≈3
+		// c=-sx*sin*z=-(-1)*1*3≈3, d=sy*cos*z=1*0*3≈0
 		const transform = result.current;
 		const match = transform.match(
 			/matrix\(([^,]+), ([^,]+), ([^,]+), ([^,]+), ([^,]+), ([^)]+)\)/
@@ -135,8 +137,8 @@ describe( 'useTransformStyle', () => {
 		expect( match ).not.toBeNull();
 		const [ , a, b, c, d, tx, ty ] = match!.map( Number );
 		expect( a ).toBeCloseTo( 0 );
-		expect( b ).toBeCloseTo( -3 );
-		expect( c ).toBeCloseTo( -3 );
+		expect( b ).toBeCloseTo( 3 );
+		expect( c ).toBeCloseTo( 3 );
 		expect( d ).toBeCloseTo( 0 );
 		expect( tx ).toBeCloseTo( 40 );
 		expect( ty ).toBeCloseTo( 60 );
