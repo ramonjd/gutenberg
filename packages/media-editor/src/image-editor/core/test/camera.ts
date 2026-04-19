@@ -220,6 +220,70 @@ describe( 'createExportCamera', () => {
 		expect( bottomRight[ 0 ] ).toBeCloseTo( outputSize.width, 0 );
 		expect( bottomRight[ 1 ] ).toBeCloseTo( outputSize.height, 0 );
 	} );
+
+	it( 'at fine rotation, exported pixels track the stencil frame (preview / export agree)', () => {
+		// Stencil frames some image content via the preview camera; the
+		// export camera must pick the SAME image pixels. Before this
+		// fix, the export used the true-rotation bbox while the preview
+		// used the snap-rotation bbox, so any fine rotation shifted the
+		// exported region sideways relative to what the stencil framed.
+		const state = makeState( {
+			rotation: 15,
+			zoom: 1.5,
+			cropRect: { x: 0.2, y: 0.15, width: 0.5, height: 0.6 },
+		} );
+		const container: Size = { width: 800, height: 600 };
+
+		// Preview path: find the source-image pixel that lands at the
+		// stencil center on screen.
+		const previewCamera = createCamera( state, container, IMAGE );
+		const snapRotation = Math.round( state.rotation / 90 ) * 90;
+		const baseCamera = createCamera(
+			{
+				...state,
+				pan: { x: 0, y: 0 },
+				zoom: 1,
+				rotation: snapRotation,
+			},
+			container,
+			IMAGE
+		);
+		const vb = getVisibleBounds( baseCamera );
+		const stencilCenterScreen = {
+			x:
+				vb.left +
+				( state.cropRect.x + state.cropRect.width / 2 ) * vb.width,
+			y:
+				vb.top +
+				( state.cropRect.y + state.cropRect.height / 2 ) * vb.height,
+		};
+		const previewWorld = screenToWorld(
+			previewCamera,
+			stencilCenterScreen
+		);
+		const previewPx = {
+			x: previewWorld.x * IMAGE.width,
+			y: previewWorld.y * IMAGE.height,
+		};
+
+		// Export path: the source pixel that maps to the center of the
+		// output canvas.
+		const outputSize = { width: 400, height: 300 };
+		const exportCamera = createExportCamera( state, IMAGE, outputSize );
+		const { mat2d: m2d, vec2 } = require( 'gl-matrix' );
+		const inv = m2d.create();
+		m2d.invert( inv, exportCamera );
+		const exportPxVec = vec2.create();
+		vec2.transformMat2d(
+			exportPxVec,
+			[ outputSize.width / 2, outputSize.height / 2 ],
+			inv
+		);
+
+		// Preview and export must agree on the source pixel at crop center.
+		expect( exportPxVec[ 0 ] ).toBeCloseTo( previewPx.x, 0 );
+		expect( exportPxVec[ 1 ] ).toBeCloseTo( previewPx.y, 0 );
+	} );
 } );
 
 describe( 'containment invariant (property-based)', () => {

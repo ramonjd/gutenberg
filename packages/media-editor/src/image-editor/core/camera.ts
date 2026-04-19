@@ -728,10 +728,16 @@ export function createExportCamera(
 	) {
 		return m;
 	}
+	// Reference frame for cropRect/pan is the snap-rotation bbox — that's
+	// what the stencil and CSS matrix use in the preview (see createCamera
+	// and getImageFit). Using the true rotation here would position the
+	// crop window at a different offset than the stencil framed, and show
+	// a shifted region after any fine rotation.
+	const snapRotation = Math.round( rotation / 90 ) * 90;
 	const { width: rotW, height: rotH } = getRotatedBBox(
 		imageSize.width,
 		imageSize.height,
-		rotation
+		snapRotation
 	);
 
 	// Scale factor to map the natural crop region to the output canvas size.
@@ -849,12 +855,13 @@ export function getSourceRegion(
 		inv
 	);
 
-	// Crop rect size in the rotated visual space, divided by zoom
-	// for source-pixel dimensions.
+	// Crop rect size in the snap-rotation visual space, divided by zoom
+	// for source-pixel dimensions. Matches the stencil's reference frame.
+	const snapRotation = Math.round( state.rotation / 90 ) * 90;
 	const { width: rotW, height: rotH } = getRotatedBBox(
 		imageSize.width,
 		imageSize.height,
-		state.rotation
+		snapRotation
 	);
 	const sourceW = ( cropRect.width * rotW ) / state.zoom;
 	const sourceH = ( cropRect.height * rotH ) / state.zoom;

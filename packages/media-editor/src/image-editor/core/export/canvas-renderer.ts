@@ -41,7 +41,11 @@ export function renderToCanvas(
 	const { rotation, cropRect } = state;
 	const imageSize = { width: naturalWidth, height: naturalHeight };
 
-	const rotBBox = getRotatedBBox( naturalWidth, naturalHeight, rotation );
+	// Output size is the crop region in the snap-rotation bbox — matches
+	// the preview's reference frame so the exported pixels track exactly
+	// what the stencil framed, even at fine rotation angles.
+	const snapRotation = Math.round( rotation / 90 ) * 90;
+	const rotBBox = getRotatedBBox( naturalWidth, naturalHeight, snapRotation );
 	const outW = Math.round( cropRect.width * rotBBox.width );
 	const outH = Math.round( cropRect.height * rotBBox.height );
 
@@ -173,10 +177,14 @@ export function applyToCanvas(
 	state: CropperState,
 	outputSize?: { width: number; height: number }
 ): HTMLCanvasElement {
+	// Use snap-rotation bbox for default sizing so the default output
+	// matches the preview's reference frame at fine rotation angles
+	// (see renderToCanvas / createExportCamera).
+	const snapRotation = Math.round( state.rotation / 90 ) * 90;
 	const rotBBox = getRotatedBBox(
 		sourceSize.width,
 		sourceSize.height,
-		state.rotation
+		snapRotation
 	);
 
 	// Default output size: the crop region in natural pixels.
