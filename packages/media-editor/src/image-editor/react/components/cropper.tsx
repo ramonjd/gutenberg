@@ -450,8 +450,16 @@ function CropperInner(
 		}, 200 );
 	}, [ settleCrop, onGestureEnd ] );
 
-	const imageTransition =
-		settling || isZooming ? 'transform 150ms linear' : undefined;
+	// During settle we transition size/position too so the crop-aware
+	// refit animates smoothly into place. Zoom gestures only animate the
+	// transform.
+	let imageTransition: string | undefined;
+	if ( settling ) {
+		imageTransition =
+			'transform 150ms linear, width 150ms linear, height 150ms linear, left 150ms linear, top 150ms linear';
+	} else if ( isZooming ) {
+		imageTransition = 'transform 150ms linear';
+	}
 	const settleStencilTransition = settling
 		? 'left 150ms linear, top 150ms linear, width 150ms linear, height 150ms linear'
 		: undefined;
