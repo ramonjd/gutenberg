@@ -86,12 +86,17 @@ export function getImageFit(
 	// Denominators for the contain fit. When a crop is provided, scale by
 	// cropRect dims so the crop region (not the whole image) fits the
 	// container — the image can overflow outside the container on the
-	// unconstrained axis.
+	// unconstrained axis. Multiply by FIT_MARGIN (<1) to leave padding
+	// around the crop so the resize handles have room to be dragged
+	// outward without immediately hitting the container edge.
+	const FIT_MARGIN = 0.9;
+	const cropAware = cropRect && ( cropRect.width > 0 || cropRect.height > 0 );
 	const cropW = cropRect && cropRect.width > 0 ? cropRect.width : 1;
 	const cropH = cropRect && cropRect.height > 0 ? cropRect.height : 1;
+	const marginDenom = cropAware ? FIT_MARGIN : 1;
 	const fitScale = Math.min(
-		containerSize.width / ( naturalBBox.width * cropW ),
-		containerSize.height / ( naturalBBox.height * cropH )
+		( containerSize.width / ( naturalBBox.width * cropW ) ) * marginDenom,
+		( containerSize.height / ( naturalBBox.height * cropH ) ) * marginDenom
 	);
 	const renderedW = imageSize.width * fitScale;
 	const renderedH = imageSize.height * fitScale;
