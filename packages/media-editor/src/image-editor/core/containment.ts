@@ -299,12 +299,15 @@ export function restrictPanZoom(
 	const minZoom = getMinZoomForCover( state.rotation, aspectRatio, cropRect );
 	const zoom = Math.max( state.zoom, minZoom );
 
-	// Step 2: build camera with candidate pan and corrected zoom.
+	// Step 2: build camera with candidate pan and corrected zoom. Both
+	// cameras use the same crop-aware fit as the preview (see
+	// getImageFit / createCamera) so their coordinate system matches.
 	const candidateState = { ...state, zoom };
 	const camera = createCamera(
 		candidateState,
 		CANONICAL_CONTAINER,
-		imageSize
+		imageSize,
+		cropRect
 	);
 
 	// Build a base camera (zero pan, zoom=1) to get stencil positions.
@@ -321,7 +324,8 @@ export function restrictPanZoom(
 			rotation: snapRotation,
 		},
 		CANONICAL_CONTAINER,
-		imageSize
+		imageSize,
+		cropRect
 	);
 	const visibleBounds = getVisibleBounds( baseCamera );
 

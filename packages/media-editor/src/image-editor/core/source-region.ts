@@ -64,9 +64,15 @@ export function getSourceRegion(
 	}
 
 	// Use a synthetic 1:1 container so the camera maps normalized coords
-	// to a known pixel space. The container size cancels out.
+	// to a known pixel space. Crop-aware fit matches the preview camera
+	// so the stencil frame → source region mapping is consistent.
 	const syntheticContainer: Size = { width: 1000, height: 1000 };
-	const camera = createCamera( state, syntheticContainer, imageSize );
+	const camera = createCamera(
+		state,
+		syntheticContainer,
+		imageSize,
+		state.cropRect
+	);
 
 	// Inverse camera maps screen pixels back to normalized [0,1] world coords.
 	const inv = mat2d.create();
@@ -78,7 +84,8 @@ export function getSourceRegion(
 	const baseCamera = createCamera(
 		{ ...state, pan: { x: 0, y: 0 }, zoom: 1 },
 		syntheticContainer,
-		imageSize
+		imageSize,
+		state.cropRect
 	);
 	const visibleBounds = getVisibleBounds( baseCamera );
 

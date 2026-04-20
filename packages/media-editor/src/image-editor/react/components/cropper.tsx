@@ -208,7 +208,35 @@ function CropperInner(
 	// ARIA live region: announce significant state changes for screen readers.
 	const ariaMessage = useAriaAnnouncer( state );
 
-	// Compute fitted image dimensions and visual bounds from camera math.
+	// Crop-aware fit: the crop region fills the container, so selecting a
+	// thin slice expands the image to occupy the spare room on the
+	// unconstrained axis. But the fit should only update at rest — during
+	// an active resize drag the image must stay fixed. The `fitCropRect`
+	// state below captures the last "committed" crop rect and only
+	// advances when the user isn't actively resizing.
+	const [ isResizing, setIsResizing ] = useState( false );
+	const [ fitCropRect, setFitCropRect ] = useState( {
+		width: state.cropRect.width,
+		height: state.cropRect.height,
+	} );
+	useEffect( () => {
+		if ( isResizing ) {
+			return;
+		}
+		setFitCropRect( ( prev ) => {
+			if (
+				prev.width === state.cropRect.width &&
+				prev.height === state.cropRect.height
+			) {
+				return prev;
+			}
+			return {
+				width: state.cropRect.width,
+				height: state.cropRect.height,
+			};
+		} );
+	}, [ isResizing, state.cropRect.width, state.cropRect.height ] );
+
 	const naturalWidth = state.image?.naturalWidth ?? 0;
 	const naturalHeight = state.image?.naturalHeight ?? 0;
 	const { elementSize, visualSize } = useMemo(
@@ -216,9 +244,16 @@ function CropperInner(
 			getImageFit(
 				containerSize,
 				{ width: naturalWidth, height: naturalHeight },
-				state.rotation
+				state.rotation,
+				fitCropRect
 			),
-		[ containerSize, naturalWidth, naturalHeight, state.rotation ]
+		[
+			containerSize,
+			naturalWidth,
+			naturalHeight,
+			state.rotation,
+			fitCropRect,
+		]
 	);
 
 	// In fixed-crop mode, auto-size the crop rect to fill the visual area
@@ -354,11 +389,21 @@ function CropperInner(
 	}, [] );
 
 	/**
-	 * Handle resize end — settle the crop rect (re-center, fill height).
+	 * Handle resize start — suspend crop-aware refit while the user drags.
+	 */
+	const handleResizeStart = useCallback( () => {
+		setIsResizing( true );
+		onGestureStart?.();
+	}, [ onGestureStart ] );
+
+	/**
+	 * Handle resize end — settle the crop rect (re-center, fill height) and
+	 * release the refit suspension so the image fits to the committed crop.
 	 */
 	const handleResizeEnd = useCallback( () => {
 		setSettling( true );
 		settleCrop();
+		setIsResizing( false );
 		onGestureEnd?.();
 		clearTimeout( settleTimerRef.current );
 		settleTimerRef.current = setTimeout( () => {
@@ -452,7 +497,7 @@ function CropperInner(
 				containerSize={ containerSize }
 				imageSize={ visualSize }
 				onCropChange={ handleCropChange }
-				onResizeStart={ onGestureStart }
+				onResizeStart={ handleResizeStart }
 				onResizeEnd={ handleResizeEnd }
 				aspectRatio={ aspectRatio }
 				freeformCrop={ freeformCrop }

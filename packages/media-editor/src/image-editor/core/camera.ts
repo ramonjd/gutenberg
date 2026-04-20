@@ -40,19 +40,27 @@ export function getRotatedBBox(
  * Compute the fitted (unrotated) image element dimensions and the visual
  * (rotated) bounding box dimensions for a given container, image, and rotation.
  *
- * This is the same "contain" fit logic used by createCamera, extracted so
- * cropper.tsx can size the <img> element and position overlays without
- * duplicating the math.
+ * When `cropRect` is provided and not full-frame, the fit scales so the crop
+ * region (not the whole image) fills the container. The image overflows the
+ * container on the other axis, hidden by the container's overflow clipping.
+ * This maximises the stencil's screen size — matching the "fill the viewport"
+ * behaviour users expect after selecting a thin slice.
  *
- * @param containerSize The container dimensions in pixels.
- * @param imageSize     The natural image dimensions in pixels.
- * @param rotation      The rotation angle in degrees.
+ * @param containerSize   The container dimensions in pixels.
+ * @param imageSize       The natural image dimensions in pixels.
+ * @param rotation        The rotation angle in degrees.
+ * @param cropRect        Optional crop rectangle in normalized coords. When
+ *                        omitted or full-frame, the whole image fits the
+ *                        container (classic contain-fit).
+ * @param cropRect.width  Crop width in normalized [0,1] coords.
+ * @param cropRect.height Crop height in normalized [0,1] coords.
  * @return The fitted element size and visual bounding box size.
  */
 export function getImageFit(
 	containerSize: Size,
 	imageSize: Size,
-	rotation: number
+	rotation: number,
+	cropRect?: { width: number; height: number }
 ): { elementSize: Size; visualSize: Size } {
 	if (
 		containerSize.width === 0 ||
@@ -75,9 +83,15 @@ export function getImageFit(
 		imageSize.height,
 		snapRotation
 	);
+	// Denominators for the contain fit. When a crop is provided, scale by
+	// cropRect dims so the crop region (not the whole image) fits the
+	// container — the image can overflow outside the container on the
+	// unconstrained axis.
+	const cropW = cropRect && cropRect.width > 0 ? cropRect.width : 1;
+	const cropH = cropRect && cropRect.height > 0 ? cropRect.height : 1;
 	const fitScale = Math.min(
-		containerSize.width / naturalBBox.width,
-		containerSize.height / naturalBBox.height
+		containerSize.width / ( naturalBBox.width * cropW ),
+		containerSize.height / ( naturalBBox.height * cropH )
 	);
 	const renderedW = imageSize.width * fitScale;
 	const renderedH = imageSize.height * fitScale;
@@ -101,15 +115,21 @@ export function getImageFit(
  * are viewport-relative: the image mirrors across the viewport's vertical /
  * horizontal axis regardless of current rotation.
  *
- * @param state         The current cropper state (zoom, rotation, flip, crop).
- * @param containerSize The size of the container in pixels.
- * @param imageSize     The natural size of the image in pixels.
+ * @param state              The current cropper state.
+ * @param containerSize      The size of the container in pixels.
+ * @param imageSize          The natural size of the image in pixels.
+ * @param fitCropRect        Optional crop rect to make the fit crop-aware.
+ *                           Passed to `getImageFit` so the crop region fills
+ *                           the container. Omit for classic contain-fit.
+ * @param fitCropRect.width  Crop width in normalized [0,1] coords.
+ * @param fitCropRect.height Crop height in normalized [0,1] coords.
  * @return The composed camera matrix.
  */
 export function createCamera(
 	state: CropperState,
 	containerSize: Size,
-	imageSize: Size
+	imageSize: Size,
+	fitCropRect?: { width: number; height: number }
 ): Camera {
 	const m = mat2d.create();
 
@@ -122,35 +142,20 @@ export function createCamera(
 		return m;
 	}
 
-	// Use the nearest 90° multiple for layout sizing so the stencil
-	// and visual bounds are stable through fine rotation. The actual
-	// `state.rotation` is still used for the rotation component of
-	// the matrix below.
-	const snapRotation = Math.round( state.rotation / 90 ) * 90;
-
-	// Rotated bounding box of the natural image (at snap angle).
-	const naturalBBox = getRotatedBBox(
-		imageSize.width,
-		imageSize.height,
-		snapRotation
+	// Delegate the layout fit to getImageFit so the camera and the UI
+	// (cropper.tsx, stencil positioning) always agree on elementSize /
+	// visualSize. When `fitCropRect` is provided, the fit scales so the
+	// crop region — not the whole image — fills the container.
+	const { elementSize, visualSize } = getImageFit(
+		containerSize,
+		imageSize,
+		state.rotation,
+		fitCropRect
 	);
-
-	// "Contain" fit: scale rotated bounding box to fit within container.
-	const fitScale = Math.min(
-		containerSize.width / naturalBBox.width,
-		containerSize.height / naturalBBox.height
-	);
-
-	// The rendered (unrotated) image dimensions at this fit scale.
-	const renderedW = imageSize.width * fitScale;
-	const renderedH = imageSize.height * fitScale;
-
-	// Visual (rotated) image footprint in pixels (at snap angle).
-	const { width: visualW, height: visualH } = getRotatedBBox(
-		renderedW,
-		renderedH,
-		snapRotation
-	);
+	const renderedW = elementSize.width;
+	const renderedH = elementSize.height;
+	const visualW = visualSize.width;
+	const visualH = visualSize.height;
 
 	// Build matrix left-to-right (outermost first).
 	// Innermost operations (last in code) are applied first to input point.

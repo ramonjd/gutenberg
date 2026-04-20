@@ -452,7 +452,12 @@ const DebugComponent = () => {
 
 	const hasImage = imageSize.width > 0 && containerSize.width > 0;
 	const { elementSize, visualSize } = hasImage
-		? getImageFit( containerSize, imageSize, state.rotation )
+		? getImageFit(
+				containerSize,
+				imageSize,
+				state.rotation,
+				state.cropRect
+		  )
 		: {
 				elementSize: { width: 0, height: 0 },
 				visualSize: { width: 0, height: 0 },
@@ -460,13 +465,14 @@ const DebugComponent = () => {
 
 	// Camera and restriction.
 	const camera = hasImage
-		? createCamera( state, containerSize, imageSize )
+		? createCamera( state, containerSize, imageSize, state.cropRect )
 		: null;
 	const baseCamera = hasImage
 		? createCamera(
 				{ ...state, pan: { x: 0, y: 0 }, zoom: 1 },
 				containerSize,
-				imageSize
+				imageSize,
+				state.cropRect
 		  )
 		: null;
 	const vb = baseCamera ? getVisibleBounds( baseCamera ) : null;
