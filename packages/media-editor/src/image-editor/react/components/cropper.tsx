@@ -210,20 +210,29 @@ function CropperInner(
 
 	// Crop-aware fit: the crop region fills the container, so selecting a
 	// thin slice expands the image to occupy the spare room on the
-	// unconstrained axis. But the fit should only update at rest — during
-	// an active resize drag the image must stay fixed. The `fitCropRect`
-	// state below captures the last "committed" crop rect and only
-	// advances when the user isn't actively resizing.
-	const [ isResizing, setIsResizing ] = useState( false );
-	const [ fitCropRect, setFitCropRect ] = useState( {
+	// unconstrained axis. Only enabled in freeform mode — in fixed mode
+	// aspect-ratio presets would otherwise cause aggressive auto-zoom
+	// the user didn't ask for.
+	//
+	// During a resize drag, the fit ratchets: it can shrink the image to
+	// keep the growing crop visible (drag-outward), but won't zoom in on
+	// the shrinking crop (drag-inward), so the image never feels caged.
+	// On release, the fit snaps to the settled crop.
+	const [ committedFitCrop, setCommittedFitCrop ] = useState( {
 		width: state.cropRect.width,
 		height: state.cropRect.height,
 	} );
+	const dragSnapshotRef = useRef< { width: number; height: number } | null >(
+		null
+	);
+	const isResizingRef = useRef( false );
+
+	// While not resizing, the committed fit tracks the live crop.
 	useEffect( () => {
-		if ( isResizing ) {
+		if ( isResizingRef.current ) {
 			return;
 		}
-		setFitCropRect( ( prev ) => {
+		setCommittedFitCrop( ( prev ) => {
 			if (
 				prev.width === state.cropRect.width &&
 				prev.height === state.cropRect.height
@@ -235,7 +244,30 @@ function CropperInner(
 				height: state.cropRect.height,
 			};
 		} );
-	}, [ isResizing, state.cropRect.width, state.cropRect.height ] );
+	}, [ state.cropRect.width, state.cropRect.height ] );
+
+	// Effective fit crop: in freeform mode during a drag, use the
+	// elementwise max of the drag-start snapshot and the live crop so the
+	// image can only shrink (not grow) mid-drag. Otherwise use the
+	// committed fit.
+	const liveCropW = state.cropRect.width;
+	const liveCropH = state.cropRect.height;
+	const fitCropRect: { width: number; height: number } | undefined =
+		useMemo( () => {
+			if ( ! freeformCrop ) {
+				return undefined;
+			}
+			if ( dragSnapshotRef.current ) {
+				return {
+					width: Math.max( dragSnapshotRef.current.width, liveCropW ),
+					height: Math.max(
+						dragSnapshotRef.current.height,
+						liveCropH
+					),
+				};
+			}
+			return committedFitCrop;
+		}, [ freeformCrop, committedFitCrop, liveCropW, liveCropH ] );
 
 	const naturalWidth = state.image?.naturalWidth ?? 0;
 	const naturalHeight = state.image?.naturalHeight ?? 0;
@@ -389,21 +421,28 @@ function CropperInner(
 	}, [] );
 
 	/**
-	 * Handle resize start — suspend crop-aware refit while the user drags.
+	 * Handle resize start — snapshot the committed crop so the fit can
+	 * ratchet during the drag.
 	 */
 	const handleResizeStart = useCallback( () => {
-		setIsResizing( true );
+		isResizingRef.current = true;
+		dragSnapshotRef.current = {
+			width: state.cropRect.width,
+			height: state.cropRect.height,
+		};
 		onGestureStart?.();
-	}, [ onGestureStart ] );
+	}, [ onGestureStart, state.cropRect.width, state.cropRect.height ] );
 
 	/**
 	 * Handle resize end — settle the crop rect (re-center, fill height) and
-	 * release the refit suspension so the image fits to the committed crop.
+	 * clear the drag snapshot so the committed fit can advance to the
+	 * settled crop.
 	 */
 	const handleResizeEnd = useCallback( () => {
 		setSettling( true );
 		settleCrop();
-		setIsResizing( false );
+		isResizingRef.current = false;
+		dragSnapshotRef.current = null;
 		onGestureEnd?.();
 		clearTimeout( settleTimerRef.current );
 		settleTimerRef.current = setTimeout( () => {
