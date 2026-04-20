@@ -258,12 +258,27 @@ function CropperInner(
 				return undefined;
 			}
 			if ( dragSnapshotRef.current ) {
+				// Ratchet: image shrinks when the crop grows beyond the
+				// snapshot (drag-outward); stays put when the crop shrinks
+				// (drag-inward). On the outward path we amplify the delta
+				// by DRAG_OUT_GAIN so the image pulls back faster than
+				// the crop grows — the user can reach classic fit without
+				// dragging the handle all the way to the image edge.
+				const DRAG_OUT_GAIN = 1.3;
+				const snap = dragSnapshotRef.current;
+				const outWidth =
+					liveCropW > snap.width
+						? snap.width +
+						  ( liveCropW - snap.width ) * DRAG_OUT_GAIN
+						: snap.width;
+				const outHeight =
+					liveCropH > snap.height
+						? snap.height +
+						  ( liveCropH - snap.height ) * DRAG_OUT_GAIN
+						: snap.height;
 				return {
-					width: Math.max( dragSnapshotRef.current.width, liveCropW ),
-					height: Math.max(
-						dragSnapshotRef.current.height,
-						liveCropH
-					),
+					width: Math.min( 1, outWidth ),
+					height: Math.min( 1, outHeight ),
 				};
 			}
 			return committedFitCrop;
