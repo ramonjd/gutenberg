@@ -30,12 +30,12 @@ import type {
 	NormalizedRect,
 } from '../../core/types';
 import type { UseCropperStateReturn } from '../hooks/use-cropper-state';
-import { getImageFit, getRotatedBBox } from '../../core/camera';
-import { getImageCropBounds } from '../../core/containment';
+import { getRotatedBBox } from '../../core/camera';
 import { MIN_CROP_PIXELS } from '../../core/constants';
 import { useInteraction } from '../hooks/use-interaction';
 import { useTransformStyle } from '../hooks/use-transform-style';
 import { useAriaAnnouncer } from '../hooks/use-aria-announcer';
+import { useDerivedCropperMeasurements } from '../hooks/use-derived-cropper-measurements';
 import { RectangleStencil } from './stencils/rectangle-stencil';
 import { DimmingOverlay } from './overlays/dimming-overlay';
 import { GridOverlay } from './overlays/grid-overlay';
@@ -43,13 +43,16 @@ import { DimensionsOverlay } from './overlays/dimensions-overlay';
 import { getSourceRegion } from '../../core/source-region';
 import { ViewportProvider, useViewport } from './viewport-provider';
 import { VISUALLY_HIDDEN_STYLE } from '../visually-hidden-style';
+import { useOptionalSetCropperCanvasSize } from './cropper-provider';
 
 /** Threshold for comparing normalized crop rect values. */
 const CROP_RECT_EPSILON = 1e-6;
 
-// Largest rect of the given pixel aspect ratio that fits inside the visual
-// bounds, centered in [0,1] × [0,1] normalized space. Returns a full-frame
-// rect (1×1) if `aspectRatio` is unset or non-positive.
+/*
+ * Largest rect of the given pixel aspect ratio that fits inside the visual
+ * bounds, centered in [0,1] × [0,1] normalized space. Returns a full-frame
+ * rect (1×1) if `aspectRatio` is unset or non-positive.
+ */
 function computeInscribedRect(
 	aspectRatio: number | undefined,
 	visualSize: Size
@@ -189,6 +192,7 @@ function CropperInner(
 		setViewportPan,
 		resetViewport,
 	} = useViewport();
+	const setCropperCanvasSize = useOptionalSetCropperCanvasSize();
 	// Canvas measurement via ResizeObserver. The canvas is the inner
 	// positioning context for image/stencil/handles — inset from the root
 	// by the handle gutter, so crop math operates on the reduced box.
@@ -278,18 +282,21 @@ function CropperInner(
 	// ARIA live region: announce significant state changes for screen readers.
 	const ariaMessage = useAriaAnnouncer( state );
 
-	// Compute fitted image dimensions and visual bounds from camera math.
 	const naturalWidth = state.image?.naturalWidth ?? 0;
 	const naturalHeight = state.image?.naturalHeight ?? 0;
-	const { elementSize, visualSize } = useMemo(
-		() =>
-			getImageFit(
-				canvasSize,
-				{ width: naturalWidth, height: naturalHeight },
-				state.rotation
-			),
-		[ canvasSize, naturalWidth, naturalHeight, state.rotation ]
-	);
+
+	// Local derivation of fitted dimensions, visual bounds, and normalized
+	// crop bounds. The same hook runs inside `<CropperProvider>` when present,
+	// so sibling consumers (advanced panel, automation) see the same numbers
+	// without a separate derived-state write-back.
+	const { elementSize, visualSize, cropBounds } =
+		useDerivedCropperMeasurements( state, canvasSize );
+
+	// Publish raw `canvasSize` so the Provider's central derivation stays in
+	// sync. Silently noops outside a Provider.
+	useEffect( () => {
+		setCropperCanvasSize( canvasSize );
+	}, [ canvasSize, setCropperCanvasSize ] );
 
 	// Per-axis minimum crop size in normalized space, expressing a
 	// pixel floor on the captured source region. cropRect is normalized
@@ -364,17 +371,6 @@ function CropperInner(
 		setCropRect( computeInscribedRect( aspectRatio, visualSize ) );
 	}, [ aspectRatio, freeformCrop, visualSize, setCropRect ] );
 
-	// Compute the crop handle bounds from the actual image footprint.
-	// Depends on the full state object because getImageCropBounds reads
-	// crop, zoom, rotation, flip, and image. React Compiler requires
-	// the complete dependency; the computation is lightweight (a few
-	// trig ops + 4 corner transforms).
-	const cropBounds = useMemo( () => {
-		if ( ! state.image || elementSize.width === 0 ) {
-			return undefined;
-		}
-		return getImageCropBounds( state, elementSize, visualSize );
-	}, [ state, elementSize, visualSize ] );
 	const [ isResizing, setIsResizing ] = useState( false );
 	const isResizingRef = useRef( false );
 	const isSettlingRef = useRef( false );
