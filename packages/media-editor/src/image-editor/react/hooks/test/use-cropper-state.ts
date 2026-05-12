@@ -963,12 +963,10 @@ describe( 'useCropperState', () => {
 
 		it( 'commitHistory flushes the pending entry immediately', () => {
 			const { result } = renderHook( () => useCropperState() );
-			// Separate act() calls are required: setZoom dispatches a reducer
-			// action that React processes when act() flushes. If commitHistory
-			// runs in the same act(), stateRef.current hasn't updated yet and
-			// the flush sees no change.
-			act( () => result.current.setZoom( 3 ) );
-			act( () => result.current.commitHistory() );
+			act( () => {
+				result.current.setZoom( 3 );
+				result.current.commitHistory();
+			} );
 			expect( result.current.hasUndo ).toBe( true );
 		} );
 
@@ -1169,6 +1167,47 @@ describe( 'useCropperState', () => {
 				settledState.cropRect
 			);
 			expect( result.current.state.zoom ).toBe( settledState.zoom );
+		} );
+
+		it( 'records a paused same-tick crop session as one undo step', () => {
+			const { result } = renderHook( () =>
+				useCropperState( {
+					image: {
+						src: 'test.jpg',
+						naturalWidth: 1000,
+						naturalHeight: 500,
+					},
+				} )
+			);
+			const initialState = result.current.state;
+
+			act( () => {
+				result.current.pauseHistory();
+				result.current.setCropRect( {
+					x: 0.25,
+					y: 0.25,
+					width: 0.5,
+					height: 0.5,
+				} );
+				result.current.settleCrop();
+				result.current.resumeHistory();
+			} );
+			const finalState = result.current.state;
+
+			expect( result.current.hasUndo ).toBe( true );
+
+			act( () => result.current.undo() );
+			expect( result.current.state.cropRect ).toEqual(
+				initialState.cropRect
+			);
+			expect( result.current.state.zoom ).toBe( initialState.zoom );
+			expect( result.current.hasRedo ).toBe( true );
+
+			act( () => result.current.redo() );
+			expect( result.current.state.cropRect ).toEqual(
+				finalState.cropRect
+			);
+			expect( result.current.state.zoom ).toBe( finalState.zoom );
 		} );
 	} );
 

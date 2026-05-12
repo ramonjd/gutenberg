@@ -13,6 +13,7 @@ import {
  * Internal dependencies
  */
 import type {
+	CropperAction,
 	CropperState,
 	TransformOperation,
 	NormalizedPoint,
@@ -107,6 +108,24 @@ export interface UseCropperStateReturn {
 	 */
 	commitHistory: () => void;
 	/**
+	 * Suspend the auto-history debounce. While suspended, state changes still
+	 * apply (so the preview updates) but no history entries are recorded.
+	 * Any pending pre-pause change is flushed first so it lands as its own
+	 * undo step. Pair with `resumeHistory` to bound an edit session.
+	 *
+	 * Use for input-driven edits (typing, spinner clicks) where the user
+	 * expects one undo step per focus → blur session rather than one per
+	 * typing pause.
+	 */
+	pauseHistory: () => void;
+	/**
+	 * Resume the auto-history debounce after `pauseHistory`. Subsequent state
+	 * changes will once again schedule debounced commits. Call
+	 * `commitHistory` after `resumeHistory` (or rely on the settle path that
+	 * already does so) to land the paused session as one entry.
+	 */
+	resumeHistory: () => void;
+	/**
 	 * Export the cropped image as a Blob. Throws on failure — see
 	 * `exportCroppedImage` in core for the error semantics (image
 	 * load errors, CORS taint, missing canvas context). Wrap in
@@ -194,6 +213,24 @@ export function useCropperState(
 	// Set to true before dispatching actions that must not produce a debounce
 	// history entry (undo, redo, reset, setImage, discrete actions).
 	const suppressDebounceRef = useRef( false );
+	// While true, the debounce skips scheduling entirely so a focused edit
+	// session (input typing) does not accumulate intermediate undo entries.
+	const historyPausedRef = useRef( false );
+
+	// Keep imperative history operations coherent when a setter and
+	// `commitHistory` run in the same event. React applies the reducer on the
+	// next render; this ref mirrors that reducer result immediately.
+	//
+	// `cropperReducer` runs again when React commits the dispatched action,
+	// so it must stay pure — same input always produces the same output, no
+	// side effects.
+	const dispatchAction = useCallback(
+		( action: CropperAction ) => {
+			stateRef.current = cropperReducer( stateRef.current, action );
+			dispatch( action );
+		},
+		[ dispatch ]
+	);
 
 	// Pushes `entry` (defaults to current state) onto the undo stack and
 	// clears the redo stack. Skips if `entry` is already the last item,
@@ -220,6 +257,12 @@ export function useCropperState(
 		if ( suppressDebounceRef.current ) {
 			suppressDebounceRef.current = false;
 			lastCommittedStateRef.current = stateRef.current;
+			return;
+		}
+		// Paused sessions (typing in an advanced panel input) keep the
+		// pre-pause snapshot in `lastCommittedStateRef` so that a single
+		// entry can be recorded on resume + commit.
+		if ( historyPausedRef.current ) {
 			return;
 		}
 		if (
@@ -262,6 +305,18 @@ export function useCropperState(
 		lastCommittedStateRef.current = stateRef.current;
 	}, [ pushToHistory ] );
 
+	const pauseHistory = useCallback( () => {
+		// Flush any pre-pause pending change first so the prior interaction
+		// lands as its own undo step instead of being merged with the upcoming
+		// paused session.
+		commitHistory();
+		historyPausedRef.current = true;
+	}, [ commitHistory ] );
+
+	const resumeHistory = useCallback( () => {
+		historyPausedRef.current = false;
+	}, [] );
+
 	const undo = useCallback( () => {
 		// Flush any pending gesture so it becomes a distinct undo step
 		// before we pop history. This ensures mid-gesture undo undoes the
@@ -276,8 +331,8 @@ export function useCropperState(
 		suppressDebounceRef.current = true;
 		setHasUndo( historyRef.current.length > 0 );
 		setHasRedo( true );
-		dispatch( { type: 'RESET', payload: prev } );
-	}, [ dispatch, commitHistory ] );
+		dispatchAction( { type: 'RESET', payload: prev } );
+	}, [ dispatchAction, commitHistory ] );
 
 	const redo = useCallback( () => {
 		// Flush any pending gesture before redoing so the in-flight change
@@ -292,14 +347,13 @@ export function useCropperState(
 		suppressDebounceRef.current = true;
 		setHasUndo( true );
 		setHasRedo( redoStackRef.current.length > 0 );
-		dispatch( { type: 'RESET', payload: next } );
-	}, [ dispatch, commitHistory ] );
+		dispatchAction( { type: 'RESET', payload: next } );
+	}, [ dispatchAction, commitHistory ] );
 
 	const setImage = useCallback(
 		( image: CropperState[ 'image' ] ) => {
 			clearTimeout( debounceTimerRef.current );
 			suppressDebounceRef.current = true;
-			dispatch( { type: 'SET_IMAGE', payload: image } );
 			// Refresh the "clean" snapshot to match the post-load state
 			// produced by the reducer. Otherwise containment can nudge
 			// pan/zoom by tiny amounts on load and `isDirty` would
@@ -308,15 +362,16 @@ export function useCropperState(
 				...initialRef.current,
 				image,
 			} );
+			dispatchAction( { type: 'SET_IMAGE', payload: image } );
 		},
-		[ dispatch ]
+		[ dispatchAction ]
 	);
 
 	const setPan = useCallback(
 		( pan: NormalizedPoint ) => {
-			dispatch( { type: 'SET_PAN', payload: pan } );
+			dispatchAction( { type: 'SET_PAN', payload: pan } );
 		},
-		[ dispatch ]
+		[ dispatchAction ]
 	);
 
 	const setZoom = useCallback(
@@ -354,29 +409,29 @@ export function useCropperState(
 				imageSize,
 				s.cropRect
 			);
-			dispatch( {
+			dispatchAction( {
 				type: 'SET_ZOOM_AT_POINT',
 				payload: { zoom: clampedZoom, pan: clampedPan },
 			} );
 		},
-		[ dispatch ]
+		[ dispatchAction ]
 	);
 
 	const setZoomAtPoint = useCallback(
 		( zoom: number, pan: NormalizedPoint ) => {
-			dispatch( {
+			dispatchAction( {
 				type: 'SET_ZOOM_AT_POINT',
 				payload: { zoom, pan },
 			} );
 		},
-		[ dispatch ]
+		[ dispatchAction ]
 	);
 
 	const setRotation = useCallback(
 		( rotation: number ) => {
-			dispatch( { type: 'SET_ROTATION', payload: rotation } );
+			dispatchAction( { type: 'SET_ROTATION', payload: rotation } );
 		},
-		[ dispatch ]
+		[ dispatchAction ]
 	);
 
 	const setFlip = useCallback(
@@ -384,9 +439,9 @@ export function useCropperState(
 			commitHistory(); // flush any pending continuous gesture first
 			pushToHistory(); // record current state as the undo point
 			suppressDebounceRef.current = true;
-			dispatch( { type: 'SET_FLIP', payload: flip } );
+			dispatchAction( { type: 'SET_FLIP', payload: flip } );
 		},
-		[ dispatch, pushToHistory, commitHistory ]
+		[ dispatchAction, pushToHistory, commitHistory ]
 	);
 
 	const toggleFlip = useCallback(
@@ -404,35 +459,35 @@ export function useCropperState(
 			commitHistory();
 			pushToHistory();
 			suppressDebounceRef.current = true;
-			dispatch( {
+			dispatchAction( {
 				type: 'SNAP_ROTATE_90',
 				payload: { direction },
 			} );
 		},
-		[ dispatch, pushToHistory, commitHistory ]
+		[ dispatchAction, pushToHistory, commitHistory ]
 	);
 
 	const setCropRect = useCallback(
 		( rect: NormalizedRect ) => {
-			dispatch( { type: 'SET_CROP_RECT', payload: rect } );
+			dispatchAction( { type: 'SET_CROP_RECT', payload: rect } );
 		},
-		[ dispatch ]
+		[ dispatchAction ]
 	);
 
 	const settleCrop = useCallback( () => {
 		commitHistory();
 		suppressDebounceRef.current = true;
-		dispatch( { type: 'SETTLE_CROP' } );
-	}, [ dispatch, commitHistory ] );
+		dispatchAction( { type: 'SETTLE_CROP' } );
+	}, [ dispatchAction, commitHistory ] );
 
 	const applyOperation = useCallback(
 		( op: TransformOperation ) => {
 			commitHistory();
 			pushToHistory();
 			suppressDebounceRef.current = true;
-			dispatch( { type: 'APPLY_OPERATION', payload: op } );
+			dispatchAction( { type: 'APPLY_OPERATION', payload: op } );
 		},
-		[ dispatch, pushToHistory, commitHistory ]
+		[ dispatchAction, pushToHistory, commitHistory ]
 	);
 
 	const reset = useCallback(
@@ -449,7 +504,7 @@ export function useCropperState(
 				pushToHistory();
 			}
 			suppressDebounceRef.current = true;
-			dispatch( { type: 'RESET', payload: resetState } );
+			dispatchAction( { type: 'RESET', payload: resetState } );
 			// Mirror the reducer's RESET exactly so isDirty stays in
 			// sync. RESET preserves the currently-loaded image; the
 			// containment step can tweak pan/zoom/cropRect by float ulp,
@@ -457,7 +512,7 @@ export function useCropperState(
 			// would report true after a reset.
 			initialRef.current = nextInitialState;
 		},
-		[ dispatch, pushToHistory, commitHistory ]
+		[ dispatchAction, pushToHistory, commitHistory ]
 	);
 
 	const isDirty = isStateDirty( state, initialRef.current );
@@ -500,6 +555,8 @@ export function useCropperState(
 		undo,
 		redo,
 		commitHistory,
+		pauseHistory,
+		resumeHistory,
 	};
 	return controller;
 }
