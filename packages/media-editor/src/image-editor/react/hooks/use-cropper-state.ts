@@ -80,6 +80,8 @@ export interface UseCropperStateReturn {
 	 *
 	 * Flushes the pending resize history before dispatching, then suppresses
 	 * the settle dispatch itself so resizing and settling undo as one step.
+	 * If history is paused, the settle still applies but history is left
+	 * untouched; release the pause and call again to flush the session.
 	 */
 	settleCrop: () => void;
 	/** Apply a transform operation through the pipeline. */
@@ -111,20 +113,15 @@ export interface UseCropperStateReturn {
 	 * Suspend the auto-history debounce. While suspended, state changes still
 	 * apply (so the preview updates) but no history entries are recorded.
 	 * Any pending pre-pause change is flushed first so it lands as its own
-	 * undo step. Pair with `resumeHistory` to bound an edit session.
+	 * undo step.
 	 *
 	 * Use for input-driven edits (typing, spinner clicks) where the user
 	 * expects one undo step per focus → blur session rather than one per
 	 * typing pause.
+	 *
+	 * @return Idempotent callback that resumes history for this pause.
 	 */
-	pauseHistory: () => void;
-	/**
-	 * Resume the auto-history debounce after `pauseHistory`. Subsequent state
-	 * changes will once again schedule debounced commits. Call
-	 * `commitHistory` after `resumeHistory` (or rely on the settle path that
-	 * already does so) to land the paused session as one entry.
-	 */
-	resumeHistory: () => void;
+	pauseHistory: () => () => void;
 	/**
 	 * Export the cropped image as a Blob. Throws on failure — see
 	 * `exportCroppedImage` in core for the error semantics (image
@@ -213,9 +210,11 @@ export function useCropperState(
 	// Set to true before dispatching actions that must not produce a debounce
 	// history entry (undo, redo, reset, setImage, discrete actions).
 	const suppressDebounceRef = useRef( false );
-	// While true, the debounce skips scheduling entirely so a focused edit
-	// session (input typing) does not accumulate intermediate undo entries.
-	const historyPausedRef = useRef( false );
+	// While greater than zero, the debounce skips scheduling entirely so a
+	// focused edit session (input typing) does not accumulate intermediate undo
+	// entries. A depth counter keeps returned resume callbacks idempotent and
+	// safe if future controls ever nest pauses.
+	const historyPauseDepthRef = useRef( 0 );
 
 	// Keep imperative history operations coherent when a setter and
 	// `commitHistory` run in the same event. React applies the reducer on the
@@ -262,7 +261,7 @@ export function useCropperState(
 		// Paused sessions (typing in an advanced panel input) keep the
 		// pre-pause snapshot in `lastCommittedStateRef` so that a single
 		// entry can be recorded on resume + commit.
-		if ( historyPausedRef.current ) {
+		if ( historyPauseDepthRef.current > 0 ) {
 			return;
 		}
 		if (
@@ -309,13 +308,23 @@ export function useCropperState(
 		// Flush any pre-pause pending change first so the prior interaction
 		// lands as its own undo step instead of being merged with the upcoming
 		// paused session.
-		commitHistory();
-		historyPausedRef.current = true;
-	}, [ commitHistory ] );
+		if ( historyPauseDepthRef.current === 0 ) {
+			commitHistory();
+		}
+		historyPauseDepthRef.current += 1;
 
-	const resumeHistory = useCallback( () => {
-		historyPausedRef.current = false;
-	}, [] );
+		let resumed = false;
+		return () => {
+			if ( resumed ) {
+				return;
+			}
+			resumed = true;
+			historyPauseDepthRef.current = Math.max(
+				0,
+				historyPauseDepthRef.current - 1
+			);
+		};
+	}, [ commitHistory ] );
 
 	const undo = useCallback( () => {
 		// Flush any pending gesture so it becomes a distinct undo step
@@ -475,8 +484,11 @@ export function useCropperState(
 	);
 
 	const settleCrop = useCallback( () => {
-		commitHistory();
-		suppressDebounceRef.current = true;
+		const isHistoryPaused = historyPauseDepthRef.current > 0;
+		if ( ! isHistoryPaused ) {
+			commitHistory();
+			suppressDebounceRef.current = true;
+		}
 		dispatchAction( { type: 'SETTLE_CROP' } );
 	}, [ dispatchAction, commitHistory ] );
 
@@ -556,7 +568,6 @@ export function useCropperState(
 		redo,
 		commitHistory,
 		pauseHistory,
-		resumeHistory,
 	};
 	return controller;
 }

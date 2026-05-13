@@ -4,7 +4,9 @@
 import {
 	createContext,
 	useContext,
+	useEffect,
 	useMemo,
+	useRef,
 	useState,
 } from '@wordpress/element';
 
@@ -28,6 +30,8 @@ interface CropperContextValue {
 	canvasSize: Size;
 	setCanvasSize: ( size: Size ) => void;
 	measurements: CropperMeasurements;
+	previewCropRect: CropperState[ 'cropRect' ] | null;
+	setPreviewCropRect: ( rect: CropperState[ 'cropRect' ] | null ) => void;
 }
 
 const CropperContext = createContext< CropperContextValue | null >( null );
@@ -63,10 +67,22 @@ export function CropperProvider( {
 }: CropperProviderProps ) {
 	const controller = useCropperState( initialState );
 	const [ canvasSize, setCanvasSize ] = useState< Size >( ZERO_SIZE );
+	const [ previewCropRect, setPreviewCropRect ] = useState<
+		CropperState[ 'cropRect' ] | null
+	>( null );
+	const previousStateRef = useRef( controller.state );
 	const measurements = useDerivedCropperMeasurements(
 		controller.state,
 		canvasSize
 	);
+
+	useEffect( () => {
+		if ( previousStateRef.current === controller.state ) {
+			return;
+		}
+		previousStateRef.current = controller.state;
+		setPreviewCropRect( null );
+	}, [ controller.state ] );
 
 	const value = useMemo< CropperContextValue >(
 		() => ( {
@@ -74,8 +90,10 @@ export function CropperProvider( {
 			canvasSize,
 			setCanvasSize,
 			measurements,
+			previewCropRect,
+			setPreviewCropRect,
 		} ),
-		[ controller, canvasSize, measurements ]
+		[ controller, canvasSize, measurements, previewCropRect ]
 	);
 
 	return (
@@ -114,6 +132,33 @@ export function useCropper(): UseCropperStateReturn {
  */
 export function useCropperMeasurements(): CropperMeasurements {
 	return useCropperContext().measurements;
+}
+
+/**
+ * Hook used by panel components inside a `CropperProvider` to publish a
+ * non-committed crop rectangle preview. Throws without a Provider — there's
+ * no meaningful "set preview" without somewhere to publish it.
+ *
+ * @return Setter for the draft crop rectangle; pass `null` to clear it.
+ */
+export function useSetCropperPreviewRect(): (
+	rect: CropperState[ 'cropRect' ] | null
+) => void {
+	return useCropperContext().setPreviewCropRect;
+}
+
+/**
+ * Hook used by `<Cropper>` to read the current draft crop rectangle. Also
+ * works for standalone `<Cropper>` mounts that have no Provider above them;
+ * those will always see `null` (no preview is being published).
+ *
+ * @return Current draft crop rectangle, or null when no preview is active
+ *         (including when no Provider is mounted).
+ */
+export function useOptionalCropperPreviewRect():
+	| CropperState[ 'cropRect' ]
+	| null {
+	return useContext( CropperContext )?.previewCropRect ?? null;
 }
 
 /**
